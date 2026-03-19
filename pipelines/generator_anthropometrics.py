@@ -5,7 +5,10 @@
 Anthropometrics generator module for Synthetic Clinical Cohort Engine.
 
 This module generates deterministic adult anthropometric information including
-height, BMI, derived weight, and BMI category using a patient-specific seed.
+height, BMI, derived weight, and BMI category.
+
+All randomness comes from a single rng instance passed in by the pipeline.
+No module creates its own RNG — the pipeline owns the seed.
 """
 
 import random
@@ -13,27 +16,11 @@ import random
 from core.schema import Anthropometrics
 
 
-def _derive_anthropometric_seed(patient_seed: int) -> int:
-    """
-    Derive a deterministic anthropometrics sub-seed from the patient seed.
-
-    Args:
-        patient_seed: Per-patient deterministic seed from demographics
-
-    Returns:
-        Deterministic 32-bit integer sub-seed for anthropometric generation
-    """
-    return (patient_seed * 2654435761 + 1013904223) & 0xFFFFFFFF
-
-
 def _clip(value: float, lower: float, upper: float) -> float:
     return min(max(value, lower), upper)
 
 
 def _bmi_category(bmi: float) -> str:
-    """
-    Return the standard adult BMI category.
-    """
     if bmi < 18.5:
         return "underweight"
     if bmi < 25.0:
@@ -48,9 +35,6 @@ def _bmi_category(bmi: float) -> str:
 
 
 def _generate_height_cm(rng: random.Random, sex: str) -> float:
-    """
-    Generate adult height in centimeters using sex-specific normal distributions.
-    """
     if sex == "male":
         value = rng.gauss(176.0, 7.0)
     elif sex == "female":
@@ -62,9 +46,6 @@ def _generate_height_cm(rng: random.Random, sex: str) -> float:
 
 
 def _generate_bmi(rng: random.Random, age: int, sex: str) -> float:
-    """
-    Generate adult BMI using a simple age/sex-adjusted modeled distribution.
-    """
     if age < 18:
         raise ValueError("Adult anthropometric generation does not support age < 18.")
 
@@ -85,28 +66,25 @@ def _generate_bmi(rng: random.Random, age: int, sex: str) -> float:
 
 
 def _weight_from_height_bmi(height_cm: float, bmi: float) -> float:
-    """
-    Derive weight in kilograms from height in centimeters and BMI.
-    """
     height_m = height_cm / 100.0
     return round(bmi * (height_m ** 2), 1)
 
 
-def generate_anthropometrics(patient_seed: int, age: int, sex: str) -> Anthropometrics:
+def generate_anthropometrics(rng: random.Random, age: int, sex: str) -> Anthropometrics:
     """
     Generate deterministic anthropometric information for a single adult patient.
 
+    Uses the passed-in rng instance for all randomness. The pipeline owns
+    the seed — this module never creates its own RNG.
+
     Args:
-        patient_seed: Deterministic patient seed from demographics
+        rng: Random number generator instance (owned by pipeline)
         age: Patient age in years
         sex: Biological sex ("female" or "male")
 
     Returns:
         Anthropometrics object
     """
-    anthro_seed = _derive_anthropometric_seed(patient_seed)
-    rng = random.Random(anthro_seed)
-
     height_cm = _generate_height_cm(rng, sex)
     bmi = _generate_bmi(rng, age, sex)
     weight_kg = _weight_from_height_bmi(height_cm, bmi)

@@ -1,0 +1,24 @@
+{
+  "profile_name": "minot_nd",
+  "actual_population": 47440,
+  "source": {
+    "dataset": "U.S. Census Bureau QuickFacts / ACS 2020-2024",
+    "year": "2025 estimate for population; 2020-2024 for demographic percentages",
+    "notes": "Population uses Census QuickFacts July 1, 2025 estimate. Female percentage and race/Hispanic percentages use Census QuickFacts 2020-2024 values. Ethnicity weights below are a collapsed single-label mapping for engine compatibility and are not a true Census race/Hispanic partition."
+  },
+  "sex_ratio_female": 0.478,
+  "ethnicity_weights": {
+    "white": 0.795,
+    "black": 0.055,
+    "hispanic": 0.079,
+    "asian": 0.021,
+    "native": 0.023,
+    "other": 0.027
+  },
+  "age_bands": [
+    { "min": 18, "max": 24, "weight": 0.14 },
+    { "min": 25, "max": 44, "weight": 0.34 },
+    { "min": 45, "max": 64, "weight": 0.26 },
+    { "min": 65, "max": 90, "weight": 0.26 }
+  ]
+}

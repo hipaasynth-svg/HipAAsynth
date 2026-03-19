@@ -1,87 +1,194 @@
-# HipAAsynth
+Fully reproducible synthetic cohorts with no external dependencies.
 
-Deterministic synthetic healthcare cohort generation engine.
+# HipAAsynth™
 
-Zero dependencies. Stdlib-only Python. Clone and run.
+Deterministic synthetic clinical data engine.
 
-## What This Does
+• Zero external dependencies
+• Fully reproducible (seed-based)
+• No AI or black-box models
+• Modular clinical pipeline (population → visits → export)
 
-HipAAsynth generates clinically realistic synthetic patient populations calibrated against real CDC/NHANES data. Every record is:
+---
 
-- **Fully synthetic** — no real patient data, HIPAA-safe by design
-- **Deterministic** — same seed = same output, every time
-- **Auditable** — SHA-256 anchor hash stamped on every record
-- **Exportable** — JSON, CSV, FHIR R5
+## What this is
 
-## Quick Start
+HipAAsynth generates statistically realistic, fully synthetic patient cohorts for testing healthcare systems, models, and workflows.
+
+No real patient data is used.
+
+Every dataset is:
+
+* deterministic
+* auditable
+* reproducible from a seed
+
+---
+
+## Why it exists
+
+Most synthetic healthcare data tools are:
+
+* black-box
+* non-reproducible
+* dependent on heavy ML frameworks
+
+HipAAsynth is different:
+
+> A transparent, deterministic system built from explicit logic and controlled randomness.
+
+---
+
+## Quickstart
+
+Run a cohort locally:
 
 ```bash
-git clone https://github.com/hipaasynth-svg/HipAAsynth.git
-cd HipAAsynth
-
-# Generate a 1,000-patient cohort
-python3 run/main.py
-
-# Generate a quick sample
-python3 run/generate_sample.py
-
-# Verify determinism
-python3 tests/test_determinism.py
+python run/main.py
 ```
 
-No pip install. No virtual environment. Just Python 3.8+.
+No installs. No setup.
 
-## How It Works
+---
 
-A single master seed drives all randomness through derived sub-seeds:
+## Reproducibility
+
+HipAAsynth is fully deterministic.
+
+Same seed → identical dataset
+Different seed → different (but statistically consistent) dataset
+
+Run:
+
+```bash
+python run/demo_reproducibility.py
+```
+
+Expected result:
 
 ```
-seed=42 → anchor hash → demographics seed
-                       → anthropometrics seed
-                       → conditions seed
-                       → numerics seed
+Same seed match:      True
+Different seed match: False
+RESULT: DETERMINISM VERIFIED
 ```
 
-Same seed, same config = byte-identical output on any machine.
+---
 
-## What's Included
+## Core Pipeline
 
-| Directory | Contents |
-|---|---|
-| `core/` | Anchor system, schema, config, profile loader |
-| `pipelines/` | Population generator, demographics, anthropometrics, labs, conditions |
-| `exporters/` | JSON, CSV, FHIR R5 export |
-| `profiles/` | US default population profile |
-| `run/` | CLI runners |
-| `tests/` | Determinism verification |
+The core engine pipeline:
 
-## Output Fields
+```
+Population → Anthropometrics → Conditions → Visits → Export
+```
 
-Each synthetic patient includes:
-- Demographics (age, sex, ethnicity, BMI, blood pressure)
-- Conditions (diabetes, hypertension, COPD, CKD, etc.)
-- Lab values (A1C, cholesterol, creatinine, eGFR, etc.)
-- Visits and encounter history
-- Anchor hash + synthetic disclaimer
+* Labs are generated within conditions/visits
+* Outcomes are part of specialty packs, not the core engine
 
-## Specialty Packs (Licensed)
+Each stage is:
 
-Specialty clinical modules are available for licensing:
+* deterministic
+* auditable
+* isolated
 
-- **Cardiology** — ASCVD risk scoring, MACE outcomes, Framingham-calibrated
-- **Diabetes** — Glycemic control, complications, NHANES-validated (90.4% AUC transfer to real data)
-- **Oncology** — Staging, biomarkers, treatment response
-- **Rare Disease** — SMA, DMD, Fabry disease modules
-- **Analysis Suite** — Bias detection, drift monitoring, fidelity scoring, privacy guards
-- **Validation Suite** — NHANES transfer benchmark, validation assault testing
-- **Lab Web App** — Browser-based cohort generation interface
-- **API Server** — HTTP API for programmatic cohort generation
-- **Custom Profiles** — Region-specific population calibration
+---
 
-Contact: HipAAsynth@gmail.com
+## RNG Architecture
+
+All randomness is controlled centrally.
+
+* Pipeline owns randomness
+* One deterministic RNG per patient
+* No global randomness in execution paths
+* No hidden state
+
+---
+
+## Example Usage
+
+Main CLI:
+
+```bash
+python run/main.py
+```
+
+Quick sample:
+
+```bash
+python run/generate_sample.py
+```
+
+Reproducibility demo:
+
+```bash
+python run/demo_reproducibility.py
+```
+
+---
+
+## Output
+
+Generated cohorts include:
+
+* patient demographics
+* conditions
+* labs (embedded within pipeline stages)
+* visits
+
+All records are synthetic and contain no real patient data.
+
+---
+
+## Project Structure
+
+```
+core/           → engine logic
+modules/        → clinical components
+pipelines/      → execution flow
+exporters/      → export logic
+profiles/       → population definitions
+run/            → CLI + demos
+tests/          → deterministic validation
+```
+
+---
+
+## Versioning
+
+```
+engine_version: 0.2.0
+```
+
+Results are reproducible by:
+
+* version
+* seed
+* configuration
+
+---
+
+## Status
+
+v0.2.0 — Stable deterministic core
+Reproducibility verified
+Zero dependency runtime
+
+---
+
+## Contact / Use
+
+Run locally for free.
+
+For:
+
+* large cohorts
+* API access
+* custom population profiles
+
+→ [HipAAsynth@gmail.com](mailto:HipAAsynth@gmail.com)
+
+---
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE)
-
-Copyright 2026 Cody Carlson
+See LICENSE file.

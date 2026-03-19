@@ -30,9 +30,13 @@ ALLOWED_CONDITIONS = [
     "type2_diabetes",
     "hypertension",
     "hyperlipidemia",
-    "asthma",
-    "coronary_artery_disease",
     "chronic_kidney_disease",
+    "copd",
+    "depression",
+    "asthma",
+    "congestive_heart_failure",
+    "atrial_fibrillation",
+    "coronary_artery_disease",
 ]
 
 # Default synthetic data disclaimer

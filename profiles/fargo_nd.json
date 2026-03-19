@@ -1,0 +1,24 @@
+{
+  "profile_name": "fargo_nd",
+  "actual_population": 131922,
+  "source": {
+    "dataset": "U.S. Census Bureau QuickFacts / ACS 2020-2024",
+    "year": "2025 estimate for population; 2020-2024 for demographic percentages",
+    "notes": "Population uses Census QuickFacts July 1, 2025 estimate. Female percentage and race/Hispanic percentages use Census QuickFacts 2020-2024 values. Ethnicity weights below are a collapsed single-label mapping for engine compatibility and are not a true Census race/Hispanic partition."
+  },
+  "sex_ratio_female": 0.504,
+  "ethnicity_weights": {
+    "white": 0.817,
+    "black": 0.040,
+    "hispanic": 0.046,
+    "asian": 0.035,
+    "native": 0.014,
+    "other": 0.048
+  },
+  "age_bands": [
+    { "min": 18, "max": 24, "weight": 0.22 },
+    { "min": 25, "max": 44, "weight": 0.38 },
+    { "min": 45, "max": 64, "weight": 0.23 },
+    { "min": 65, "max": 90, "weight": 0.17 }
+  ]
+}
