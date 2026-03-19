@@ -189,6 +189,19 @@ For:
 
 ---
 
+## Governance
+
+HipAAsynth follows a benevolent dictator model.
+
+The project creator retains final authority over:
+- architectural decisions
+- core logic
+- accepted contributions
+
+Contributions are welcome, but must align with the deterministic design and system integrity of the engine.
+
+---
+
 ## License
 
 See LICENSE file.
