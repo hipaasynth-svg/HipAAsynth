@@ -1,0 +1,24 @@
+{
+  "profile_name": "us_default",
+  "location_type": "national",
+  "source": {
+    "dataset": "ACS_5_year",
+    "year": "2024",
+    "notes": "Generic U.S. national demographic baseline"
+  },
+  "age_bands": [
+    {"min": 18, "max": 24, "weight": 0.12},
+    {"min": 25, "max": 44, "weight": 0.33},
+    {"min": 45, "max": 64, "weight": 0.33},
+    {"min": 65, "max": 90, "weight": 0.22}
+  ],
+  "sex_ratio_female": 0.51,
+  "ethnicity_weights": {
+    "white": 0.60,
+    "black": 0.12,
+    "hispanic": 0.18,
+    "asian": 0.06,
+    "native": 0.02,
+    "other": 0.02
+  }
+}

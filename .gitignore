@@ -1,0 +1,140 @@
+__pycache__/
+*.pyc
+*.py[codz]
+*$py.class
+*.so
+.env
+.DS_Store
+*.log
+
+# Generated output directories
+output/
+output_*/
+lab/output/
+demo_data/
+benchmark_output/
+benchmark_run/
+benchmark_reports/
+benchmarks/
+validation_reports/
+validation_runs/
+manifests/
+
+# Generated cohort data files
+cohort.json
+cohort.csv
+*_cohort.json
+*_cohort.csv
+*_cohort_*.json
+*_anchor_manifest.json
+sample_*.json
+sample_*.csv
+demo*.json
+demo*.csv
+test_bundle.json
+*_experiment.json
+*_experiment.csv
+*.fhir
+
+# Pre-built cohort collections
+cohorts/
+hospitals/
+
+# Large generated files
+*.zip
+*.ipynb
+
+# Node/React (not used by engine)
+node_modules/
+client/
+server/
+shared/
+artifacts/
+script/
+package.json
+package-lock.json
+tsconfig.json
+vite.config.ts
+postcss.config.js
+components.json
+drizzle.config.ts
+skills-lock.json
+*.ts
+!*.d.ts
+
+# Attached assets / Replit temp
+attached_assets/
+
+# Python env
+.venv/
+venv/
+env/
+.pythonlibs/
+uv.lock
+
+# Replit internals
+.cache/
+.config/
+.upm/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Distribution / packaging
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+.installed.cfg
+
+# Test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+.ruff_cache/
+.pypirc
+
+# IDE
+.idea/
+.vscode/
+.cursorignore
+.cursorindexingignore
+
+# Old/deprecated directories
+hipaasynth_production/
+release/
+engine/
+.github/
+
+# Misc junk
+*.txt
+!requirements.txt
