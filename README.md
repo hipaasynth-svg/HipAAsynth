@@ -4,6 +4,8 @@ Fully reproducible synthetic cohorts with no external dependencies.
 
 Deterministic synthetic clinical data engine.
 
+Run locally for free, or request ready-to-use datasets.
+
 • Zero external dependencies
 • Fully reproducible (seed-based)
 • No AI or black-box models
@@ -44,7 +46,7 @@ HipAAsynth is different:
 Run a cohort locally:
 
 ```bash
-python run/main.py
+python main.py
 ```
 
 No installs. No setup.
@@ -109,7 +111,7 @@ All randomness is controlled centrally.
 Main CLI:
 
 ```bash
-python run/main.py
+python main.py
 ```
 
 Quick sample:
@@ -149,6 +151,7 @@ exporters/      → export logic
 profiles/       → population definitions
 run/            → CLI + demos
 tests/          → deterministic validation
+sample_data/    → example output (CSV + JSON)
 ```
 
 ---
@@ -177,15 +180,7 @@ Zero dependency runtime
 
 ## Contact / Use
 
-Run locally for free.
-
-For:
-
-* large cohorts
-* API access
-* custom population profiles
-
-→ [HipAAsynth@gmail.com](mailto:HipAAsynth@gmail.com)
+Custom datasets / API access: [HipAAsynth@gmail.com](mailto:HipAAsynth@gmail.com)
 
 ---
 
