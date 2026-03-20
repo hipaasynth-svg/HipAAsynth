@@ -1,202 +1,85 @@
-Fully reproducible synthetic cohorts with no external dependencies.
+# HipAAsynth
 
-# HipAAsynth™
+Deterministic clinical data generation.
 
-Deterministic synthetic clinical data engine.
-
-Run locally for free, or request ready-to-use datasets.
-
-• Zero external dependencies
-• Fully reproducible (seed-based)
-• No AI or black-box models
-• Modular clinical pipeline (population → visits → export)
+Same seed → same patients → every time.
 
 ---
 
 ## What this is
 
-HipAAsynth generates statistically realistic, fully synthetic patient cohorts for testing healthcare systems, models, and workflows.
+This is an engine that generates synthetic patient populations.
 
-No real patient data is used.
+Not random.
+Not AI-generated.
+Not black box.
 
-Every dataset is:
+Deterministic.
 
-* deterministic
-* auditable
-* reproducible from a seed
-
----
-
-## Why it exists
-
-Most synthetic healthcare data tools are:
-
-* black-box
-* non-reproducible
-* dependent on heavy ML frameworks
-
-HipAAsynth is different:
-
-> A transparent, deterministic system built from explicit logic and controlled randomness.
+You can reproduce every dataset exactly.
+You can audit every output.
+You can trace how it was built.
 
 ---
 
-## Quickstart
+## What it does
 
-Run a cohort locally:
+- generates full patient cohorts  
+- controls all randomness through a single seed  
+- produces identical output given identical inputs  
+- supports multiple clinical domains  
+- exports to CSV, JSON, FHIR  
+
+---
+
+## What it is not
+
+This is not trying to simulate the entire healthcare system out of the box.
+
+The core engine gives you:
+- structure  
+- patients  
+- controlled execution  
+
+Real clinical behavior is layered on top.
+
+---
+
+## System layout
+
+Core → guarantees determinism  
+Pipelines → generate cohorts  
+Modules → add clinical behavior  
+Analysis → proves it works  
+
+---
+
+## Core
+
+The core enforces the rules:
+
+- no hidden randomness  
+- no module-level RNG  
+- single master seed  
+- fixed execution path  
+
+Files:
+- `core/schema.py` → data contract  
+- `core/anchor.py` → identity + state control  
+- `core/anchor_stamp.py` → reproducibility tracking  
+
+---
+
+## Pipelines
+
+Pipelines generate full cohorts.
+
+They orchestrate modules and produce output.
+
+Examples:
 
 ```bash
-python main.py
-```
-
-No installs. No setup.
-
----
-
-## Reproducibility
-
-HipAAsynth is fully deterministic.
-
-Same seed → identical dataset
-Different seed → different (but statistically consistent) dataset
-
-Run:
-
-```bash
-python run/demo_reproducibility.py
-```
-
-Expected result:
-
-```
-Same seed match:      True
-Different seed match: False
-RESULT: DETERMINISM VERIFIED
-```
-
----
-
-## Core Pipeline
-
-The core engine pipeline:
-
-```
-Population → Anthropometrics → Conditions → Visits → Export
-```
-
-* Labs are generated within conditions/visits
-* Outcomes are part of specialty packs, not the core engine
-
-Each stage is:
-
-* deterministic
-* auditable
-* isolated
-
----
-
-## RNG Architecture
-
-All randomness is controlled centrally.
-
-* Pipeline owns randomness
-* One deterministic RNG per patient
-* No global randomness in execution paths
-* No hidden state
-
----
-
-## Example Usage
-
-Main CLI:
-
-```bash
-python main.py
-```
-
-Quick sample:
-
-```bash
-python run/generate_sample.py
-```
-
-Reproducibility demo:
-
-```bash
-python run/demo_reproducibility.py
-```
-
----
-
-## Output
-
-Generated cohorts include:
-
-* patient demographics
-* conditions
-* labs (embedded within pipeline stages)
-* visits
-
-All records are synthetic and contain no real patient data.
-
----
-
-## Project Structure
-
-```
-core/           → engine logic
-modules/        → clinical components
-pipelines/      → execution flow
-exporters/      → export logic
-profiles/       → population definitions
-run/            → CLI + demos
-tests/          → deterministic validation
-sample_data/    → example output (CSV + JSON)
-```
-
----
-
-## Versioning
-
-```
-engine_version: 0.2.0
-```
-
-Results are reproducible by:
-
-* version
-* seed
-* configuration
-
----
-
-## Status
-
-v0.2.0 — Stable deterministic core
-Reproducibility verified
-Zero dependency runtime
-
----
-
-## Contact / Use
-
-Custom datasets / API access: [HipAAsynth@gmail.com](mailto:HipAAsynth@gmail.com)
-
----
-
-## Governance
-
-HipAAsynth follows a benevolent dictator model.
-
-The project creator retains final authority over:
-- architectural decisions
-- core logic
-- accepted contributions
-
-Contributions are welcome, but must align with the deterministic design and system integrity of the engine.
-
----
-
-## License
-
-See LICENSE file.
+python3 pipelines/population_pipeline.py
+python3 pipelines/diabetes_pipeline.py
+python3 pipelines/cardiology_pipeline.py
+python3 pipelines/rare_disease_pipeline.py
