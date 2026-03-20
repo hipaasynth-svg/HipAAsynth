@@ -4,6 +4,23 @@ Deterministic clinical data generation.
 
 Same seed → same patients → every time.
 
+No black box. No hidden randomness. No drift.
+
+This is a deterministic engine for generating synthetic patient populations.
+
+---
+
+## Show me
+
+    python3 run/demo_reproducibility.py
+
+Expected result:
+
+    Same seed match:      True
+    Different seed match: False
+
+    RESULT: DETERMINISM VERIFIED
+
 ---
 
 ## What this is
@@ -12,69 +29,66 @@ This is an engine that generates synthetic patient populations.
 
 Not random.  
 Not AI-generated.  
-Not a black box.  
-
-Deterministic.
+Not a black box.
 
 You can reproduce every dataset exactly.  
-You can audit every output.  
-You can trace how it was built.
+You can audit how it was generated.  
 
 ---
 
 ## What it does
 
-- generates full patient cohorts  
-- controls all randomness through a single seed  
-- produces identical output given identical inputs  
-- supports multiple clinical domains  
-- exports to CSV, JSON, FHIR  
+- generates synthetic patient cohorts  
+- reproduces identical datasets from the same seed  
+- uses pipeline-based generation across domains (population, diabetes, cardiology, rare disease)  
+- exports to CSV and JSON  
+- includes validation and analysis components  
 
 ---
 
 ## What it is not
 
-This is not trying to simulate the entire healthcare system out of the box.
+This does not attempt to fully model real-world clinical systems.
 
-The core engine gives you:
+The core engine provides:
 - structure  
 - patients  
 - controlled execution  
 
-Real clinical behavior is layered on top.
+The core engine does not define clinical realism.  
+It provides the framework for it.
 
 ---
 
 ## System layout
 
-Core → guarantees determinism  
-Pipelines → generate cohorts  
-Modules → add clinical behavior  
-Analysis → proves it works  
+Core → deterministic execution  
+Pipelines → cohort generation  
+Modules → clinical behavior  
+Analysis → validation and inspection  
 
 ---
 
 ## Core
 
-The core enforces the rules:
+The core enforces:
 
 - no hidden randomness  
 - no module-level RNG  
+- no global random state  
 - single master seed  
-- fixed execution path  
+- deterministic execution  
 
-Files:
-- core/schema.py → data contract  
-- core/anchor.py → identity + state control  
+Key files:
+- core/schema.py → data structure  
+- core/anchor.py → deterministic identity  
 - core/anchor_stamp.py → reproducibility tracking  
 
 ---
 
 ## Pipelines
 
-Pipelines generate full cohorts.
-
-They orchestrate modules and produce output.
+Pipelines generate cohorts.
 
 Examples:
 
@@ -86,99 +100,68 @@ Examples:
 Each pipeline:
 - builds a population  
 - applies domain logic  
-- outputs a complete dataset  
+- outputs a dataset  
 
 ---
 
 ## Modules
 
-Modules control behavior.
+Modules define clinical behavior.
 
-This is where realism comes from:
-- disease progression  
-- outcomes  
-- lab dynamics  
-- comorbidities  
+Examples include:
+- condition logic  
+- lab generation  
+- comorbidity relationships  
 
-Core stays stable.  
-Modules evolve.
-
-Some modules are included.  
-Advanced domain modules are distributed separately.
+Core remains stable.  
+Modules can change independently.
 
 ---
 
 ## Analysis + Validation
 
-This is what separates this from a toy.
-
-Included:
+Includes components for:
 
 - bias detection  
 - drift monitoring  
-- fidelity scoring  
-- privacy checks  
-- temporal validation  
-- trust scoring  
+- data inspection  
+- basic validation  
 
 Examples:
 
     python3 validation/validator.py
     python3 validation/master_report.py
 
-You can measure:
-- how realistic the data is  
-- how stable it is across runs  
-- whether it leaks real-world patterns  
-
 ---
 
 ## API
 
-Run the engine as a service:
+Run:
 
     python3 -c "from core.api import serve; serve()"
 
 Endpoints:
-
-- GET /health → engine status  
-- POST /generate → generate cohort  
+- GET /health  
+- POST /generate  
 
 ---
 
 ## Lab UI
 
-Simple web interface:
-
     cd lab
     python3 app.py
-
-Used to:
-- generate cohorts  
-- compare outputs  
-- run experiments  
 
 ---
 
 ## Experiments
 
-Reproducibility:
-
     python3 run/demo_reproducibility.py
-
-Population shift:
-
     python3 run/population_shift_experiment.py
-
-Model testing:
-
     python3 run/one_model_five_hospitals.py
 
 ---
 
 ## Determinism
-
-This is the point.
 
 - same seed → identical output  
 - different seed → controlled variation  
@@ -191,13 +174,6 @@ No exceptions.
 
 - CSV  
 - JSON  
-- FHIR  
-
-Designed for:
-- testing  
-- simulation  
-- model training  
-- system validation  
 
 ---
 
@@ -208,25 +184,27 @@ Healthcare data is restricted.
 Models still need data.
 
 Most synthetic data:
-- isn’t reproducible  
-- can’t be audited  
-- drifts unpredictably  
+- is not reproducible  
+- cannot be audited  
+- changes unpredictably  
 
-This fixes that.
+This provides a controlled alternative.
 
 ---
 
 ## Summary
 
-Core = engine  
+Core = deterministic execution  
 Pipelines = generation  
 Modules = behavior  
-Analysis = proof  
-
-Everything deterministic.
+Analysis = inspection  
 
 ---
 
-## Access modules
+## Clinical modules
+
+The core engine is open.
+
+Additional modules have been developed and are available separately.
 
 https://HipAAsynth.com
