@@ -102,6 +102,7 @@ This is a structural answer to the most important question in third-party auditi
 ```bash
 pip install -e .
 python -c "from hipaasynth.dif import run_audit; print('OK')"
+python -m pytest -q          # 54 passing — verify the install end-to-end
 ```
 
 Run a full fairness audit:
@@ -128,18 +129,28 @@ passports = run_audit(
 
 for passport in passports:
     print(passport.patient_id, "PASS" if passport.passed() else "FAIL")
-    print(passport.to_markdown())
+
+# Full markdown FairnessPassport for the first patient:
+print(passports[0].to_markdown())
 ```
+
+`MockBiasedModel` is a deliberately unfair reference model, so it FAILs every
+patient — that is the expected output. Swap in `MockFairModel` (from the same
+module) to see the passing case, or your own model implementing the
+`predict(patient, form)` interface.
 
 ---
 
 ## Examples
 
-See the [`examples/`](examples/) directory:
+See the [`examples/`](examples/) directory — each runs standalone with no model or
+network (`python examples/<name>.py`):
 
 - `examples/polymorphic_demo.py` — render one patient across all seven forms
-- `examples/rare_disease_demo.py` — run DIF audit on rare-disease patients
-- `examples/fairness_passport_demo.py` — generate a full markdown FairnessPassport
+- `examples/rare_disease_demo.py` — DIF audit contrasting a fair vs. biased mock (fair passes 3/3, biased fails)
+- `examples/fairness_passport_demo.py` — generate a full markdown FairnessPassport (biased mock, fails by design)
+- `examples/psf_demo.py` — Population Sparsity Fairness audit + determinism check
+- `examples/cc_demo.py` — Care Continuity audit + determinism check
 
 ---
 
@@ -182,7 +193,7 @@ AGPL v3 means: any organization embedding this engine in a commercial product mu
 
 ## Research extensions
 
-Proprietary research extensions — including LLM evaluators, clinical validation pipelines, and model harnesses — are maintained in a private submodule under BSL 1.1. These are not open source and are not included in this repository.
+Proprietary research extensions — including LLM evaluators, clinical validation pipelines, and model harnesses — are maintained in a **separate private repository** under BSL 1.1. These are not open source and are not included in this repository, and this repository has no dependency on them: everything here installs, tests, and runs on its own.
 
 ---
 
