@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hipaasynth"
-version = "1.0.0"
+version = "1.0.1"
 description = "Synthetic health data fairness testing for invisible populations"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}
