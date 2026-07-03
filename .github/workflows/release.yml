@@ -1,0 +1,63 @@
+name: Release
+
+# Cut a GitHub release for the version currently in pyproject.toml.
+# Trigger it from the Actions tab ("Run workflow") or programmatically —
+# it runs on GitHub's side, so it creates the tag + release without anyone
+# pushing a tag locally.
+on:
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: "Create the release as a draft"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # needed to create the tag and the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version from pyproject.toml
+        id: ver
+        run: |
+          VERSION=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release target: v$VERSION"
+
+      - name: Verify tests pass before releasing
+        run: |
+          pip install -e ".[dev]"
+          python -m pytest -q
+
+      - name: Abort if the release already exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.ver.outputs.tag }} already exists — nothing to do."
+            exit 1
+          fi
+
+      - name: Create tag + release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          NOTES="RELEASE_NOTES_${TAG}.md"
+          ARGS=(--title "$TAG" --target "${{ github.sha }}")
+          if [ -f "$NOTES" ]; then ARGS+=(--notes-file "$NOTES"); else ARGS+=(--generate-notes); fi
+          if [ "${{ inputs.draft }}" = "true" ]; then ARGS+=(--draft); fi
+          gh release create "$TAG" "${ARGS[@]}"
+          echo "Published $TAG"
