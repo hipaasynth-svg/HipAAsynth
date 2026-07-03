@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-07-03
+
+Packaging and documentation patch. No engine or source behavior changed; the
+1.0.0 API, determinism, and calibration are unaffected. All 54 tests pass on
+Python 3.11 and 3.12.
+
+### Fixed
+
+- **Recursive clones no longer fail.** Removed the `.gitmodules` reference to the
+  private `hipaasynth-research` repository (and its submodule gitlink), which had
+  caused `git clone --recurse-submodules` / `git submodule update --init` to fail
+  for anyone without access to that private repo. The public engine has no
+  dependency on the research repository and installs, tests, and runs on its own.
+
+### Changed
+
+- **README examples corrected.** All five example demos are now documented (was
+  three), each labeled with its intended result so the biased-mock and fair-mock
+  outputs read as by design rather than as failures. The Quick Start prints a
+  single FairnessPassport and notes that `MockBiasedModel` fails by design (and
+  how to swap in `MockFairModel` or a custom model). Added `python -m pytest -q`
+  to the install block as an at-a-glance verification step.
+
 ## [1.0.0] — 2026-06-29
 
 First stable release of the HipAAsynth engine — the open-source (AGPL v3)
