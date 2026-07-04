@@ -3,12 +3,14 @@ name: Release
 # Cut a GitHub release for the version currently in pyproject.toml.
 # Trigger it from the Actions tab ("Run workflow") or programmatically —
 # it runs on GitHub's side, so it creates the tag + release without anyone
-# pushing a tag locally.
+# pushing a tag locally. Self-healing: it clears a stale draft/untagged release
+# from a previous attempt, and fails loudly if the tag cannot be created
+# (e.g. a protected-tag rule blocks it) instead of silently leaving a draft.
 on:
   workflow_dispatch:
     inputs:
       draft:
-        description: "Create the release as a draft"
+        description: "Create the release as a draft (leave OFF to publish + tag)"
         type: boolean
         default: false
 
@@ -19,12 +21,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -32,7 +34,6 @@ jobs:
         id: ver
         run: |
           VERSION=$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Release target: v$VERSION"
 
@@ -41,23 +42,46 @@ jobs:
           pip install -e ".[dev]"
           python -m pytest -q
 
-      - name: Abort if the release already exists
+      - name: Create or heal the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          DRAFT: ${{ inputs.draft }}
         run: |
-          if gh release view "${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
-            echo "Release ${{ steps.ver.outputs.tag }} already exists — nothing to do."
-            exit 1
+          set -euo pipefail
+
+          # If a release for this version already exists, decide what to do.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            IS_DRAFT=$(gh release view "$TAG" --json isDraft -q .isDraft)
+            HAS_TAG=$(git ls-remote --tags origin "refs/tags/$TAG" | wc -l)
+            if [ "$IS_DRAFT" = "true" ] || [ "$HAS_TAG" = "0" ]; then
+              echo "Clearing stale draft/untagged release $TAG from a prior attempt."
+              gh release delete "$TAG" --yes || true
+            else
+              echo "$TAG is already published and tagged — nothing to do."
+              exit 0
+            fi
           fi
 
-      - name: Create tag + release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ steps.ver.outputs.tag }}"
+          # Create the release (which creates the tag) unless a draft was requested.
           NOTES="RELEASE_NOTES_${TAG}.md"
-          ARGS=(--title "$TAG" --target "${{ github.sha }}")
+          ARGS=(--title "$TAG" --target "$GITHUB_SHA")
           if [ -f "$NOTES" ]; then ARGS+=(--notes-file "$NOTES"); else ARGS+=(--generate-notes); fi
-          if [ "${{ inputs.draft }}" = "true" ]; then ARGS+=(--draft); fi
+          if [ "$DRAFT" = "true" ]; then ARGS+=(--draft); fi
           gh release create "$TAG" "${ARGS[@]}"
-          echo "Published $TAG"
+
+          # A draft was explicitly requested — a draft has no tag by design.
+          if [ "$DRAFT" = "true" ]; then
+            echo "Draft $TAG created (no tag until published)."
+            exit 0
+          fi
+
+          # Otherwise, prove the tag actually exists. If not, tag creation is
+          # blocked (Settings -> Tags protected tags, or a tag ruleset) — fail
+          # loudly rather than leave a silent draft.
+          if [ "$(git ls-remote --tags origin "refs/tags/$TAG" | wc -l)" = "0" ]; then
+            echo "::error::Release created but tag $TAG was NOT created. Tag creation is blocked — remove the protected-tag rule under Settings → Tags (or add GitHub Actions to the tag ruleset's bypass list), then re-run this workflow."
+            gh release delete "$TAG" --yes || true
+            exit 1
+          fi
+          echo "Tagged and published $TAG."
