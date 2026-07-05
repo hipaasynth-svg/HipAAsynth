@@ -37,6 +37,14 @@ classifiers = [
 
 [project.optional-dependencies]
 fhir = ["fhir.resources>=7.0"]
+seismometer = [
+    "seismometer>=0.5",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "pyyaml>=6.0",
+    "jupyter",
+    "nbconvert",
+]
 dev = [
     "pytest>=8.0",
     "black>=24.0",
