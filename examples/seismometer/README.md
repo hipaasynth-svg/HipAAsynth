@@ -1,0 +1,75 @@
+# HipAAsynth → Epic Seismometer adapter
+
+Render a HipAAsynth synthetic cohort inside [Seismometer](https://github.com/epic-open-source/seismometer),
+Epic's open-source AI-evaluation tool, and audit it for fairness/performance —
+including whether sparse rural/tribal/frontier cohorts survive Seismometer's
+`censor_min_count` gate.
+
+## One-line demo
+
+```bash
+bash examples/seismometer/demo_seismometer.sh
+```
+
+This (1) runs the adapter on the bundled OUD cohort (N=1000), (2) executes the
+Seismometer notebook headlessly, and (3) writes a self-contained
+`build/seismometer_demo_report.html` with rendered ROC / calibration / fairness
+plots. Point it at your own cohort:
+
+```bash
+PATIENTS=/path/patients.json RESULTS=/path/results.csv MODULE=oud \
+  bash examples/seismometer/demo_seismometer.sh
+```
+
+Requires `pip install seismometer pandas pyarrow pyyaml jupyter nbconvert`.
+
+![rendered report](docs/rendered_report.png)
+
+## What the adapter emits
+
+From our canonical `patients.json` + `results.csv`, into one config directory:
+
+| File | Purpose |
+|------|---------|
+| `predictions.parquet` | one row/prediction: `patient_id`, `PredictTime`, `ModelScore`, cohort columns |
+| `events.parquet` | long-format outcome: `patient_id`, `Type`, `EventTime`, `Value` |
+| `usage_config.yml` | `data_usage`: entity id, score, target event, cohorts, `censor_min_count` |
+| `dictionary.yml` | prediction + event column dictionaries with dtypes |
+| `config.yml` | `other_info`: points Seismometer at all of the above |
+| `metadata.json` | model name + score thresholds (Seismometer requires this) |
+
+## Columns the adapter has to synthesize
+
+HipAAsynth is a **data generator** — it emits neither a model score nor a
+timestamp, both of which Seismometer's loader requires. Every synthesized column
+is listed on `AdapterResult.invented_columns` and printed by the CLI:
+
+- **`ModelScore`** — a deterministic, documented overdose-risk score
+  (`sigmoid` over clinical risk factors, **no outcome leakage**). This is *not* a
+  HipAAsynth output; it exists only so Seismometer has an output to evaluate.
+- **`PredictTime` / `EventTime`** — a constant reference instant, because our
+  records are point-in-time snapshots with no chronology.
+- **`Value`** — 0/1 encoding of the canonical outcome (`prior_overdose` for OUD).
+
+## Fail-loud contract
+
+No silent coercion. The adapter raises `SchemaMismatchError` (exit 1, clear
+message) when: the two inputs disagree on `patient_id`, a required column is
+missing, the outcome isn't binary, or the module has no registered profile.
+
+## Censor audit
+
+`censor_audit()` reproduces Seismometer's own gate
+(`value_counts() > censor_min_count`, from `Seismogram.create_cohorts`) and
+reports, per subgroup, whether it survives. Default threshold is 10 — a subgroup
+needs **≥ 11** observations to render.
+
+- **N=1000 (default calibration cohort):** all 25 subgroups survive, including
+  `frontier` (n=119) and `native` (n=58). No larger N needed.
+- **N=50 (small public cohort):** 13 subgroups censored, including `frontier`
+  (n=6) and `native` (n=2) — the invisible populations vanish first.
+
+## Adding a module profile
+
+Register a `ModuleProfile` in `hipaasynth/seismometer_adapter.py` (`PROFILES`)
+declaring its cohorts, outcome field, and score model. Only `oud` ships today.
