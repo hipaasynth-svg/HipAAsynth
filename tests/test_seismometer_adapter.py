@@ -22,6 +22,8 @@ itself to be installed. Skipped if pandas/pyarrow/yaml are unavailable.
 """
 
 import json
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -29,7 +31,11 @@ pytest.importorskip("pandas")
 pytest.importorskip("pyarrow")
 pytest.importorskip("yaml")
 
-from hipaasynth.seismometer_adapter import (  # noqa: E402
+# The adapter lives under examples/ (outside the pure-stdlib hipaasynth package),
+# so make it importable by path.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples" / "seismometer"))
+
+from seismometer_adapter import (  # noqa: E402
     OUD_PROFILE,
     SchemaMismatchError,
     build_events,

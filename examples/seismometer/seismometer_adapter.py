@@ -64,7 +64,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-logger = logging.getLogger("hipaasynth.seismometer_adapter")
+logger = logging.getLogger("seismometer_adapter")
 
 # Fixed synthetic reference instant. HipAAsynth records are point-in-time
 # snapshots with no event chronology, so every prediction and its paired outcome
@@ -220,7 +220,7 @@ def profile_for(module: str) -> ModuleProfile:
         raise SchemaMismatchError(
             f"No Seismometer profile registered for module '{module}'. "
             f"Known profiles: {sorted(PROFILES)}. "
-            "Add a ModuleProfile (cohorts, outcome, score_model) to hipaasynth.seismometer_adapter.PROFILES."
+            "Add a ModuleProfile (cohorts, outcome, score_model) to PROFILES in examples/seismometer/seismometer_adapter.py."
         )
     return PROFILES[key]
 

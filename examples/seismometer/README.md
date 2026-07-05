@@ -71,5 +71,5 @@ needs **≥ 11** observations to render.
 
 ## Adding a module profile
 
-Register a `ModuleProfile` in `hipaasynth/seismometer_adapter.py` (`PROFILES`)
+Register a `ModuleProfile` in `examples/seismometer/seismometer_adapter.py` (`PROFILES`)
 declaring its cohorts, outcome field, and score model. Only `oud` ships today.

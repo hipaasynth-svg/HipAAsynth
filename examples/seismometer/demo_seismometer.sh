@@ -9,7 +9,6 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 
 PATIENTS="${PATIENTS:-$HERE/sample_data/patients.json}"
 RESULTS="${RESULTS:-$HERE/sample_data/results.csv}"
@@ -18,9 +17,8 @@ OUT="${OUT:-$HERE/build}"
 CONFIG_DIR="$OUT/seis_package"
 
 echo "==> [1/3] Adapting HipAAsynth cohort -> Seismometer package"
-PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-  python -m hipaasynth.seismometer_adapter \
-    --patients "$PATIENTS" --results "$RESULTS" --module "$MODULE" --out "$CONFIG_DIR"
+python "$HERE/seismometer_adapter.py" \
+  --patients "$PATIENTS" --results "$RESULTS" --module "$MODULE" --out "$CONFIG_DIR"
 
 echo "==> [2/3] Executing Seismometer notebook headlessly"
 cp "$HERE/hipaasynth_seismometer_demo.ipynb" "$OUT/run.ipynb"
