@@ -13,7 +13,13 @@ including whether sparse rural/tribal/frontier cohorts survive Seismometer's
 >
 > Seismometer is Epic's open-source tool; this demonstrates *compatibility*, not a partnership or endorsement.
 
-## One-line demo
+## Run it in Colab (no install)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hipaasynth-svg/HipAAsynth/blob/main/examples/seismometer/hipaasynth_seismometer_colab.ipynb)
+
+Open [`hipaasynth_seismometer_colab.ipynb`](hipaasynth_seismometer_colab.ipynb) in Google Colab and **Runtime → Run all**. It installs Seismometer, clones this repo, runs the adapter on the bundled N=1000 OUD cohort, and renders the fairness/performance plots — including live interactive cohort widgets. Nothing to install locally.
+
+## One-line demo (local)
 
 ```bash
 bash examples/seismometer/demo_seismometer.sh
