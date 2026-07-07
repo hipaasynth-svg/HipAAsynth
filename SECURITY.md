@@ -59,6 +59,46 @@ If you identify a flaw in how a population profile is calibrated, how a fairness
 
 ---
 
+## Encryption & data-handling practices
+
+HipAAsynth processes **no PHI**, so it implements no PHI encryption itself. What it
+does guarantee:
+
+- **No sensitive data at rest.** All output is synthetic and disclaimer-stamped;
+  it can be regenerated from a seed, so it is treated as regenerable rather than
+  archival (see `COMPLIANCE.md` §5).
+- **No transmission.** The engine makes no network calls and opens no sockets;
+  there is no in-transit data to encrypt. If an operator moves outputs across a
+  network, TLS is applied at that layer, outside the engine.
+- **Integrity via hashing.** Outputs and checkpoints are SHA-256 hashed and
+  anchored (`core/hashing.py`, `core/anchor.py`, `core/checkpoints.py`) so any
+  third party can verify a cohort was not altered.
+- **Defense-in-depth for hosts.** Deployments that require encryption of all data
+  classes should place the output directory on an encrypted volume; see
+  `docs/DEPLOYMENT.md`.
+
+## Incident response summary
+
+For a confirmed vulnerability or a report affecting this engine:
+
+1. **Report privately** to cody@hipaasynth.com (do not open a public issue for
+   security vulnerabilities).
+2. **Acknowledge** within 48 hours; assign a severity owner.
+3. **Assess & reproduce** within 7 days; determine scope (engine, module,
+   polymorphic layer, optional dependency) and whether determinism/integrity or
+   fairness determinations are affected.
+4. **Remediate** on a timeline communicated within 14 days; findings with clinical
+   AI-safety impact (an audit appearing to pass when it should fail) are expedited.
+5. **Verify** the fix with a regression test that fails on the vulnerable behavior.
+6. **Disclose** via coordinated disclosure, crediting the reporter unless anonymity
+   is requested; note the fix in `CHANGELOG.md`.
+
+Organizations embedding HipAAsynth should fold engine-host incidents into their own
+incident-response plan; because the engine handles no PHI, a disclosure of its
+synthetic output is not a HIPAA breach (confirm classification with your counsel).
+
+---
+
 ## Contact
 
 [cody@hipaasynth.com](mailto:cody@hipaasynth.com)  

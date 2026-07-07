@@ -1,0 +1,42 @@
+# Pre-commit hooks for HipAAsynth.
+#
+#   pip install -e ".[dev]" && pre-commit install
+#
+# Runs on every commit: formatting, linting, and secret scanning. CI enforces the
+# same checks, so running them locally keeps the feedback loop fast and prevents
+# secrets from ever entering the history.
+repos:
+  # --- Formatting -----------------------------------------------------------
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        args: ["--line-length=100"]
+
+  # --- Linting --------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      - id: ruff
+        args: ["--line-length=100"]
+
+  # --- Secret scanning ------------------------------------------------------
+  # Blocks commits that introduce credentials, API keys, or private keys.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # --- Hygiene --------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+        # The engine is deterministic — regenerate data from a seed, don't commit it.
+        args: ["--maxkb=512"]
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: detect-private-key

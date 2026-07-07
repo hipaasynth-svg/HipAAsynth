@@ -157,8 +157,25 @@ network (`python examples/<name>.py`):
 ## Tests
 
 ```bash
-python -m pytest
+python -m pytest          # full suite
+python -m pytest --cov    # with coverage (floor enforced in pyproject.toml)
 ```
+
+---
+
+## Architecture, security & compliance docs
+
+For contributors and reviewers:
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — component map and design invariants
+- [`docs/DATA_FLOW.md`](docs/DATA_FLOW.md) — what enters/leaves the engine and trust boundaries (no PHI)
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — install, run, and host-hardening checklist
+- [`SECURITY.md`](SECURITY.md) — vulnerability reporting, incident response, data-handling
+- [`COMPLIANCE.md`](COMPLIANCE.md) — HIPAA shared-responsibility matrix and gap list
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup, test commands, PR requirements, code style
+
+Contributors: `pip install -e ".[dev]" && pre-commit install` sets up formatting,
+linting, and secret scanning (`.pre-commit-config.yaml`).
 
 ---
 
