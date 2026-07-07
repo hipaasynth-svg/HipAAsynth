@@ -69,6 +69,12 @@ def export_csv_stream(patient_iter, filepath):
     Stream patients to a CSV file.
 
     Writes one row per patient with core demographic and condition fields.
+
+    The output path is trusted operator input: the engine writes exactly where
+    directed and does not sandbox the path — containment is the deploying host's
+    responsibility (see docs/DEPLOYMENT.md). Fails loud — any I/O error raises
+    RuntimeError rather than leaving a silent partial file. Records are synthetic
+    (no PHI).
     """
     _ensure_parent_dir(filepath)
     try:
@@ -95,7 +101,12 @@ def export_csv_stream(patient_iter, filepath):
 
 
 def export_json(patients, filename="output.json"):
-    """Export patients to JSON."""
+    """Export patients to JSON.
+
+    Output path is trusted operator input (not sandboxed — see
+    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error rather
+    than leaving a partial file. Records are synthetic (no PHI).
+    """
     _ensure_parent_dir(filename)
     try:
         data = [p.to_dict() for p in patients]
@@ -111,6 +122,10 @@ def export_csv(patients, filename="output.csv"):
 
     Observation columns are discovered dynamically so that condition-specific
     fields (sepsis, stroke, etc.) are not silently dropped.
+
+    Output path is trusted operator input (not sandboxed — see
+    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error rather
+    than leaving a partial file. Records are synthetic (no PHI).
     """
     _ensure_parent_dir(filename)
     patients = list(patients)
@@ -365,6 +380,10 @@ def export_fhir(patients, filename="fhir_bundle.json"):
     """
     Export FHIR R5 Bundle. Bundle ID uses os.path.basename for path-independence.
     Fix applied: bundle::{basename}::{count} not full path.
+
+    Output path is trusted operator input (not sandboxed — see
+    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error rather
+    than leaving a partial file. Records are synthetic (no PHI).
     """
     _ensure_parent_dir(filename)
     bundle = {
