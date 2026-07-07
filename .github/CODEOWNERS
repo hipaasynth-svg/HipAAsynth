@@ -1,0 +1,22 @@
+# Code ownership for HipAAsynth.
+#
+# Enables the "require review from Code Owners" branch-protection rule so that
+# changes to critical paths route to an accountable owner. Enable that rule in
+# repo Settings → Branches once this file is on the default branch.
+
+# Default owner for everything not matched below.
+*                       @hipaasynth-svg
+
+# Critical path — engine core, generation, and I/O. Changes here affect
+# determinism, integrity, and the synthetic-data guarantees.
+/hipaasynth/core/       @hipaasynth-svg
+/hipaasynth/pipelines/  @hipaasynth-svg
+/hipaasynth/modules/    @hipaasynth-svg
+/hipaasynth/exporters/  @hipaasynth-svg
+
+# Security, compliance, and CI configuration.
+/.github/               @hipaasynth-svg
+/SECURITY.md            @hipaasynth-svg
+/COMPLIANCE.md          @hipaasynth-svg
+/.pre-commit-config.yaml @hipaasynth-svg
+/pyproject.toml         @hipaasynth-svg

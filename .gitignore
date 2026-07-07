@@ -14,7 +14,13 @@ venv/
 ENV/
 .mypy_cache/
 .pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 output/
 results_*/
+runs/
 *.log
 *.zip
