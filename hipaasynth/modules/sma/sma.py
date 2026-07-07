@@ -27,6 +27,8 @@ import random
 import math
 from typing import List, Dict, Optional
 
+from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
+
 
 SMA_TYPES = ["SMA-I", "SMA-II", "SMA-III", "SMA-IV"]
 
@@ -318,6 +320,8 @@ class SMACohortGenerator:
 
         return {
             'patient_id': patient_id,
+            'synthetic': True,
+            'disclaimer': DEFAULT_SYNTHETIC_DISCLAIMER,
             'sma_type': sma_type,
             'age_at_onset_months': round(onset_age_months, 2),
             'age_at_diagnosis_months': round(diagnosis_age_months, 2),

@@ -29,6 +29,8 @@ import hashlib
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 
+from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
+
 
 # =============================
 # PARAMETERS
@@ -123,6 +125,8 @@ class DMDCohortGenerator:
             p = {}
 
             p['patient_id'] = f"DMD-{i+1}"
+            p['synthetic'] = True
+            p['disclaimer'] = DEFAULT_SYNTHETIC_DISCLAIMER
 
             self._demographics(p)
             self._genetics(p)

@@ -103,7 +103,7 @@ code will ask for them:
 |---|---|---|
 | Supply-chain / dependency risk | ✅ Strong — zero runtime dependencies; CI-enforced | Optional extras (`fhir.resources`, `seismometer`, `pandas`, `pyarrow`) are opt-in; pin them in your own lockfile. |
 | Secret management | ✅ No secrets in repo; scanned | Pre-commit `gitleaks` + `detect-private-key` block new secrets. |
-| SBOM | ⛔ Not Started | Generate an SBOM (e.g. CycloneDX) at your build boundary. Gap #7 below. |
+| SBOM | ✅ Generated in CI | CycloneDX SBOM produced and uploaded by the `Security` workflow (`.github/workflows/security.yml`). |
 | Vulnerability disclosure | ✅ `SECURITY.md` with private reporting + timelines | — |
 | License clarity | ✅ AGPL-3.0 (+ commercial) — see `LICENSE.md`, `COMMERCIAL-LICENSE.md` | AGPL network-use obligations apply if you expose a modified engine as a service. |
 | Reproducibility / evidentiary integrity | ✅ deterministic + hash-anchored | Tag/signature signing recommended (Gap #6). |
@@ -123,17 +123,17 @@ Ranked by how likely each is to stop a review, with a concrete fix.
    (sepsis-oncology, sma, dmd, fabry, chf, copd) are largely untested. A reviewer
    will read that as "generation correctness is unverified." *Fix: raise the
    ratchet in `pyproject.toml` as module tests are added (see issues).*
-4. **No automated dependency/SBOM scan in CI.** Zero runtime deps makes this
-   low-risk, but reviewers want the scan to exist. *Fix: add `pip-audit` +
-   CycloneDX SBOM job; enable Dependabot.*
-5. **No identifier-safety regression test asserting zero real identifiers.** The
-   design guarantees synthetic output, but there is no test that *fails loudly* if
-   a real-looking identifier ever appears. *Fix: add property test (see issues).*
+4. ✅ **Addressed — automated dependency scan in CI.** The `Security` workflow
+   runs `pip-audit` (advisory) on every PR, push, and weekly, and Dependabot
+   (`.github/dependabot.yml`) tracks pip + Actions updates.
+5. ✅ **Addressed — identifier-safety regression tests.** `tests/test_identifier_safety.py`
+   and `tests/test_module_smoke.py` fail loudly if any generated value matches a
+   real-identifier shape (SSN/NPI/phone/email) across the generators and pipeline.
 6. **Release tags/commits are unsigned.** The project markets outputs as
    evidentiary; unsigned tags weaken that. *Fix: sign tags (e.g. `git tag -s`) and
    enable signed-commit requirement.*
-7. **No published SBOM artifact per release.** *Fix: attach CycloneDX SBOM to the
-   release workflow.*
+7. ✅ **Addressed — SBOM published.** The `Security` workflow generates a
+   CycloneDX SBOM and uploads it as a build artifact.
 8. **Audit-log retention/rotation is undefined.** The engine writes JSONL logs but
    defines no retention. *Fix: document retention expectations here + in
    `DEPLOYMENT.md`; leave rotation to the host.*

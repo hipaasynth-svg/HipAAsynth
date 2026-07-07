@@ -25,6 +25,8 @@ Validated against CDC/NHANES diabetes epidemiology
 import random
 from typing import List, Dict
 
+from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
+
 
 class DiabetesPopulationGenerator:
     """
@@ -55,6 +57,8 @@ class DiabetesPopulationGenerator:
         for i in range(self.n):
             population.append({
                 'patient_id': f'DM_{i:05d}',
+                'synthetic': True,
+                'disclaimer': DEFAULT_SYNTHETIC_DISCLAIMER,
                 'current_age': current_ages[i],
                 'diabetes_type': types[i],
                 'age_at_diagnosis': diagnosis_ages[i],
