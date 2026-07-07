@@ -28,9 +28,8 @@ engine code:
   extending the identifier-safety guarantee (issue #24) to these divergent-API
   modules.
 
-Note: unlike the oud/chf/copd generators and the pipeline path, these records
-do not carry a ``synthetic`` / ``disclaimer`` field, so that stamp is not
-asserted here (tracked separately).
+Every record is also asserted to carry the ``synthetic`` / ``disclaimer`` stamp
+(added to these generators to close issue #33).
 """
 
 import re
@@ -107,3 +106,12 @@ class TestModuleCohortSmoke:
     def test_no_real_identifiers(self, name, factory):
         for record in factory(30):
             _assert_no_real_identifiers(record)
+
+    @pytest.mark.parametrize("name,factory", _MODULE_COHORTS)
+    def test_records_are_synthetic_stamped(self, name, factory):
+        for record in factory(30):
+            assert record.get("synthetic") is True, f"{name}: record not stamped synthetic=True"
+            disclaimer = str(record.get("disclaimer", "")).upper()
+            assert "SYNTHETIC" in disclaimer and "NO REAL PATIENT" in disclaimer, (
+                f"{name}: record missing synthetic / no-real-patient disclaimer"
+            )

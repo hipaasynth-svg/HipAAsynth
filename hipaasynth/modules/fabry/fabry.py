@@ -29,6 +29,8 @@ import hashlib
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 
+from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
+
 
 FABRY_PHENOTYPES = ["classic", "late_cardiac", "late_renal", "asymptomatic"]
 
@@ -212,6 +214,8 @@ class FabryCohortGenerator:
 
         record = {
             "patient_id": patient_id,
+            "synthetic": True,
+            "disclaimer": DEFAULT_SYNTHETIC_DISCLAIMER,
             "sex": sex,
             "phenotype": phenotype,
             "mutation_type": mutation_type,
