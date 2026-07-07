@@ -17,7 +17,20 @@ including whether sparse rural/tribal/frontier cohorts survive Seismometer's
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hipaasynth-svg/HipAAsynth/blob/main/examples/seismometer/hipaasynth_seismometer_colab.ipynb)
 
-Open [`hipaasynth_seismometer_colab.ipynb`](hipaasynth_seismometer_colab.ipynb) in Google Colab and **Runtime → Run all**. It installs Seismometer, clones this repo, runs the adapter on the bundled N=1000 OUD cohort, and renders the fairness/performance plots — including live interactive cohort widgets. Nothing to install locally.
+Open [`hipaasynth_seismometer_colab.ipynb`](hipaasynth_seismometer_colab.ipynb) in Google Colab and **Runtime → Run all**. It installs Seismometer, clones this repo, **regenerates a deterministic N=1000 OUD cohort from a seed**, runs the adapter on it, and renders the fairness/performance plots — including live interactive cohort widgets. Nothing to install locally.
+
+## No committed cohort — it's regenerated from a seed
+
+HipAAsynth is a **deterministic** generator: `(module, seed, n)` always yields the
+same cohort. So this example ships **no** multi-megabyte `patients.json` /
+`results.csv`. Both notebooks and the runner regenerate an equivalent cohort on
+demand via [`generate_demo_cohort.py`](generate_demo_cohort.py), which keeps the
+repo lean and makes every run reproducible and self-verifying. Regenerate one by
+hand with:
+
+```bash
+python examples/seismometer/generate_demo_cohort.py --out ./cohort --module oud --n 1000 --seed 42
+```
 
 ## One-line demo (local)
 
@@ -25,10 +38,11 @@ Open [`hipaasynth_seismometer_colab.ipynb`](hipaasynth_seismometer_colab.ipynb) 
 bash examples/seismometer/demo_seismometer.sh
 ```
 
-This (1) runs the adapter on the bundled OUD cohort (N=1000), (2) executes the
-Seismometer notebook headlessly, and (3) writes a self-contained
-`build/seismometer_demo_report.html` with rendered ROC / calibration / fairness
-plots. Point it at your own cohort:
+This (1) generates a deterministic OUD cohort (N=1000, seed=42), (2) runs the
+adapter on it, (3) executes the Seismometer notebook headlessly, and (4) writes a
+self-contained `build/seismometer_demo_report.html` with rendered ROC /
+calibration / fairness plots. Tune the generated cohort with `MODULE` / `N` /
+`SEED`, or point it at your own canonical files:
 
 ```bash
 PATIENTS=/path/patients.json RESULTS=/path/results.csv MODULE=oud \
@@ -37,11 +51,9 @@ PATIENTS=/path/patients.json RESULTS=/path/results.csv MODULE=oud \
 
 Requires `pip install seismometer pandas pyarrow pyyaml jupyter nbconvert`.
 
-![rendered report](docs/rendered_report.png)
-
 ## What the adapter emits
 
-From our canonical `patients.json` + `results.csv`, into one config directory:
+From a HipAAsynth cohort (canonical `patients.json` + `results.csv`), into one config directory:
 
 | File | Purpose |
 |------|---------|
