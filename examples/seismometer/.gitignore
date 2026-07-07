@@ -1,0 +1,7 @@
+# Generated demo artifacts — regenerated deterministically from a seed, never committed.
+# See generate_demo_cohort.py: the cohort and Seismometer package are rebuilt on demand.
+seis_out/
+cohort/
+build/
+seis_package/
+*.parquet
