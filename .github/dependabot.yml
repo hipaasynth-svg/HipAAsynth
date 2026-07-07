@@ -1,0 +1,25 @@
+# Dependabot keeps optional/dev dependencies and GitHub Actions current.
+# The core engine has zero runtime dependencies; these ecosystems cover the
+# dev tooling, optional extras, and CI actions.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"

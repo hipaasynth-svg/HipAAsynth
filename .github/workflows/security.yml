@@ -1,0 +1,54 @@
+name: Security
+
+# Dependency vulnerability audit + SBOM generation.
+#
+# The engine itself has zero runtime dependencies (enforced by the Tests
+# workflow), so this scans the dev tooling and optional extras. The audit is
+# advisory — an upstream advisory in an optional/dev dependency we don't control
+# should not wedge the required Tests check — but it always runs and always
+# publishes an SBOM, which is what a compliance review expects to see.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project (with dev + optional extras) and audit tooling
+        run: |
+          pip install -e ".[dev]"
+          pip install pip-audit cyclonedx-bom
+
+      - name: Dependency vulnerability audit (advisory)
+        # Non-blocking: reports findings without failing the build. Remove
+        # continue-on-error to make it gate once the dependency set is curated.
+        continue-on-error: true
+        run: pip-audit --desc
+
+      - name: Generate CycloneDX SBOM
+        run: cyclonedx-py environment --output-format JSON --output-file sbom.json
+
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+          if-no-files-found: warn
