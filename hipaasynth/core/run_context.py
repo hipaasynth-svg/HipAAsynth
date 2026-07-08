@@ -25,6 +25,13 @@ from datetime import datetime, timezone
 class RunContext:
 
     def __init__(self, master_seed, pipeline_name, pipeline_version, stages_planned):
+        """Initialize a run context: record the seed and pipeline identity and
+        compute the per-run directory layout (runs/<run_id>/ with logs, checkpoints,
+        and outputs).
+
+        The run id includes a random suffix to avoid collisions. No filesystem writes
+        happen here — call create_run_directory() to materialize the tree.
+        """
         self.master_seed = master_seed
         self.pipeline_name = pipeline_name
         self.pipeline_version = pipeline_version
@@ -52,6 +59,11 @@ class RunContext:
         return f"{date_part}_run_{suffix}"
 
     def create_run_directory(self):
+        """Create the run's directory tree (run dir + logs, checkpoints, outputs).
+
+        Side effect: creates directories on disk. Raises RuntimeError if they cannot
+        be created.
+        """
         try:
             os.makedirs(self.run_dir, exist_ok=True)
             os.makedirs(self.log_dir, exist_ok=True)
@@ -61,6 +73,11 @@ class RunContext:
             raise RuntimeError(f"Failed to create run directories under {self.run_dir}") from exc
 
     def write_config_snapshot(self, cfg):
+        """Write the generation config to config_snapshot.json for reproducibility.
+
+        Inputs: cfg (a dataclass or dict). Side effect: writes the snapshot file.
+        Returns its path. Records configuration only — no PHI.
+        """
         snapshot = {}
         if hasattr(cfg, "__dict__"):
             snapshot = {k: v for k, v in cfg.__dict__.items()}
@@ -75,6 +92,15 @@ class RunContext:
         return path
 
     def write_environment_snapshot(self):
+        """Write reproducibility metadata for the run to environment_snapshot.json.
+
+        Captures the Python version, platform string, current working directory,
+        process id, timestamp, and engine version — host/runtime details that let
+        a third party reproduce a run. No patient/synthetic data is recorded. Note
+        that ``cwd`` and ``platform`` may reveal host paths and OS details; in a
+        locked-down deployment, keep run directories within the controlled output
+        area (see docs/DEPLOYMENT.md).
+        """
         snapshot = {
             "python_version": sys.version,
             "platform": platform.platform(),
@@ -92,6 +118,11 @@ class RunContext:
         return path
 
     def write_replay_command(self, argv):
+        """Write the command needed to reproduce this run to replay_command.txt.
+
+        Inputs: argv (list of command tokens). Side effect: writes the file. Returns
+        its path.
+        """
         cmd = "python " + " ".join(argv)
         path = os.path.join(self.run_dir, "replay_command.txt")
         try:
