@@ -13,7 +13,21 @@ including whether sparse rural/tribal/frontier cohorts survive Seismometer's
 >
 > Seismometer is Epic's open-source tool; this demonstrates *compatibility*, not a partnership or endorsement.
 
-## Run it in Colab (no install)
+## Which environment? (read this first)
+
+Seismometer's own metadata requires **`ipython >= 8.14`** and **`ipywidgets >= 8.1`**.
+Pick your path by how much reliability vs. interactivity you want:
+
+| Path | Reliability | Notes |
+|------|-------------|-------|
+| **Headless HTML report** (`demo_seismometer.sh`) | ✅ Rock-solid | No widgets, no version conflicts. Best if you just need to see/share the output. |
+| **Local JupyterLab** (`pip install -e '.[seismometer]'`) | ✅ Reliable | Full interactivity; you control the versions. The `[seismometer]` extra pins the required `ipython`/`ipywidgets` floors. |
+| **Google Colab** (the notebook) | ⚠️ Fragile | Colab is pinned to `ipython == 7.34.0`, which **conflicts** with seismometer's `>= 8.14`. The notebook force-upgrades it and restarts once, but Colab can still be unstable. Prefer one of the paths above. |
+
+**TL;DR:** for dependable results use the headless report or local JupyterLab.
+Colab works but fights you because of its old pinned `ipython`.
+
+## Run it in Colab (no install — but see the caveat above)
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hipaasynth-svg/HipAAsynth/blob/main/examples/seismometer/hipaasynth_seismometer_colab.ipynb)
 
