@@ -75,6 +75,15 @@ class RunContext:
         return path
 
     def write_environment_snapshot(self):
+        """Write reproducibility metadata for the run to environment_snapshot.json.
+
+        Captures the Python version, platform string, current working directory,
+        process id, timestamp, and engine version — host/runtime details that let
+        a third party reproduce a run. No patient/synthetic data is recorded. Note
+        that ``cwd`` and ``platform`` may reveal host paths and OS details; in a
+        locked-down deployment, keep run directories within the controlled output
+        area (see docs/DEPLOYMENT.md).
+        """
         snapshot = {
             "python_version": sys.version,
             "platform": platform.platform(),
