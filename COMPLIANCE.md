@@ -80,7 +80,7 @@ above is built to answer.
 | Control | Engine status | Deploying-organization responsibility |
 |---|---|---|
 | Access Control / Unique User ID (§164.312(a)(1)) | N/A at data layer | Enforce OS/container-level access to the process and output files. |
-| Audit Controls (§164.312(b)) | 🟡 Partial — structured JSONL run logs, per-run manifest, environment + config snapshots, replay command (`core/logger.py`, `core/run_context.py`, `core/manifest.py`) | Ship these logs to your SIEM and set retention per your policy. |
+| Audit Controls (§164.312(b)) | 🟡 Partial — structured JSONL run logs, per-run manifest, environment + config snapshots, replay command (`core/logger.py`, `core/run_context.py`, `core/manifest.py`); exercised end-to-end by `tests/test_pipeline_logging_integration.py`, which also asserts no record payload leaks into logs | Ship these logs to your SIEM and set retention per your policy. |
 | Integrity (§164.312(c)(1)) | ✅ SHA-256 file hashing + anchor manifest for outputs and checkpoints (`core/hashing.py`, `core/checkpoints.py`) | Verify manifest hashes when consuming outputs downstream. |
 | Person/Entity Authentication (§164.312(d)) | N/A | Host responsibility. |
 | Transmission Security / Encryption in transit (§164.312(e)(1)) | N/A — engine performs no transmission | If you move outputs across a network, use TLS at that layer. |
@@ -117,12 +117,14 @@ Ranked by how likely each is to stop a review, with a concrete fix.
 1. **Branch protection not enforced on `main`.** Requires GitHub admin. Enable:
    require 1 PR review, require the `Tests` status check, dismiss stale reviews,
    no direct pushes. *Fix: repo Settings → Branches (admin action).*
-2. **No `CODEOWNERS`.** Without it, the "1 review" rule can't route to an
-   accountable owner. *Fix: add `.github/CODEOWNERS`.* (Provided in this PR.)
-3. **Coverage floor is low (~25%).** Single-condition generator modules
-   (sepsis-oncology, sma, dmd, fabry, chf, copd) are largely untested. A reviewer
-   will read that as "generation correctness is unverified." *Fix: raise the
-   ratchet in `pyproject.toml` as module tests are added (see issues).*
+2. ✅ **Addressed — `.github/CODEOWNERS` added**, so the "require review from
+   Code Owners" branch rule can route reviews to an accountable owner (enable the
+   rule alongside gap #1).
+3. 🟡 **Improved — branch coverage ~25% → ~46%.** The DMD/Fabry/SMA/diabetes
+   generators now have smoke tests, and the generators + pipeline have
+   identifier-safety and statistical-property tests; the CI floor ratchets and is
+   never lowered. Remaining headroom is in the single-condition modules
+   (sepsis-oncology, stroke); keep raising the floor as tests are added.
 4. ✅ **Addressed — automated dependency scan in CI.** The `Security` workflow
    runs `pip-audit` (advisory) on every PR, push, and weekly, and Dependabot
    (`.github/dependabot.yml`) tracks pip + Actions updates.
@@ -137,11 +139,12 @@ Ranked by how likely each is to stop a review, with a concrete fix.
 8. **Audit-log retention/rotation is undefined.** The engine writes JSONL logs but
    defines no retention. *Fix: document retention expectations here + in
    `DEPLOYMENT.md`; leave rotation to the host.*
-9. **No documented data-retention/disposal statement for outputs.** Even synthetic
-   output benefits from a stated lifecycle. *Fix: see §5.*
-10. **No incident-response runbook.** `SECURITY.md` covers reporting; there is no
-    step-by-step responder runbook. *Fix: add an IR summary to `SECURITY.md`
-    (provided) and a fuller runbook under `docs/` when a deployment exists.*
+9. ✅ **Addressed — data retention/disposal documented** in §5 (outputs are
+   regenerable-from-seed and treated as non-archival; inputs and run logs have
+   stated retention guidance).
+10. 🟡 **Partial — incident-response summary now in `SECURITY.md`** (report →
+    acknowledge → assess → remediate → verify → disclose). A fuller step-by-step
+    responder runbook under `docs/` is worth adding once a real deployment exists.
 
 ---
 
