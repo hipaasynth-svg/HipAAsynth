@@ -27,6 +27,13 @@ def _log_dir(context) -> str:
 
 
 def log_event(context, level, event, **kwargs):
+    """Append one structured event to the run's JSONL log.
+
+    ``**kwargs`` must carry event *metadata* only (ids, counts, stage names,
+    hashes) — never synthetic record payloads or field values. Keeping record
+    contents out of the logs preserves audit-log cleanliness and ensures no
+    generated data is ever duplicated into a second on-disk location.
+    """
     entry = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "run_id": getattr(context, "run_id", "unknown"),
