@@ -65,6 +65,12 @@ def log_event(context, level, event, **kwargs):
 
 
 def log_error(context, event, error, **kwargs):
+    """Log an exception as a structured ERROR event (error type, message, and
+    traceback) via log_event.
+
+    Like log_event, pass event metadata only in ``**kwargs`` — never synthetic
+    record payloads.
+    """
     tb = traceback.format_exception(type(error), error, error.__traceback__)
     log_event(
         context,

@@ -67,6 +67,9 @@ def _normalize_age_bands(data: dict) -> list[tuple[int, int, float]]:
 
 
 def _int_band_field(band: Any, index: int) -> int:
+    """Return field ``index`` of an age-band entry coerced to int, raising
+    ProfileError if the entry is malformed or the value is non-numeric.
+    """
     if not isinstance(band, (list, tuple)) or len(band) < 3:
         raise ProfileError(f"Invalid age_band_weights entry: {band!r}")
     try:
@@ -76,6 +79,9 @@ def _int_band_field(band: Any, index: int) -> int:
 
 
 def _float_band_field(band: Any, index: int) -> float:
+    """Return field ``index`` of an age-band entry coerced to float, raising
+    ProfileError if the entry is malformed or the value is non-numeric.
+    """
     if not isinstance(band, (list, tuple)) or len(band) < 3:
         raise ProfileError(f"Invalid age_band_weights entry: {band!r}")
     try:

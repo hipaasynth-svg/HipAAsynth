@@ -67,4 +67,7 @@ class Patient:
     observations: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return this record as a plain dict via dataclasses.asdict, for exporters
+        and serializers. No side effects.
+        """
         return asdict(self)
