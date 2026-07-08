@@ -49,6 +49,11 @@ def _write_manifest(path: str, manifest: dict) -> None:
 
 
 def init_manifest(context):
+    """Create the initial run manifest (run id, pipeline identity, timestamps)
+    and write it to the run's manifest path.
+
+    Side effect: writes run_manifest.json. Returns the manifest dict. No PHI.
+    """
     manifest = {
         "run_id": context.run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -65,6 +70,11 @@ def init_manifest(context):
 
 
 def update_manifest(context, updates):
+    """Merge ``updates`` into the run manifest and rewrite it atomically.
+
+    Inputs: context (RunContext), updates (dict). Side effect: rewrites
+    run_manifest.json. Returns the updated manifest dict.
+    """
     manifest = _read_manifest(context.manifest_path)
     manifest.update(updates)
     _write_manifest(context.manifest_path, manifest)

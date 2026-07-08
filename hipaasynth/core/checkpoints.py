@@ -25,6 +25,12 @@ from hipaasynth.core.logger import log_event
 
 
 def _append_hash(context, relative_path, digest):
+    """Append a ``(relative_path, sha256)`` entry to the run's checkpoint hash
+    file, under a lock and via an atomic replace.
+
+    Side effect: writes checkpoints hashes JSON. Records integrity digests only —
+    never record contents.
+    """
     hashes_path = os.path.join(context.run_dir, "hashes.json")
     lock_path = hashes_path + ".lock"
     try:
@@ -74,6 +80,13 @@ def _dict_of_columns_to_rows(df: dict) -> tuple[list[str], list[dict]]:
 
 
 def save_checkpoint(context, stage_name, df, stage_index):
+    """Persist a pipeline stage's output as a JSON checkpoint and record its
+    SHA-256 digest for integrity.
+
+    Inputs: context (RunContext), stage_name (str), df (column->values dict),
+    stage_index (int). Side effects: writes the checkpoint file and its hash entry.
+    Data is synthetic; no PHI is written.
+    """
     prefix = f"{stage_index:02d}_{stage_name}"
     csv_path = os.path.join(context.checkpoint_dir, f"{prefix}.csv")
     meta_path = os.path.join(context.checkpoint_dir, f"{prefix}.meta.json")
