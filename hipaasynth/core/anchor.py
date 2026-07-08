@@ -44,6 +44,13 @@ class Anchor:
     """
 
     def __init__(self, seed: int, config: Dict, modules: Dict):
+        """Build a deterministic anchor from the seed, run config, and module
+        versions. The SHA-256 anchor hash is computed at construction so every run is
+        reproducible and tamper-evident.
+
+        Inputs: seed (int), config (dict), modules (dict of name->version).
+        Side effects: none. Sets self.anchor_hash.
+        """
         self.seed = seed
         self.config = config
         self.modules = modules
@@ -103,6 +110,11 @@ class Anchor:
     # =============================
 
     def verify(self, other_hash: str) -> bool:
+        """Return True if ``other_hash`` equals this anchor's hash.
+
+        An integrity check for third-party reproduction: a matching hash proves the
+        same seed/config/module versions were used. No side effects.
+        """
         return self.anchor_hash == other_hash
 
     # =============================
@@ -110,6 +122,9 @@ class Anchor:
     # =============================
 
     def export(self) -> Dict:
+        """Return the anchor as a JSON-serializable dict (seed, config, modules,
+        anchor_hash) for inclusion in the run manifest. No side effects; no PHI.
+        """
         return {
             "anchor_hash": self.anchor_hash,
             "seed": self.seed,

@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-07-08
+
+Compliance-readiness hardening. No change to the synthetic-data generation
+logic, determinism, calibration, or public API. Test count grew from 54 to 100+
+and branch coverage roughly doubled (~25% → ~46%).
+
+### Added
+
+- **Identifier-safety & statistical-property tests** — every generated record is
+  checked against a real-identifier deny-list (SSN/NPI/phone/email) and confirmed
+  synthetic + disclaimer-stamped; demographic distributions are verified against
+  the configured profile.
+- **Smoke tests** for the DMD/Fabry/SMA/diabetes cohort generators (previously
+  untested).
+- **Coverage reporting** in CI with a ratcheting floor; **pre-commit** hooks
+  (black, ruff, gitleaks secret scanning); **dependency audit + CycloneDX SBOM**
+  workflow and **Dependabot**.
+- **Docs**: `docs/ARCHITECTURE.md`, `docs/DATA_FLOW.md`, `docs/DEPLOYMENT.md`,
+  `COMPLIANCE.md` (HIPAA shared-responsibility matrix), `.github/CODEOWNERS`, and
+  an expanded `SECURITY.md` (incident response + data-handling).
+
+### Changed
+
+- **Every generator now stamps `synthetic=True` and one canonical disclaimer.**
+  The DMD/Fabry/SMA/diabetes records previously carried no synthetic marker; the
+  oud/chf/copd generators previously used a different disclaimer string. All paths
+  now share `DEFAULT_SYNTHETIC_DISCLAIMER`.
+- Exporters document their output-path trust model and fail-loud contract.
+- The population-profile loader rejects pathologically oversized input before
+  parsing (defense-in-depth); existing validation is unchanged.
+
 ## [1.0.1] — 2026-07-03
 
 Packaging and documentation patch. No engine or source behavior changed; the

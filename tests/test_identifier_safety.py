@@ -91,9 +91,9 @@ def _assert_no_real_identifiers(record):
 
 def _assert_synthetic_stamp(record):
     assert record.get("synthetic") is True, "record is not stamped synthetic=True"
-    # Two disclaimer phrasings exist in the engine — the module generators say
-    # "No PHI", the pipeline path says "No real patient information is present".
-    # Assert the shared semantic guarantee, not one specific wording.
+    # All generators now share one canonical disclaimer (issue #31); this asserts
+    # the shared semantic guarantee rather than an exact string, which keeps the
+    # check robust if the canonical wording is ever revised.
     disclaimer = str(record.get("disclaimer", "")).upper()
     assert "SYNTHETIC" in disclaimer and "NO REAL PATIENT" in disclaimer, (
         f"record missing synthetic / no-real-patient disclaimer: {record.get('disclaimer')!r}"
