@@ -23,6 +23,14 @@ class ProfileError(ValueError):
     """Raised when a population profile is missing required fields or has invalid values."""
 
 
+# Population profiles are small hand-authored JSON files (the bundled ones are
+# 4–7 KB). This bound (1 MiB, ~140x the largest real profile) rejects a
+# pathologically large or wrong-file input before it is read into memory, so a
+# malformed pipeline output or a malicious oversized file cannot exhaust memory
+# during parsing. It cannot reject any legitimate profile.
+MAX_PROFILE_BYTES = 1024 * 1024
+
+
 def _validate_age_band(band: dict, index: int) -> tuple[int, int, float]:
     """Validate and normalize a single age-band entry."""
     if not isinstance(band, dict):
@@ -98,11 +106,19 @@ def load_population_profile(path: str) -> dict:
 
     Raises:
         FileNotFoundError: if the profile file does not exist.
-        ProfileError: if required fields are missing or values are invalid.
+        ProfileError: if the file exceeds MAX_PROFILE_BYTES, or required fields
+            are missing or values are invalid.
         json.JSONDecodeError: if the file is not valid JSON.
     """
     if not os.path.isfile(path):
         raise FileNotFoundError(f"Population profile not found: {path}")
+
+    size = os.path.getsize(path)
+    if size > MAX_PROFILE_BYTES:
+        raise ProfileError(
+            f"Population profile too large: {size} bytes exceeds the "
+            f"{MAX_PROFILE_BYTES}-byte limit ({path})"
+        )
 
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
