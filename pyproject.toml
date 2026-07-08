@@ -42,6 +42,9 @@ seismometer = [
     "pandas>=2.0",
     "pyarrow>=14.0",
     "pyyaml>=6.0",
+    # seismometer imports `Stack` from ipywidgets, which only exists in >=8.1;
+    # seismometer itself only pins >=8.0, so pin the working floor here.
+    "ipywidgets>=8.1.2",
     "jupyter",
     "nbconvert",
 ]
