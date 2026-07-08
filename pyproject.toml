@@ -42,8 +42,11 @@ seismometer = [
     "pandas>=2.0",
     "pyarrow>=14.0",
     "pyyaml>=6.0",
-    # seismometer imports `Stack` from ipywidgets, which only exists in >=8.1;
-    # seismometer itself only pins >=8.0, so pin the working floor here.
+    # seismometer needs a modern notebook stack that Google Colab does not ship:
+    #   - ipython>=8.14 (Colab pins 7.34.0)
+    #   - ipywidgets>=8.1 for `Stack` (seismometer only declares >=8.0)
+    # Pin the working floors here so a local install renders correctly.
+    "ipython>=8.14",
     "ipywidgets>=8.1.2",
     "jupyter",
     "nbconvert",
