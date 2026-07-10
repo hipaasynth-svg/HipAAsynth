@@ -329,10 +329,243 @@ COPD_PROFILE = ModuleProfile(
 )
 
 
+# --- DMD profile ----------------------------------------------------------- #
+# Duchenne is X-linked, so the cohort is all-male: `sex` is a degenerate axis and
+# is intentionally omitted. Fairness axes are clinical/genetic instead of the
+# demographic ones OUD carries. Outcome: loss of ambulation (native boolean). The
+# score avoids `non_ambulatory` and its direct proxy `ambulation_loss_age`.
+_DMD_SCORE = ScoreModel(
+    intercept=-2.0,
+    terms=[
+        ("current_age", lambda r: 0.18 * (_num(r.get("current_age"), 10) - 10)),
+        ("disease_duration", lambda r: 0.12 * (_num(r.get("disease_duration"), 6) - 6)),
+        ("cardiomyopathy", lambda r: 0.5 * _b(r.get("cardiomyopathy"))),
+        ("ck_level", lambda r: 0.00003 * (_num(r.get("ck_level"), 10000) - 10000)),
+    ],
+    feature_columns=["current_age", "disease_duration", "cardiomyopathy", "ck_level"],
+)
+
+DMD_PROFILE = ModuleProfile(
+    name="dmd",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("current_age", "Age", "int", splits=[8, 15], definition="Current patient age in years."),
+        CohortSpec("mutation_type", "Mutation type", "object", definition="Dystrophin mutation class (deletion/duplication/point)."),
+        CohortSpec("on_steroids", "On steroids", "object", definition="Corticosteroid treatment status (treatment-access axis)."),
+    ],
+    outcome=OutcomeSpec(
+        source="non_ambulatory",
+        display_name="Loss of ambulation",
+        definition="Native binary: patient is non-ambulatory.",
+    ),
+    score_model=_DMD_SCORE,
+    score_definition="Illustrative DMD-progression score in [0,1] from age, disease duration, cardiomyopathy, and CK (adapter-synthesized; excludes ambulation columns — no label leakage).",
+)
+
+
+# --- Fabry profile --------------------------------------------------------- #
+# Fabry affects both sexes (X-linked, but heterozygous females are symptomatic),
+# so `sex` is a real axis. Outcome: progression to ESRD (native boolean). The
+# score avoids `progressed_to_esrd` and its proxy `age_esrd_onset_years`.
+_FABRY_SCORE = ScoreModel(
+    intercept=-1.5,
+    terms=[
+        ("low_enzyme_activity", lambda r: -0.02 * (_num(r.get("alpha_galactosidase_a_percent_normal"), 40) - 40)),
+        ("high_lyso_gb3", lambda r: 0.004 * (_num(r.get("lyso_gb3_ng_ml"), 50) - 50)),
+        ("has_proteinuria", lambda r: 0.8 * _b(r.get("has_proteinuria"))),
+        ("has_lvh", lambda r: 0.4 * _b(r.get("has_left_ventricular_hypertrophy"))),
+        ("on_ert(protective)", lambda r: -0.4 * _b(r.get("on_enzyme_replacement_therapy"))),
+    ],
+    feature_columns=[
+        "alpha_galactosidase_a_percent_normal",
+        "lyso_gb3_ng_ml",
+        "has_proteinuria",
+        "has_left_ventricular_hypertrophy",
+        "on_enzyme_replacement_therapy",
+    ],
+)
+
+FABRY_PROFILE = ModuleProfile(
+    name="fabry",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("sex", "Sex", "object", definition="Recorded sex (Fabry affects both)."),
+        CohortSpec("age_at_diagnosis_years", "Age at diagnosis", "int", splits=[18, 40], definition="Age at Fabry diagnosis in years."),
+        CohortSpec("phenotype", "Phenotype", "object", definition="Clinical phenotype (classic/late-onset/asymptomatic)."),
+        CohortSpec("mutation_type", "Mutation type", "object", definition="GLA mutation class."),
+    ],
+    outcome=OutcomeSpec(
+        source="progressed_to_esrd",
+        display_name="Progression to ESRD",
+        definition="Native binary: progressed to end-stage renal disease.",
+    ),
+    score_model=_FABRY_SCORE,
+    score_definition="Illustrative Fabry-severity score in [0,1] from enzyme activity, lyso-Gb3, proteinuria, LVH, and ERT status (adapter-synthesized; excludes ESRD columns — no label leakage).",
+)
+
+
+# --- SMA profile ----------------------------------------------------------- #
+# SMA records carry no `sex` field (autosomal). Fairness axes are the genetic and
+# severity strata that drive SMA outcomes. Outcome: ventilatory support (native
+# boolean). The score avoids `needs_ventilation` and its proxy `niv_hours_per_day`.
+_SMA_SCORE = ScoreModel(
+    intercept=0.5,
+    terms=[
+        ("smn2_copies(protective)", lambda r: -0.8 * (_num(r.get("smn2_copies"), 2) - 2)),
+        ("early_onset", lambda r: -0.03 * (_num(r.get("age_at_onset_months"), 12) - 12)),
+        ("achieved_sitting(protective)", lambda r: -1.0 * _b(r.get("achieved_sitting"))),
+        ("on_dmt(protective)", lambda r: -0.5 * _b(r.get("on_disease_modifying_therapy"))),
+        ("scoliosis", lambda r: 0.5 * _b(r.get("scoliosis"))),
+    ],
+    feature_columns=[
+        "smn2_copies",
+        "age_at_onset_months",
+        "achieved_sitting",
+        "on_disease_modifying_therapy",
+        "scoliosis",
+    ],
+)
+
+SMA_PROFILE = ModuleProfile(
+    name="sma",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("sma_type", "SMA type", "object", definition="SMA clinical type (I–IV); primary severity axis."),
+        CohortSpec("smn2_copies", "SMN2 copies", "int", splits=[2, 3], definition="SMN2 copy number (genetic severity modifier)."),
+        CohortSpec("age_at_diagnosis_months", "Age at dx (mo)", "int", splits=[6, 18], definition="Age at diagnosis in months."),
+    ],
+    outcome=OutcomeSpec(
+        source="needs_ventilation",
+        display_name="Ventilatory support",
+        definition="Native binary: patient requires ventilatory support.",
+    ),
+    score_model=_SMA_SCORE,
+    score_definition="Illustrative SMA-severity score in [0,1] from SMN2 copies, onset age, motor milestones, DMT status, and scoliosis (adapter-synthesized; excludes ventilation columns — no label leakage).",
+)
+
+
+# --- Diabetes profile ------------------------------------------------------ #
+# Diabetes carries full demographics (race/sex/type). Outcome: diabetic
+# nephropathy (native boolean). The score avoids `nephropathy_any` and its renal
+# proxies (egfr_current, albuminuria_stage, ckd_stage, dialysis_initiated).
+_DIABETES_SCORE = ScoreModel(
+    intercept=-1.6,
+    terms=[
+        ("high_hba1c", lambda r: 0.35 * (_num(r.get("hba1c_current"), 7.0) - 7.0)),
+        ("diabetes_duration", lambda r: 0.05 * (_num(r.get("diabetes_duration_years"), 10) - 10)),
+        ("current_age", lambda r: 0.015 * (_num(r.get("current_age"), 55) - 55)),
+        ("coronary_artery_disease", lambda r: 0.5 * _b(r.get("coronary_artery_disease"))),
+        ("time_in_range(protective)", lambda r: -0.015 * (_num(r.get("time_in_range_pct"), 60) - 60)),
+    ],
+    feature_columns=[
+        "hba1c_current",
+        "diabetes_duration_years",
+        "current_age",
+        "coronary_artery_disease",
+        "time_in_range_pct",
+    ],
+)
+
+DIABETES_PROFILE = ModuleProfile(
+    name="diabetes",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("current_age", "Age", "int", splits=[40, 65], definition="Current patient age in years."),
+        CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
+        CohortSpec("race", "Race", "object", definition="Race / ethnicity category."),
+        CohortSpec("diabetes_type", "Diabetes type", "object", definition="Type 1 vs type 2 diabetes."),
+    ],
+    outcome=OutcomeSpec(
+        source="nephropathy_any",
+        display_name="Diabetic nephropathy",
+        definition="Native binary: any diabetic nephropathy (kidney disease).",
+    ),
+    score_model=_DIABETES_SCORE,
+    score_definition="Illustrative diabetes-complication score in [0,1] from HbA1c, disease duration, age, CAD, and time-in-range (adapter-synthesized; excludes renal columns — no label leakage).",
+)
+
+
+# --- Sepsis profile -------------------------------------------------------- #
+# Longitudinal module (demographics + sepsis observation hook). Outcome: delayed
+# hypotension (a native boolean deterioration event). The score uses baseline
+# labs/comorbidities and avoids the outcome and its downstream shock/timing fields.
+_SEPSIS_SCORE = ScoreModel(
+    intercept=-1.2,
+    terms=[
+        ("high_lactate", lambda r: 0.35 * (_num(r.get("lactate_initial"), 2.0) - 2.0)),
+        ("high_creatinine", lambda r: 0.4 * (_num(r.get("creatinine_initial"), 1.0) - 1.0)),
+        ("age", lambda r: 0.02 * (_num(r.get("age"), 60) - 60)),
+        ("ckd", lambda r: 0.4 * _b(r.get("ckd_flag"))),
+        ("hypertension", lambda r: 0.2 * _b(r.get("hypertension_flag"))),
+    ],
+    feature_columns=["lactate_initial", "creatinine_initial", "age", "ckd_flag", "hypertension_flag"],
+)
+
+SEPSIS_PROFILE = ModuleProfile(
+    name="sepsis",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("age", "Age", "int", splits=[50, 70], definition="Patient age in years."),
+        CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
+        CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
+        CohortSpec("suspected_infection_source", "Infection source", "object", definition="Suspected source of infection."),
+    ],
+    outcome=OutcomeSpec(
+        source="delayed_hypotension_flag",
+        display_name="Delayed hypotension",
+        definition="Native binary: delayed-onset hypotension (sepsis deterioration event).",
+    ),
+    score_model=_SEPSIS_SCORE,
+    score_definition="Illustrative sepsis-severity score in [0,1] from lactate, creatinine, age, and comorbidities (adapter-synthesized; excludes shock/timing outcome fields — no label leakage).",
+)
+
+
+# --- Stroke profile -------------------------------------------------------- #
+# Longitudinal module with a genuine equity outcome: whether the patient received
+# thrombolysis (tPA). `rural_presentation` is exposed as a fairness axis. The score
+# uses clinical severity/timing but excludes tpa_* and door_to_needle (label proxies).
+_STROKE_SCORE = ScoreModel(
+    intercept=-0.5,
+    terms=[
+        ("nihss_score", lambda r: 0.03 * (_num(r.get("nihss_score"), 8) - 8)),
+        ("onset_to_door(delay lowers tPA)", lambda r: -0.006 * (_num(r.get("onset_to_door_minutes"), 120) - 120)),
+        ("age", lambda r: -0.005 * (_num(r.get("age"), 65) - 65)),
+        ("atrial_fibrillation", lambda r: 0.2 * _b(r.get("atrial_fibrillation"))),
+        ("prior_stroke", lambda r: -0.2 * _b(r.get("prior_stroke"))),
+    ],
+    feature_columns=["nihss_score", "onset_to_door_minutes", "age", "atrial_fibrillation", "prior_stroke"],
+)
+
+STROKE_PROFILE = ModuleProfile(
+    name="stroke",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("age", "Age", "int", splits=[55, 75], definition="Patient age in years."),
+        CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
+        CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
+        CohortSpec("stroke_type", "Stroke type", "object", definition="Ischemic / hemorrhagic / TIA."),
+        CohortSpec("rural_presentation", "Rural presentation", "object", definition="Presented at a rural site (sparse-population axis)."),
+    ],
+    outcome=OutcomeSpec(
+        source="tpa_administered",
+        display_name="tPA administered",
+        definition="Native binary: received thrombolysis (an access/equity outcome).",
+    ),
+    score_model=_STROKE_SCORE,
+    score_definition="Illustrative tPA-likelihood score in [0,1] from stroke severity, time-to-presentation, and history (adapter-synthesized; excludes tpa_eligible/door_to_needle — no label leakage).",
+)
+
+
 PROFILES: dict[str, ModuleProfile] = {
     "oud": OUD_PROFILE,
     "chf": CHF_PROFILE,
     "copd": COPD_PROFILE,
+    "dmd": DMD_PROFILE,
+    "fabry": FABRY_PROFILE,
+    "sma": SMA_PROFILE,
+    "diabetes": DIABETES_PROFILE,
+    "sepsis": SEPSIS_PROFILE,
+    "stroke": STROKE_PROFILE,
 }
 
 

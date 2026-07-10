@@ -112,30 +112,53 @@ needs **≥ 11** observations to render.
 ## Adding a module profile
 
 Register a `ModuleProfile` in `examples/seismometer/seismometer_adapter.py` (`PROFILES`)
-declaring its cohorts, outcome field, and score model, and add the module to
-`_MODULE_GENERATORS` in `generate_demo_cohort.py`. Three profiles ship today —
-`oud`, `chf`, and `copd`:
+and wire the module's cohort generation into `generate_demo_cohort.py`. **Nine
+profiles ship today** — every clinical module that produces a patient cohort:
 
 | Module | Cohort axes | Outcome | Outcome kind |
 |--------|-------------|---------|--------------|
-| `oud`  | Age, Sex, Race, Rurality, Insurance, Housing | `prior_overdose` → Overdose | native binary |
-| `chf`  | Age, Sex, Race, NYHA class, ACC/AHA stage | ≥1 HF admission in prior year | **derived** from `prior_hf_admissions_1yr` |
-| `copd` | Age, Sex, Race, GOLD stage, GOLD ABCD | `hospitalized_prior_yr` → COPD hospitalization | native binary |
-
-A module with no native binary event (like CHF) can set an `OutcomeSpec.derive`
-callable to *honestly binarize* an existing real column — this is disclosed on
-`invented_columns`, never presented as a HipAAsynth-emitted event. Every profile's
-score model must exclude its outcome (and any column the outcome derives from) so
-the ROC carries no label leakage.
+| `oud`      | Age, Sex, Race, Rurality, Insurance, Housing | `prior_overdose` → Overdose | native binary |
+| `chf`      | Age, Sex, Race, NYHA class, ACC/AHA stage | ≥1 HF admission in prior year | **derived** from `prior_hf_admissions_1yr` |
+| `copd`     | Age, Sex, Race, GOLD stage, GOLD ABCD | `hospitalized_prior_yr` | native binary |
+| `dmd`      | Age, Mutation type, On-steroids | `non_ambulatory` → Loss of ambulation | native binary |
+| `fabry`    | Sex, Age at dx, Phenotype, Mutation type | `progressed_to_esrd` | native binary |
+| `sma`      | SMA type, SMN2 copies, Age at dx | `needs_ventilation` | native binary |
+| `diabetes` | Age, Sex, Race, Diabetes type | `nephropathy_any` → Diabetic nephropathy | native binary |
+| `sepsis`   | Age, Sex, Race, Infection source | `delayed_hypotension_flag` | native binary |
+| `stroke`   | Age, Sex, Race, Stroke type, **Rural presentation** | `tpa_administered` (equity outcome) | native binary |
 
 Run any of them:
 
 ```bash
-MODULE=chf  bash examples/seismometer/demo_seismometer.sh
-MODULE=copd bash examples/seismometer/demo_seismometer.sh
+MODULE=stroke   bash examples/seismometer/demo_seismometer.sh
+MODULE=diabetes bash examples/seismometer/demo_seismometer.sh
+# ...oud chf copd dmd fabry sma sepsis stroke diabetes
 ```
 
-The remaining engine modules (diabetes, dmd, fabry, sma, sepsis, stroke,
-cardiology) don't yet expose the uniform `generate_<x>_cohort(seed, n, label)`
-interface these three share, so wiring them in is a per-module generator task, not
-just a profile.
+### The three generator shapes
+
+The engine's modules expose cohort generation three different ways; the demo
+generator (`generate_demo_cohort.py`) handles all three via separate registries:
+
+- **Function-based** (`oud`, `chf`, `copd`): `generate_<x>_cohort(seed, n, label)`
+  plus the module's own `save_cohort`.
+- **Class-based** (`dmd`, `fabry`, `sma`): `<Class>(seed=…).generate(n)`; records
+  are serialized by the generic `_save_generic` writer.
+- **Pipeline** (`diabetes`, `sepsis`, `stroke`): a builder composes multiple stages
+  (diabetes) or runs the longitudinal population pipeline with a
+  `required_condition` and flattens each `Patient` (sepsis, stroke).
+
+### Outcome honesty
+
+A module with no native binary event (like CHF) can set an `OutcomeSpec.derive`
+callable to *honestly binarize* an existing real column — disclosed on
+`invented_columns`, never presented as a HipAAsynth-emitted event. Every profile's
+score model **excludes its outcome and any column the outcome derives from**, so
+the ROC carries no label leakage.
+
+### What is not wired in
+
+`cardiology` is **not** a cohort module — it is a risk-score/medication library
+(`CardioRiskScores`, `CardioMedications`) that enriches an externally supplied
+population and emits no patients or outcome of its own. There is nothing to audit
+as a standalone cohort, so it has no profile.
