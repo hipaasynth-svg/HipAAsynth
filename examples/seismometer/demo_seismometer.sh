@@ -40,7 +40,7 @@ python "$HERE/seismometer_adapter.py" \
   --patients "$PATIENTS" --results "$RESULTS" --module "$MODULE" --out "$CONFIG_DIR"
 
 cp "$HERE/hipaasynth_seismometer_demo.ipynb" "$OUT/run.ipynb"
-SEIS_CONFIG_DIR="$CONFIG_DIR" \
+SEIS_CONFIG_DIR="$CONFIG_DIR" SEIS_MODULE="$MODULE" SEIS_N="$N" SEIS_SEED="$SEED" \
   jupyter nbconvert --to html --execute \
     --ExecutePreprocessor.timeout=300 \
     --output "seismometer_demo_report" --output-dir "$OUT" \

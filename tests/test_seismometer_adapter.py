@@ -36,11 +36,15 @@ pytest.importorskip("yaml")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples" / "seismometer"))
 
 from seismometer_adapter import (  # noqa: E402
+    CHF_PROFILE,
+    COPD_PROFILE,
     OUD_PROFILE,
+    PROFILES,
     SchemaMismatchError,
     build_events,
     build_predictions,
     censor_audit,
+    derive_outcome,
     derive_score,
     load_canonical,
     run,
@@ -177,3 +181,114 @@ class TestEndToEnd:
         # invented columns are surfaced
         cols = {c["column"] for c in result.invented_columns}
         assert {"PredictTime", "EventTime", "ModelScore", "Value"} <= cols
+
+
+# --------------------------------------------------------------------------- #
+# Multi-module support (oud + chf + copd) and the derived-outcome contract.
+# --------------------------------------------------------------------------- #
+def _chf_patient(pid, **over):
+    base = {
+        "patient_id": pid,
+        "age": 71,
+        "sex": "male",
+        "ethnicity": "white",
+        "nyha_class": "III",
+        "acc_aha_stage": "C",
+        "prior_hf_admissions_1yr": 2,
+        "ejection_fraction_pct": 30,
+        "ntprobnp_pgml": 4000.0,
+        "egfr_ml_min_173m2": 60.0,
+        "sodium_meql": 138.0,
+        "systolic_bp_mmhg": 120.0,
+        "cad": True,
+        "ckd": False,
+        "afib": False,
+        "type2_diabetes": False,
+    }
+    base.update(over)
+    return base
+
+
+def _copd_patient(pid, **over):
+    base = {
+        "patient_id": pid,
+        "age": 73,
+        "sex": "female",
+        "ethnicity": "white",
+        "gold_stage": "GOLD_2",
+        "gold_abcd_group": "B",
+        "hospitalized_prior_yr": False,
+        "fev1_pct_predicted": 64.0,
+        "cat_score": 13,
+        "mmrc_dyspnea_grade": 3,
+        "spo2_pct": 94.0,
+        "pack_years": 20.0,
+        "six_min_walk_m": 350.0,
+        "ltot": False,
+        "pulmonary_hypertension": False,
+    }
+    base.update(over)
+    return base
+
+
+class TestMultiModule:
+    def test_supported_modules_all_have_profiles(self):
+        # generate_demo_cohort's supported set must stay in lockstep with PROFILES.
+        import generate_demo_cohort
+
+        assert set(generate_demo_cohort.SUPPORTED_MODULES) == set(PROFILES)
+        assert set(PROFILES) == {"oud", "chf", "copd"}
+
+    def test_no_profile_leaks_its_outcome_into_the_score(self):
+        # A profile's score model must never read the outcome column or the columns
+        # its outcome is derived from — that would manufacture the ROC.
+        for prof in PROFILES.values():
+            leak = set(prof.score_model.feature_columns) & (
+                {prof.outcome.source} | set(prof.outcome.derived_from)
+            )
+            assert not leak, f"{prof.name}: score leaks outcome column(s) {leak}"
+
+    def test_copd_native_binary_outcome(self, tmp_path):
+        import pandas as pd
+
+        rc = tmp_path / "results.csv"
+        rows = [_copd_patient(f"C{i:03d}", hospitalized_prior_yr=(i % 4 == 0)) for i in range(40)]
+        pd.DataFrame(rows).to_csv(rc, index=False)
+        result = run(None, rc, tmp_path / "pkg", module="copd")
+        ev = pd.read_parquet(result.out_dir / "events.parquet")
+        assert set(ev["Value"].unique()) <= {0.0, 1.0}
+        assert (ev["Type"] == "COPD hospitalization (prior yr)").all()
+
+    def test_chf_derived_outcome_is_binary_and_disclosed(self, tmp_path):
+        import pandas as pd
+
+        # Mix of 0 and >=1 admissions -> derived label must be 0/1 with both classes.
+        rows = [_chf_patient(f"H{i:03d}", prior_hf_admissions_1yr=(i % 3)) for i in range(30)]
+        df = pd.DataFrame(rows)
+        derived = derive_outcome(df, CHF_PROFILE)
+        assert set(derived.unique()) == {0, 1}
+        # i%3 -> 0 admissions for 1/3 of rows -> those are the only zeros
+        assert (derived == 0).sum() == sum(1 for i in range(30) if i % 3 == 0)
+
+        rc = tmp_path / "results.csv"
+        df.to_csv(rc, index=False)
+        result = run(None, rc, tmp_path / "pkg", module="chf")
+        value_note = next(c for c in result.invented_columns if c["column"] == "Value")
+        assert "DERIVED" in value_note["reason"]
+        assert "prior_hf_admissions_1yr" in value_note["reason"]
+
+    def test_derived_outcome_rejects_non_binary_derive(self, tmp_path):
+        # A derive() that returns something non-0/1 must fail loud, not silently pass.
+        import pandas as pd
+        from dataclasses import replace
+        from seismometer_adapter import load_canonical, write_package
+
+        bad_profile = replace(
+            CHF_PROFILE,
+            outcome=replace(CHF_PROFILE.outcome, derive=lambda r: 7),
+        )
+        rc = tmp_path / "results.csv"
+        pd.DataFrame([_chf_patient("H1")]).to_csv(rc, index=False)
+        df, _ = load_canonical(None, rc)
+        with pytest.raises(SchemaMismatchError, match="non-binary"):
+            write_package(df, bad_profile, tmp_path / "pkg2")

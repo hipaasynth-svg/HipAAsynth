@@ -115,11 +115,26 @@ class ScoreModel:
 
 @dataclass(frozen=True)
 class OutcomeSpec:
-    """The binary clinical outcome mapped onto a Seismometer target event."""
+    """The binary clinical outcome mapped onto a Seismometer target event.
 
-    source: str  # boolean/0-1 column in the canonical data
+    Two forms:
+      * **Native binary** — ``source`` names a boolean/0-1 column that already
+        exists in the canonical data (e.g. OUD ``prior_overdose``, COPD
+        ``hospitalized_prior_yr``). ``derive`` stays ``None``.
+      * **Honestly derived** — a module has no native binary event, only a real
+        count or score. Set ``derive`` to a ``row -> 0/1`` callable that
+        binarizes existing *real* data (e.g. CHF: ``prior_hf_admissions_1yr >=
+        1``). This is a documented binarization of real data, **not** a
+        fabricated label — it is stamped onto ``invented_columns`` so the report
+        never presents it as a HipAAsynth-emitted event. ``derived_from`` lists
+        the columns the callable reads, so validation can require they exist.
+    """
+
+    source: str  # boolean/0-1 column, OR the primary column a derive() reads
     display_name: str  # Seismometer event display name (== primary_target)
     definition: str = ""
+    derive: Optional[Callable[[dict], Any]] = None  # row -> truthy/0-1 when set
+    derived_from: tuple[str, ...] = ()  # extra source columns derive() reads
 
 
 @dataclass(frozen=True)
@@ -211,7 +226,114 @@ OUD_PROFILE = ModuleProfile(
     score_definition="Illustrative overdose-risk score in [0,1] derived from clinical risk factors (adapter-synthesized; HipAAsynth emits no model score).",
 )
 
-PROFILES: dict[str, ModuleProfile] = {"oud": OUD_PROFILE}
+# --- CHF profile ----------------------------------------------------------- #
+# Heart-failure severity log-odds model. CHF emits NO native binary event — only
+# a readmission risk *score* and admission *counts* — so the outcome is honestly
+# DERIVED (>=1 HF admission in the prior year). The score deliberately avoids
+# every admission/readmission column (`prior_hf_admissions_1yr`,
+# `prior_any_admissions_1yr`, `readmission_risk_30d`) so there is no leakage from
+# the derived label into the score.
+_CHF_SCORE = ScoreModel(
+    intercept=-0.5,
+    terms=[
+        ("low_ejection_fraction", lambda r: -0.04 * (_num(r.get("ejection_fraction_pct"), 40) - 40)),
+        ("ntprobnp_elevated", lambda r: 0.00003 * (_num(r.get("ntprobnp_pgml"), 1000) - 1000)),
+        ("low_egfr", lambda r: -0.010 * (_num(r.get("egfr_ml_min_173m2"), 60) - 60)),
+        ("hyponatremia", lambda r: -0.05 * (_num(r.get("sodium_meql"), 138) - 138)),
+        ("low_systolic_bp", lambda r: -0.008 * (_num(r.get("systolic_bp_mmhg"), 120) - 120)),
+        ("cad", lambda r: 0.3 * _b(r.get("cad"))),
+        ("ckd", lambda r: 0.3 * _b(r.get("ckd"))),
+        ("afib", lambda r: 0.3 * _b(r.get("afib"))),
+        ("type2_diabetes", lambda r: 0.2 * _b(r.get("type2_diabetes"))),
+    ],
+    feature_columns=[
+        "ejection_fraction_pct",
+        "ntprobnp_pgml",
+        "egfr_ml_min_173m2",
+        "sodium_meql",
+        "systolic_bp_mmhg",
+        "cad",
+        "ckd",
+        "afib",
+        "type2_diabetes",
+    ],
+)
+
+CHF_PROFILE = ModuleProfile(
+    name="chf",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("age", "Age", "int", splits=[55, 75], definition="Patient age in years."),
+        CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
+        CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
+        CohortSpec("nyha_class", "NYHA class", "object", definition="NYHA functional class (I–IV)."),
+        CohortSpec("acc_aha_stage", "ACC/AHA stage", "object", definition="ACC/AHA heart-failure stage (A–D)."),
+    ],
+    outcome=OutcomeSpec(
+        source="prior_hf_admissions_1yr",
+        display_name="HF admission (prior yr)",
+        definition="Derived binary: ≥1 heart-failure admission in the prior year (from prior_hf_admissions_1yr).",
+        derive=lambda r: 1 if _num(r.get("prior_hf_admissions_1yr"), 0) >= 1 else 0,
+        derived_from=("prior_hf_admissions_1yr",),
+    ),
+    score_model=_CHF_SCORE,
+    score_definition="Illustrative HF-severity score in [0,1] from EF, natriuretic peptides, renal function, sodium, BP, and comorbidities (adapter-synthesized; excludes all admission columns — no label leakage).",
+)
+
+
+# --- COPD profile ---------------------------------------------------------- #
+# COPD *does* emit a native binary outcome (`hospitalized_prior_yr`). The score
+# excludes the three admission/exacerbation proxies (`hospitalized_prior_yr`,
+# `icu_admit_prior_yr`, `exacerbations_prior_yr`) to keep the ROC honest.
+_COPD_SCORE = ScoreModel(
+    intercept=-1.0,
+    terms=[
+        ("low_fev1_pct_predicted", lambda r: -0.03 * (_num(r.get("fev1_pct_predicted"), 60) - 60)),
+        ("high_cat_score", lambda r: 0.04 * (_num(r.get("cat_score"), 10) - 10)),
+        ("high_mmrc_dyspnea", lambda r: 0.25 * (_num(r.get("mmrc_dyspnea_grade"), 2) - 2)),
+        ("low_spo2", lambda r: -0.06 * (_num(r.get("spo2_pct"), 94) - 94)),
+        ("pack_years", lambda r: 0.008 * (_num(r.get("pack_years"), 20) - 20)),
+        ("low_six_min_walk", lambda r: -0.002 * (_num(r.get("six_min_walk_m"), 350) - 350)),
+        ("on_long_term_oxygen", lambda r: 0.6 * _b(r.get("ltot"))),
+        ("pulmonary_hypertension", lambda r: 0.4 * _b(r.get("pulmonary_hypertension"))),
+    ],
+    feature_columns=[
+        "fev1_pct_predicted",
+        "cat_score",
+        "mmrc_dyspnea_grade",
+        "spo2_pct",
+        "pack_years",
+        "six_min_walk_m",
+        "ltot",
+        "pulmonary_hypertension",
+    ],
+)
+
+COPD_PROFILE = ModuleProfile(
+    name="copd",
+    entity_id="patient_id",
+    cohorts=[
+        CohortSpec("age", "Age", "int", splits=[55, 70], definition="Patient age in years."),
+        CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
+        CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
+        CohortSpec("gold_stage", "GOLD stage", "object", definition="GOLD spirometric stage (1–4)."),
+        CohortSpec("gold_abcd_group", "GOLD ABCD", "object", definition="GOLD ABCD symptom/risk group."),
+    ],
+    outcome=OutcomeSpec(
+        source="hospitalized_prior_yr",
+        display_name="COPD hospitalization (prior yr)",
+        definition="Native binary: any COPD-related hospitalization in the prior year.",
+    ),
+    score_model=_COPD_SCORE,
+    score_definition="Illustrative COPD-severity score in [0,1] from spirometry, symptom burden (CAT/mMRC), oxygenation, smoking, and exercise capacity (adapter-synthesized; excludes admission/exacerbation columns — no label leakage).",
+)
+
+
+PROFILES: dict[str, ModuleProfile] = {
+    "oud": OUD_PROFILE,
+    "chf": CHF_PROFILE,
+    "copd": COPD_PROFILE,
+}
 
 
 def profile_for(module: str) -> ModuleProfile:
@@ -374,8 +496,14 @@ def _validate_columns(df, profile: ModuleProfile) -> None:
     """Fail loud if any column the adapter needs is absent from the inputs."""
     required = {profile.entity_id}
     required |= {c.source for c in profile.cohorts}
-    required.add(profile.outcome.source)
     required |= set(profile.score_model.feature_columns)
+    outcome = profile.outcome
+    if outcome.derive is None:
+        # Native binary outcome: the source column itself must exist and be binary.
+        required.add(outcome.source)
+    else:
+        # Derived outcome: the columns the derive() callable reads must exist.
+        required.update(outcome.derived_from or (outcome.source,))
 
     missing = sorted(c for c in required if c not in df.columns)
     if missing:
@@ -384,13 +512,18 @@ def _validate_columns(df, profile: ModuleProfile) -> None:
             f"Columns present ({len(df.columns)}): {sorted(df.columns)}"
         )
 
-    # Outcome must be binary-coercible.
-    bad = _non_binary_values(df[profile.outcome.source])
-    if bad:
-        raise SchemaMismatchError(
-            f"Outcome column '{profile.outcome.source}' is not binary/boolean; "
-            f"unexpected values: {bad[:8]}. Seismometer targets must be 0/1."
-        )
+    if outcome.derive is None:
+        # Outcome must be binary-coercible.
+        bad = _non_binary_values(df[outcome.source])
+        if bad:
+            raise SchemaMismatchError(
+                f"Outcome column '{outcome.source}' is not binary/boolean; "
+                f"unexpected values: {bad[:8]}. Seismometer targets must be 0/1."
+            )
+    else:
+        # Derived outcome: derive_outcome fails loud if derive() returns a
+        # non-binary value, so calling it here validates the derivation early.
+        derive_outcome(df, profile)
 
 
 def _non_binary_values(series) -> list:
@@ -419,6 +552,36 @@ def derive_score(df, profile: ModuleProfile):
     return pd.Series(scores, index=df.index, dtype="float64")
 
 
+def derive_outcome(df, profile: ModuleProfile):
+    """Binary outcome Series (int 0/1) for a profile.
+
+    Native outcomes read ``outcome.source`` directly; derived outcomes apply
+    ``outcome.derive(row)`` over real columns. Kept separate from the score so a
+    derived label can never silently pull in the very column it is derived from.
+    """
+    pd = _require_pandas()
+    outcome = profile.outcome
+    if outcome.derive is None:
+        return df[outcome.source].map(_b).astype(int)
+    # Derived path: fail loud (no silent coercion) if derive() returns anything
+    # other than a boolean or 0/1, so a mis-written derive (e.g. returning a raw
+    # count) is caught instead of being quietly treated as event-present.
+    records = df.to_dict(orient="records")
+    values = []
+    for r in records:
+        v = outcome.derive(r)
+        if isinstance(v, bool):
+            values.append(int(v))
+        elif isinstance(v, (int, float)) and not isinstance(v, bool) and v in (0, 1):
+            values.append(int(v))
+        else:
+            raise SchemaMismatchError(
+                f"Derived outcome '{outcome.display_name}' derive() returned a "
+                f"non-binary value {v!r}; it must return True/False or 0/1."
+            )
+    return pd.Series(values, index=df.index, dtype="int64")
+
+
 def build_predictions(df, profile: ModuleProfile):
     """Build the Seismometer predictions frame with explicit dtypes."""
     pd = _require_pandas()
@@ -445,7 +608,7 @@ def build_events(df, profile: ModuleProfile):
     ev[profile.entity_id] = df[profile.entity_id].astype(str)
     ev["Type"] = profile.outcome.display_name
     ev["EventTime"] = pd.to_datetime(_REFERENCE_TIME)
-    ev["Value"] = df[profile.outcome.source].map(_b).astype(int).astype("float64")
+    ev["Value"] = derive_outcome(df, profile).astype("float64")
     return ev
 
 
@@ -621,7 +784,14 @@ def write_package(df, profile: ModuleProfile, out_dir: str | Path, censor_min_co
             "column": "Value",
             "table": "events.parquet",
             "dtype": "float64",
-            "reason": f"Binary encoding (0.0/1.0) of the canonical outcome field '{profile.outcome.source}'.",
+            "reason": (
+                f"Binary encoding (0.0/1.0) of the canonical outcome field '{profile.outcome.source}'."
+                if profile.outcome.derive is None
+                else (
+                    f"Binary outcome DERIVED from real data ({', '.join(profile.outcome.derived_from) or profile.outcome.source}): "
+                    f"{profile.outcome.definition} Not a HipAAsynth-emitted event — an honest binarization for evaluation."
+                )
+            ),
         },
     ]
 

@@ -112,4 +112,30 @@ needs **≥ 11** observations to render.
 ## Adding a module profile
 
 Register a `ModuleProfile` in `examples/seismometer/seismometer_adapter.py` (`PROFILES`)
-declaring its cohorts, outcome field, and score model. Only `oud` ships today.
+declaring its cohorts, outcome field, and score model, and add the module to
+`_MODULE_GENERATORS` in `generate_demo_cohort.py`. Three profiles ship today —
+`oud`, `chf`, and `copd`:
+
+| Module | Cohort axes | Outcome | Outcome kind |
+|--------|-------------|---------|--------------|
+| `oud`  | Age, Sex, Race, Rurality, Insurance, Housing | `prior_overdose` → Overdose | native binary |
+| `chf`  | Age, Sex, Race, NYHA class, ACC/AHA stage | ≥1 HF admission in prior year | **derived** from `prior_hf_admissions_1yr` |
+| `copd` | Age, Sex, Race, GOLD stage, GOLD ABCD | `hospitalized_prior_yr` → COPD hospitalization | native binary |
+
+A module with no native binary event (like CHF) can set an `OutcomeSpec.derive`
+callable to *honestly binarize* an existing real column — this is disclosed on
+`invented_columns`, never presented as a HipAAsynth-emitted event. Every profile's
+score model must exclude its outcome (and any column the outcome derives from) so
+the ROC carries no label leakage.
+
+Run any of them:
+
+```bash
+MODULE=chf  bash examples/seismometer/demo_seismometer.sh
+MODULE=copd bash examples/seismometer/demo_seismometer.sh
+```
+
+The remaining engine modules (diabetes, dmd, fabry, sma, sepsis, stroke,
+cardiology) don't yet expose the uniform `generate_<x>_cohort(seed, n, label)`
+interface these three share, so wiring them in is a per-module generator task, not
+just a profile.
