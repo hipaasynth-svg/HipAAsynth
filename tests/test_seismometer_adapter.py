@@ -22,6 +22,7 @@ itself to be installed. Skipped if pandas/pyarrow/yaml are unavailable.
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -108,7 +109,7 @@ class TestLoadAndReconcile:
         rc = tmp_path / "results.csv"
         _cohort(20).to_csv(rc, index=False)
         with pytest.raises(SchemaMismatchError, match="No Seismometer profile"):
-            run(None, rc, tmp_path / "out", module="diabetes")
+            run(None, rc, tmp_path / "out", module="cardiology")
 
 
 class TestScoreAndFrames:
@@ -237,7 +238,30 @@ class TestMultiModule:
         import generate_demo_cohort
 
         assert set(generate_demo_cohort.SUPPORTED_MODULES) == set(PROFILES)
-        assert set(PROFILES) == {"oud", "chf", "copd"}
+        assert set(PROFILES) == {
+            "oud", "chf", "copd", "dmd", "fabry", "sma", "diabetes", "sepsis", "stroke"
+        }
+
+    @pytest.mark.parametrize("module", ["dmd", "fabry", "sma", "diabetes", "sepsis", "stroke"])
+    def test_class_based_modules_generate_and_adapt(self, module, tmp_path):
+        # The rare-disease (class-based) and diabetes/sepsis/stroke (pipeline)
+        # modules have no save_cohort; exercise the generic saver + registry end to
+        # end, then adapt into a valid package.
+        import generate_demo_cohort
+
+        pj, rc = generate_demo_cohort.generate(
+            out_dir=str(tmp_path / "cohort"), module=module, n=120, seed=42
+        )
+        assert os.path.isfile(pj) and os.path.isfile(rc)
+        result = run(pj, rc, tmp_path / "pkg", module=module)
+        assert result.n_patients == 120
+        # events are binary and the package is complete
+        import pandas as pd
+
+        ev = pd.read_parquet(result.out_dir / "events.parquet")
+        assert set(ev["Value"].unique()) <= {0.0, 1.0}
+        for name in ("config.yml", "predictions.parquet", "events.parquet", "metadata.json"):
+            assert (result.out_dir / name).is_file()
 
     def test_no_profile_leaks_its_outcome_into_the_score(self):
         # A profile's score model must never read the outcome column or the columns
