@@ -45,10 +45,25 @@ import argparse
 import os
 import sys
 
-# Supported demo modules. The Seismometer adapter currently ships one profile
-# (``oud``); keep this map in lockstep with ``seismometer_adapter.PROFILES`` so a
-# generated cohort always has a matching adapter profile.
-SUPPORTED_MODULES = ("oud",)
+# Supported demo modules. Each entry maps a module name to the engine module path
+# and the name of its ``generate_<x>_cohort`` function. All three expose the same
+# ``generate_<x>_cohort(seed, n, label) -> (patients, anchor)`` and
+# ``save_cohort(patients, anchor, out_dir, prefix)`` interface. Keep this map in
+# lockstep with ``seismometer_adapter.PROFILES`` so a generated cohort always has
+# a matching adapter profile.
+_MODULE_GENERATORS: dict[str, tuple[str, str]] = {
+    "oud": ("hipaasynth.modules.oud.oud_generator", "generate_oud_cohort"),
+    "chf": ("hipaasynth.modules.chf.chf_generator", "generate_chf_cohort"),
+    "copd": ("hipaasynth.modules.copd.copd_generator", "generate_copd_cohort"),
+}
+SUPPORTED_MODULES = tuple(_MODULE_GENERATORS)
+
+# Sensible default cohort label per module (overridable via --label).
+_DEFAULT_LABELS = {
+    "oud": "us_oud_calibration",
+    "chf": "us_chf_calibration",
+    "copd": "us_copd_calibration",
+}
 
 
 def _ensure_engine_importable() -> None:
@@ -69,7 +84,7 @@ def generate(
     module: str = "oud",
     n: int = 1000,
     seed: int = 42,
-    label: str = "us_oud_calibration",
+    label: str | None = None,
 ) -> tuple[str, str]:
     """Generate a deterministic demo cohort and write canonical JSON + CSV.
 
@@ -101,14 +116,21 @@ def generate(
         raise ValueError(
             f"Unsupported demo module {module!r}. Supported: {', '.join(SUPPORTED_MODULES)}."
         )
+    if label is None:
+        label = _DEFAULT_LABELS.get(module, f"us_{module}_calibration")
 
     _ensure_engine_importable()
-    # Lazy import: keeps this module importable for --help / introspection even
-    # if the engine path is momentarily unavailable, and avoids import-time
-    # coupling to a specific module's generator.
-    from hipaasynth.modules.oud.oud_generator import generate_oud_cohort, save_cohort
+    import importlib
 
-    patients, anchor = generate_oud_cohort(seed=seed, n=n, label=label)
+    # Lazy, registry-driven import: keeps this file importable for --help /
+    # introspection and avoids import-time coupling to any one generator. Every
+    # supported module exposes the same generate/save interface.
+    mod_path, gen_name = _MODULE_GENERATORS[module]
+    gen_mod = importlib.import_module(mod_path)
+    generate_cohort = getattr(gen_mod, gen_name)
+    save_cohort = getattr(gen_mod, "save_cohort")
+
+    patients, anchor = generate_cohort(seed=seed, n=n, label=label)
     json_path, csv_path, _manifest = save_cohort(patients, anchor, out_dir, prefix=f"{module}_demo")
     return os.path.abspath(json_path), os.path.abspath(csv_path)
 
@@ -121,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--module", default="oud", choices=SUPPORTED_MODULES, help="Clinical module")
     ap.add_argument("--n", type=int, default=1000, help="Number of synthetic patients")
     ap.add_argument("--seed", type=int, default=42, help="Anchor seed (reproducibility)")
-    ap.add_argument("--label", default="us_oud_calibration", help="Cohort label")
+    ap.add_argument("--label", default=None, help="Cohort label (defaults per module)")
     args = ap.parse_args(argv)
 
     patients_json, results_csv = generate(
