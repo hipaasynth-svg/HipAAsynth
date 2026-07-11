@@ -1075,8 +1075,34 @@ def run(
 # --------------------------------------------------------------------------- #
 # Reporting / CLI
 # --------------------------------------------------------------------------- #
+# Unicode glyphs that appear in the report (arrows, math, dashes) but that a
+# default Windows console codepage (cp1252) cannot encode. We transliterate these
+# to ASCII and encode-with-replace as a safety net so print_report can never die
+# with UnicodeEncodeError on a bare `python seismometer_adapter.py` run.
+_ASCII_TRANSLIT = {
+    "→": "->",   # →
+    "≥": ">=",   # ≥
+    "≤": "<=",   # ≤
+    "—": "-",    # — em dash
+    "–": "-",    # – en dash
+    "’": "'",    # ’ curly apostrophe
+    "‘": "'",
+    "“": '"',
+    "”": '"',
+}
+
+
 def print_report(result: AdapterResult, stream=sys.stdout) -> None:
-    p = lambda *a: print(*a, file=stream)  # noqa: E731
+    _enc = getattr(stream, "encoding", None) or "utf-8"
+
+    def p(*a):
+        text = " ".join(str(x) for x in a)
+        for glyph, ascii_ in _ASCII_TRANSLIT.items():
+            text = text.replace(glyph, ascii_)
+        # Final safety net for any glyph not in the map (never raises).
+        text = text.encode(_enc, errors="replace").decode(_enc, errors="replace")
+        print(text, file=stream)
+
     prof = result.profile
     p("")
     p("=" * 72)
