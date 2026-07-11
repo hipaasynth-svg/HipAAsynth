@@ -282,6 +282,21 @@ class TestMultiModule:
         assert rurality["frontier"] == frontier
         assert ethnicity["native"] == native
 
+    def test_print_report_survives_windows_cp1252_console(self, tmp_path):
+        # print_report emits Unicode (->, >=, em dashes) that a default Windows
+        # console codepage cannot encode; it must not crash there. Simulate a
+        # strict cp1252 stream (raises UnicodeEncodeError on unencodable glyphs).
+        import io
+        from seismometer_adapter import print_report
+
+        rc = tmp_path / "results.csv"
+        _cohort(30).to_csv(rc, index=False)
+        result = run(None, rc, tmp_path / "pkg", module="oud")
+
+        win = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="strict", newline="")
+        print_report(result, stream=win)  # must not raise UnicodeEncodeError
+        win.flush()
+
     def test_no_profile_leaks_its_outcome_into_the_score(self):
         # A profile's score model must never read the outcome column or the columns
         # its outcome is derived from — that would manufacture the ROC.
