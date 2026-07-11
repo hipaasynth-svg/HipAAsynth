@@ -455,14 +455,16 @@ _DIABETES_SCORE = ScoreModel(
         ("diabetes_duration", lambda r: 0.05 * (_num(r.get("diabetes_duration_years"), 10) - 10)),
         ("current_age", lambda r: 0.015 * (_num(r.get("current_age"), 55) - 55)),
         ("coronary_artery_disease", lambda r: 0.5 * _b(r.get("coronary_artery_disease"))),
-        ("time_in_range(protective)", lambda r: -0.015 * (_num(r.get("time_in_range_pct"), 60) - 60)),
+        # hba1c_mean_historical is populated for every patient; time_in_range_pct is
+        # CGM-only (null for ~65%), which would make its term inert for most rows.
+        ("high_mean_hba1c", lambda r: 0.2 * (_num(r.get("hba1c_mean_historical"), 7.0) - 7.0)),
     ],
     feature_columns=[
         "hba1c_current",
         "diabetes_duration_years",
         "current_age",
         "coronary_artery_disease",
-        "time_in_range_pct",
+        "hba1c_mean_historical",
     ],
 )
 
