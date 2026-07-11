@@ -263,6 +263,25 @@ class TestMultiModule:
         for name in ("config.yml", "predictions.parquet", "events.parquet", "metadata.json"):
             assert (result.out_dir / name).is_file()
 
+    @pytest.mark.parametrize(
+        "n,seed,frontier,native",
+        [(1000, 42, 122, 49), (50, 42, 6, 10)],
+    )
+    def test_documented_oud_censor_numbers_match_engine(self, n, seed, frontier, native, tmp_path):
+        # Locks the exact frontier/native counts quoted in examples/seismometer/README.md
+        # to the deterministic engine output, so the docs can never silently drift.
+        import collections
+        import generate_demo_cohort
+
+        pj, _ = generate_demo_cohort.generate(
+            out_dir=str(tmp_path), module="oud", n=n, seed=seed
+        )
+        patients = json.loads(open(pj).read())["patients"]
+        rurality = collections.Counter(p["rurality"] for p in patients)
+        ethnicity = collections.Counter(p["ethnicity"] for p in patients)
+        assert rurality["frontier"] == frontier
+        assert ethnicity["native"] == native
+
     def test_no_profile_leaks_its_outcome_into_the_score(self):
         # A profile's score model must never read the outcome column or the columns
         # its outcome is derived from — that would manufacture the ROC.

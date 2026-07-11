@@ -104,10 +104,10 @@ missing, the outcome isn't binary, or the module has no registered profile.
 reports, per subgroup, whether it survives. Default threshold is 10 — a subgroup
 needs **≥ 11** observations to render.
 
-- **N=1000 (default calibration cohort):** all 25 subgroups survive, including
-  `frontier` (n=119) and `native` (n=58). No larger N needed.
-- **N=50 (small public cohort):** 13 subgroups censored, including `frontier`
-  (n=6) and `native` (n=2) — the invisible populations vanish first.
+- **N=1000 (default calibration cohort, seed=42):** all 25 subgroups survive,
+  including `frontier` (n=122) and `native` (n=49). No larger N needed.
+- **N=50 (small public cohort, seed=42):** 12 subgroups censored, including
+  `frontier` (n=6) and `native` (n=10) — the invisible populations vanish first.
 
 ## Adding a module profile
 
