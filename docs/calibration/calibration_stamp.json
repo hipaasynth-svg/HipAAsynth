@@ -1,0 +1,32 @@
+{
+  "cap_version": "1.0",
+  "certified_utc": "2026-07-20 23:09:49 UTC",
+  "engine_version": "1.0.2",
+  "cohort_size": 1000,
+  "summary": {
+    "total_pass": 47,
+    "total_fail": 0
+  },
+  "module_results": {
+    "copd": {
+      "pass": 15,
+      "fail": 0
+    },
+    "chf": {
+      "pass": 16,
+      "fail": 0
+    },
+    "oud": {
+      "pass": 16,
+      "fail": 0
+    }
+  },
+  "cohort_csv_sha256": {
+    "copd": "c2e9d750fea83fec63dacb36cdfa0b680b53408dabb646afbcaebc54a8f15df6",
+    "chf": "8790871cdcb864d259108a1fa8d8920785dc007389ca07294f10f174aace78f8",
+    "oud": "38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199"
+  },
+  "calibration_report_sha256": "f2a1098c81acd58a1e8a72285025835a6e37f93d4b714768b8863dcfe18916ad",
+  "chain_hash_sha256": "0495dd0fb3d6f4db36ea08a368761d9fc492a9d4d01b32863114e01b14168674",
+  "opentimestamps_anchor": "PENDING"
+}

@@ -1,0 +1,41 @@
+========================================================
+HIPAASYNTH CALIBRATION CERTIFICATION — CAP v1.0
+========================================================
+Certification Date: 2026-07-20 23:09:49 UTC
+Engine Version:     1.0.2
+Default Tolerance:  +/-0.08
+Cohort Size:        n=1000 per module
+
+CALIBRATION RESULT:
+  TOTAL: 47 PASS / 0 FAIL
+
+MODULE RESULTS:
+  COPD   15 PASS / 0 FAIL
+  CHF    16 PASS / 0 FAIL
+  OUD    16 PASS / 0 FAIL
+
+COHORT CSV HASHES (SHA-256):
+  COPD: c2e9d750fea83fec63dacb36cdfa0b680b53408dabb646afbcaebc54a8f15df6
+  CHF:  8790871cdcb864d259108a1fa8d8920785dc007389ca07294f10f174aace78f8
+  OUD:  38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199
+
+CALIBRATION REPORT HASH (SHA-256):
+  f2a1098c81acd58a1e8a72285025835a6e37f93d4b714768b8863dcfe18916ad
+
+CHAIN HASH (SHA-256 of COPD+CHF+OUD CSV hashes + report hash):
+  0495dd0fb3d6f4db36ea08a368761d9fc492a9d4d01b32863114e01b14168674
+
+CHAIN INTEGRITY:
+Any modification to any cohort CSV or the calibration
+report will produce a different chain hash. This statement
+is valid only when the chain hash matches the independently
+computed value.
+
+OPENTIMESTAMPS ANCHOR: PENDING
+Submit calibration_chain_hash.txt to opentimestamps.org to
+anchor this certification to the Bitcoin blockchain for
+permanent tamper evidence.
+
+All statistical anchors from public sources. Zero PHI.
+HIPAASYNTH — Minot, North Dakota
+========================================================
