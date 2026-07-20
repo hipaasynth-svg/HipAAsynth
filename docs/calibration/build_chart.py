@@ -279,7 +279,8 @@ document.getElementById('note').textContent =
   + 'identical across metrics. The dot is the synthetic cohort value, placed by how far it lands from target in units '
   + 'of that metric’s tolerance — a dot inside the box PASSES, a dot outside FAILS. All 47 dots sit inside their '
   + 'bands. Exact target and actual values are on the right of each row (and in the data table). Continuous metrics '
-  + '(age, BNP, EF, sodium, SpO2, FEV1%) use value units; all others are proportions.';
+  + '(means, ages, lab values, minutes) use value units; all others are proportions. Every target is sourced in '
+  + 'docs/calibration/CITATIONS.md.';
 
 const toggle = document.getElementById('toggle');
 toggle.addEventListener('click', () => {

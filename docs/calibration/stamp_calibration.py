@@ -45,20 +45,39 @@ import os
 import sys
 from datetime import datetime, timezone
 
-MODULE_ORDER = ["copd", "chf", "oud"]
-COHORT_CSV = {
-    "copd": os.path.join("copd_1000", "copd_calibration_n1000.csv"),
-    "chf": os.path.join("chf_1000", "chf_calibration_n1000.csv"),
-    "oud": os.path.join("oud_1000", "oud_calibration_n1000.csv"),
-}
-
-
 def sha256_file(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def canonical_report_hash(report):
+    """
+    SHA-256 of the report's calibration *content*, excluding volatile fields.
+
+    ``generated_utc`` is a genuine wall-clock timestamp that changes every run,
+    so it is dropped and the CSV ``csv`` paths (absolute, machine-specific) are
+    normalized to basenames. What remains — targets, actuals, tolerances,
+    statuses, pass/fail counts — is deterministic for a fixed engine + seeds,
+    which is what makes the chain hash reproducible tamper-evidence.
+    """
+    canon = {
+        "engine_version": report.get("engine_version"),
+        "tolerance_default": report.get("tolerance_default"),
+        "summary": report.get("summary"),
+        "modules": {},
+    }
+    for name, md in report.get("modules", {}).items():
+        canon["modules"][name] = {
+            "csv": os.path.basename(md.get("csv", "")),
+            "checks": md.get("checks"),
+            "pass": md.get("pass"),
+            "fail": md.get("fail"),
+        }
+    blob = json.dumps(canon, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(blob).hexdigest()
 
 
 def build_stamp(output_dir):
@@ -69,15 +88,25 @@ def build_stamp(output_dir):
     with open(report_path, encoding="utf-8") as fh:
         report = json.load(fh)
 
+    # Modules (and their cohort CSV paths) come from the report itself, so the
+    # stamp automatically covers every calibrated module — the original
+    # COPD/CHF/OUD plus the extended stroke/diabetes/SMA/DMD/Fabry modules.
+    module_order = list(report["modules"].keys())
     cohort_hashes = {}
-    for module in MODULE_ORDER:
-        csv_path = os.path.join(output_dir, COHORT_CSV[module])
+    for module in module_order:
+        csv_field = report["modules"][module].get("csv", "")
+        # report stores an absolute path from the generating run; resolve by
+        # basename under output_dir so the stamp is portable across machines.
+        rel = os.path.join(f"{module}_1000", os.path.basename(csv_field)) if csv_field else ""
+        csv_path = os.path.join(output_dir, rel)
         if not os.path.isfile(csv_path):
             raise SystemExit(f"error: {csv_path} not found. Run run_all_modules.py first.")
         cohort_hashes[module] = sha256_file(csv_path)
 
-    report_hash = sha256_file(report_path)
-    chain_input = "".join(cohort_hashes[m] for m in MODULE_ORDER) + report_hash
+    # Deterministic content hash (excludes the wall-clock timestamp) — this is
+    # what the chain hash is built on, so re-running the pipeline reproduces it.
+    report_hash = canonical_report_hash(report)
+    chain_input = "".join(cohort_hashes[m] for m in module_order) + report_hash
     chain_hash = hashlib.sha256(chain_input.encode("utf-8")).hexdigest()
 
     return report, cohort_hashes, report_hash, chain_hash
@@ -105,20 +134,19 @@ def write_statement(stamp_dir, report, cohort_hashes, report_hash, chain_hash):
         "",
         "MODULE RESULTS:",
     ]
-    for module in MODULE_ORDER:
+    module_order = list(report["modules"].keys())
+    for module in module_order:
         md = report["modules"][module]
-        lines.append(f"  {module.upper():5s}  {md['pass']} PASS / {md['fail']} FAIL")
+        lines.append(f"  {module.upper():9s}  {md['pass']} PASS / {md['fail']} FAIL")
+    lines += ["", "COHORT CSV HASHES (SHA-256):"]
+    for module in module_order:
+        lines.append(f"  {module.upper():9s} {cohort_hashes[module]}")
     lines += [
         "",
-        "COHORT CSV HASHES (SHA-256):",
-        f"  COPD: {cohort_hashes['copd']}",
-        f"  CHF:  {cohort_hashes['chf']}",
-        f"  OUD:  {cohort_hashes['oud']}",
-        "",
-        "CALIBRATION REPORT HASH (SHA-256):",
+        "CALIBRATION REPORT CONTENT HASH (SHA-256, excl. timestamp):",
         f"  {report_hash}",
         "",
-        "CHAIN HASH (SHA-256 of COPD+CHF+OUD CSV hashes + report hash):",
+        "CHAIN HASH (SHA-256 of all cohort CSV hashes + report content hash):",
         f"  {chain_hash}",
         "",
         "CHAIN INTEGRITY:",
@@ -147,7 +175,7 @@ def write_statement(stamp_dir, report, cohort_hashes, report_hash, chain_hash):
         "summary": summary,
         "module_results": {
             m: {"pass": report["modules"][m]["pass"], "fail": report["modules"][m]["fail"]}
-            for m in MODULE_ORDER
+            for m in module_order
         },
         "cohort_csv_sha256": cohort_hashes,
         "calibration_report_sha256": report_hash,

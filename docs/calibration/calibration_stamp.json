@@ -1,10 +1,10 @@
 {
   "cap_version": "1.0",
-  "certified_utc": "2026-07-20 23:09:49 UTC",
+  "certified_utc": "2026-07-20 23:41:26 UTC",
   "engine_version": "1.0.2",
   "cohort_size": 1000,
   "summary": {
-    "total_pass": 47,
+    "total_pass": 79,
     "total_fail": 0
   },
   "module_results": {
@@ -19,14 +19,39 @@
     "oud": {
       "pass": 16,
       "fail": 0
+    },
+    "stroke": {
+      "pass": 6,
+      "fail": 0
+    },
+    "diabetes": {
+      "pass": 7,
+      "fail": 0
+    },
+    "sma": {
+      "pass": 6,
+      "fail": 0
+    },
+    "dmd": {
+      "pass": 7,
+      "fail": 0
+    },
+    "fabry": {
+      "pass": 6,
+      "fail": 0
     }
   },
   "cohort_csv_sha256": {
     "copd": "c2e9d750fea83fec63dacb36cdfa0b680b53408dabb646afbcaebc54a8f15df6",
     "chf": "8790871cdcb864d259108a1fa8d8920785dc007389ca07294f10f174aace78f8",
-    "oud": "38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199"
+    "oud": "38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199",
+    "stroke": "703833e9c5bc4f21c3cda3696027d7ef9fc619a1046fa9467a738117149fb0ab",
+    "diabetes": "49da9d45e151333b0fef3e9317979c40859e3aa99e11c8574f840c9ff1c65cde",
+    "sma": "5cd84f39b77fd31e79680bf3904f88bd5430a0a1cd18be5233fe271e903c26db",
+    "dmd": "529db66c1ab790b23da95a2c91b8b8b979df222b1753cff1ed2cb514243a26e7",
+    "fabry": "998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402"
   },
-  "calibration_report_sha256": "f2a1098c81acd58a1e8a72285025835a6e37f93d4b714768b8863dcfe18916ad",
-  "chain_hash_sha256": "0495dd0fb3d6f4db36ea08a368761d9fc492a9d4d01b32863114e01b14168674",
+  "calibration_report_sha256": "84c977329ce537bfa352ce95893d85da81be415d292702fa5537fc48388afa68",
+  "chain_hash_sha256": "ffeaffd1335e4038d7e56840671524e17d11bd95ed007e841a626e9ec2c7de91",
   "opentimestamps_anchor": "PENDING"
 }

@@ -18,14 +18,30 @@ deterministic randomness against these anchors. This guarantees:
 
 ## Calibration Results at a Glance
 
-Latest run — engine `v1.0.2`, `n=1000` per module, **47 / 47 checks PASS**.
+Latest run — engine `v1.0.2`, `n=1000` per module, **79 / 79 checks PASS across 8 modules**.
 
 | Module | Checks | Result |
 |---|---|---|
 | COPD | 15 | ✅ 15 PASS / 0 FAIL |
 | CHF  | 16 | ✅ 16 PASS / 0 FAIL |
 | OUD  | 16 | ✅ 16 PASS / 0 FAIL |
-| **Total** | **47** | **✅ 47 PASS / 0 FAIL** |
+| Stroke | 6 | ✅ 6 PASS / 0 FAIL |
+| Diabetes | 7 | ✅ 7 PASS / 0 FAIL |
+| SMA | 6 | ✅ 6 PASS / 0 FAIL |
+| DMD | 7 | ✅ 7 PASS / 0 FAIL |
+| Fabry | 6 | ✅ 6 PASS / 0 FAIL |
+| **Total** | **79** | **✅ 79 PASS / 0 FAIL** |
+
+COPD/CHF/OUD are validated by `calibration_validator.py`; the stroke, diabetes,
+SMA, DMD, and Fabry modules are validated by `calibration_validator_ext.py`
+(added so every module with a self-contained cohort generator is calibrated, not
+just the original three). Sepsis is a physiological observation generator with
+no population-prevalence rows to calibrate — its sources are catalogued in the
+citation registry.
+
+**→ Full citation registry (every anchor, its source URL, and where to look so
+you can verify one by one):**
+[`docs/calibration/CITATIONS.md`](calibration/CITATIONS.md)
 
 **Side-by-side chart (calibration targets vs. generated data):**
 [`docs/calibration/calibration_vs_data.html`](calibration/calibration_vs_data.html)
@@ -194,15 +210,25 @@ This writes into `docs/calibration/`:
 hash; the certification is valid only when the recomputed chain hash matches the
 recorded value.
 
-**Latest stamp** (engine `v1.0.2`, `n=1000`/module, 47/47 PASS):
+**Latest stamp** (engine `v1.0.2`, `n=1000`/module, 79/79 PASS across 8 modules):
 
 | Artifact | SHA-256 |
 |---|---|
 | COPD cohort CSV | `c2e9d750fea83fec63dacb36cdfa0b680b53408dabb646afbcaebc54a8f15df6` |
 | CHF cohort CSV  | `8790871cdcb864d259108a1fa8d8920785dc007389ca07294f10f174aace78f8` |
 | OUD cohort CSV  | `38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199` |
-| Calibration report | `f2a1098c81acd58a1e8a72285025835a6e37f93d4b714768b8863dcfe18916ad` |
-| **Chain hash** | `0495dd0fb3d6f4db36ea08a368761d9fc492a9d4d01b32863114e01b14168674` |
+| Stroke cohort CSV | `703833e9c5bc4f21c3cda3696027d7ef9fc619a1046fa9467a738117149fb0ab` |
+| Diabetes cohort CSV | `49da9d45e151333b0fef3e9317979c40859e3aa99e11c8574f840c9ff1c65cde` |
+| SMA cohort CSV | `5cd84f39b77fd31e79680bf3904f88bd5430a0a1cd18be5233fe271e903c26db` |
+| DMD cohort CSV | `529db66c1ab790b23da95a2c91b8b8b979df222b1753cff1ed2cb514243a26e7` |
+| Fabry cohort CSV | `998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402` |
+| Calibration report (content, excl. timestamp) | `84c977329ce537bfa352ce95893d85da81be415d292702fa5537fc48388afa68` |
+| **Chain hash** | `ffeaffd1335e4038d7e56840671524e17d11bd95ed007e841a626e9ec2c7de91` |
+
+> The chain hash is computed over the cohort CSV hashes plus a **canonical
+> content hash** of the report (the wall-clock `generated_utc` is excluded), so
+> re-running the pipeline on the same engine + seeds reproduces the identical
+> chain hash — verified deterministic across runs.
 
 **OpenTimestamps anchor:** `PENDING`. Submit `calibration_chain_hash.txt` to
 https://opentimestamps.org to anchor the certification to the Bitcoin blockchain,
@@ -281,6 +307,68 @@ values. `Δ` is `|actual − target|`.
 | Frontier naloxone access | 18.0% | 15.1% | ±12.0% | 2.9% | ✅ PASS |
 | Benzo co-use on UDS | 38.0% | 39.1% | ±10.0% | 1.1% | ✅ PASS |
 | Medicaid insurance | 42.0% | 39.7% | ±10.0% | 2.3% | ✅ PASS |
+
+### STROKE — 6 PASS / 0 FAIL
+(intrinsic anchors, clean base; see `calibration_validator_ext.py` and CITATIONS.md § Stroke)
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| Ischemic stroke proportion | 84.0% | 82.2% | ±6.0% | ✅ PASS |
+| Hemorrhagic stroke proportion | 13.0% | 12.8% | ±5.0% | ✅ PASS |
+| TIA proportion | 5.0% | 5.0% | ±4.0% | ✅ PASS |
+| NIHSS mild category proportion | 50.0% | 49.2% | ±10.0% | ✅ PASS |
+| Atrial fibrillation in stroke | 28.0% | 26.8% | ±8.0% | ✅ PASS |
+| Onset-to-door median minutes | 83.0 | 88.0 | ±22.0 | ✅ PASS |
+
+### DIABETES — 7 PASS / 0 FAIL
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| Type 1 diabetes proportion | 6.0% | 5.6% | ±3.0% | ✅ PASS |
+| Type 2 diabetes proportion | 94.0% | 94.4% | ±3.0% | ✅ PASS |
+| White proportion | 55.0% | 55.7% | ±8.0% | ✅ PASS |
+| Black proportion | 18.0% | 18.3% | ±7.0% | ✅ PASS |
+| Hispanic proportion | 15.0% | 13.7% | ±7.0% | ✅ PASS |
+| Asian proportion | 8.0% | 8.6% | ±5.0% | ✅ PASS |
+| Diabetes current-age mean | 55.0 | 55.5 | ±6.0 | ✅ PASS |
+
+### SMA — 6 PASS / 0 FAIL
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| SMA-I proportion | 55.0% | 54.4% | ±8.0% | ✅ PASS |
+| SMA-II proportion | 30.0% | 31.4% | ±8.0% | ✅ PASS |
+| SMA-III proportion | 14.0% | 12.9% | ±6.0% | ✅ PASS |
+| On DMT / nusinersen | 65.0% | 65.8% | ±8.0% | ✅ PASS |
+| SMA-II scoliosis | 60.0% | 57.0% | ±12.0% | ✅ PASS |
+| SMA-I feeding support | 85.0% | 83.3% | ±12.0% | ✅ PASS |
+
+### DMD — 7 PASS / 0 FAIL
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| Male proportion | 100.0% | 100.0% | ±0.1% | ✅ PASS |
+| Deletion mutation | 65.0% | 63.6% | ±8.0% | ✅ PASS |
+| Duplication mutation | 10.0% | 9.1% | ±5.0% | ✅ PASS |
+| Point mutation | 25.0% | 27.3% | ±8.0% | ✅ PASS |
+| On corticosteroids | 70.0% | 69.6% | ±8.0% | ✅ PASS |
+| Diagnosis age mean years | 4.5 | 4.5 | ±1.0 | ✅ PASS |
+| Ambulation-loss age mean years | 12.5 | 12.6 | ±2.0 | ✅ PASS |
+
+### FABRY — 6 PASS / 0 FAIL
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| Male classic phenotype | 60.0% | 58.4% | ±10.0% | ✅ PASS |
+| Female late-cardiac phenotype | 35.0% | 39.2% | ±10.0% | ✅ PASS |
+| Missense mutation | 60.0% | 59.3% | ±8.0% | ✅ PASS |
+| Nonsense mutation | 15.0% | 14.3% | ±6.0% | ✅ PASS |
+| On enzyme replacement therapy | 55.0% | 55.1% | ±8.0% | ✅ PASS |
+| Stroke/TIA history | 15.0% | 14.2% | ±8.0% | ✅ PASS |
+
+> **Documented gaps** (not asserted as calibrated): stroke tPA-within-window
+> (~27% vs literature 47–53%) and SBP>185 fraction (~15% vs 20–25% target) are
+> catalogued in CITATIONS.md § Documented gaps rather than charted as PASS.
 
 ---
 
