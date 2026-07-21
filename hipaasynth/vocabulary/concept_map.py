@@ -183,6 +183,41 @@ def lookup_visit(visit_type: str) -> Optional[ConceptMapping]:
     return _lookup("visits", visit_type)
 
 
+@lru_cache(maxsize=1)
+def _reverse_index() -> dict:
+    """Build {omop_concept_id: [(section, term), ...]} for reverse lookup.
+
+    Only sections whose entries carry a concept_id are indexed (medications are
+    null until validation and are skipped). A concept_id can map to more than one
+    generator term (e.g. both ``afib`` and ``atrial_fibrillation`` share one
+    concept); callers choose which term to use.
+    """
+    index: dict[int, list] = {}
+    raw = _raw_map()
+    for section in ("conditions", "measurements", "visits"):
+        for term, entry in raw.get(section, {}).items():
+            cid = entry.get("omop_concept_id")
+            if cid is None:
+                continue
+            index.setdefault(int(cid), []).append((section, term))
+    return index
+
+
+def terms_for_concept_id(concept_id) -> list[tuple]:
+    """Return ``[(section, term), ...]`` HipAAsynth terms for an OMOP concept_id.
+
+    Empty list if the concept is not one HipAAsynth generates. This is the
+    reverse of the forward ``lookup_*`` functions and powers ingestion of
+    external OMOP artifacts (e.g. ATLAS cohort concept sets).
+    """
+    if concept_id is None:
+        return []
+    try:
+        return list(_reverse_index().get(int(concept_id), []))
+    except (TypeError, ValueError):
+        return []
+
+
 def lookup_medication(name: str) -> Optional[ConceptMapping]:
     """Map a HipAAsynth medication term to standard drug concepts, or ``None``.
 

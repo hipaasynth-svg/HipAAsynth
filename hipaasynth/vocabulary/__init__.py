@@ -10,6 +10,7 @@ from .concept_map import (
     lookup_medication,
     lookup_visit,
     map_version,
+    terms_for_concept_id,
     unmapped_terms,
     validation_status,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "lookup_medication",
     "lookup_visit",
     "map_version",
+    "terms_for_concept_id",
     "unmapped_terms",
     "validation_status",
 ]
