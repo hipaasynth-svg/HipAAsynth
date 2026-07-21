@@ -51,7 +51,7 @@ Every metric charted in the calibration report maps to a row below.
 | Overall COPD prevalence context | ~6.2% adults | Wheaton AG et al. *MMWR* 2015;64(SS-7):1-20 | PubMed: Wheaton MMWR 2015 | Age-adjusted COPD prevalence table | [in-code] |
 | Age mean (diagnosed) | ~64 | NHANES 2017–2020 | NHANES site | COPD-diagnosed adult age distribution | [in-code] |
 | Female proportion | 0.52 | NHANES 2017–2020 | NHANES site | COPD sex distribution | [in-code] |
-| GOLD 1/2/3/4 split | 0.20/0.38/0.28/0.14 | Lamprecht B et al. *Respir Res* 2011;12:121 (BOLD) | https://doi.org/10.1186/1465-9921-12-121 | Spirometric GOLD-stage frequencies | [in-code] |
+| GOLD 1/2/3/4 split | 0.20/0.38/0.28/0.14 | Buist AS et al. International variation in the prevalence of COPD (BOLD Study). *Lancet* 2007;370(9589):741-750; GOLD 2024 staging framework | https://doi.org/10.1016/S0140-6736(07)61377-4 | BOLD post-bronchodilator spirometry GOLD-grade distribution; GOLD 2024 §2 staging | [in-code] |
 | Smoking current/former/never | 0.38/0.47/0.15 | NHANES / CDC BRFSS 2022; GOLD 2024 | NHANES / BRFSS sites | Smoking status among COPD adults | [in-code] |
 | Hypertension comorbidity | 0.55 | Sin DD et al. *Chest* 2006;129(6):1483-1489 | https://doi.org/10.1378/chest.129.6.1483 | COPD cardiovascular comorbidity | [in-code] |
 | Type 2 diabetes comorbidity | 0.22 | Mirrakhimov AE. *Cardiovasc Diabetol* 2012;11:97 | https://doi.org/10.1186/1475-2840-11-97 | T2DM prevalence in COPD | [in-code] |
