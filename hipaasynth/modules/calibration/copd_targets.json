@@ -1,0 +1,99 @@
+{
+  "_about": "External calibration targets for the COPD module. Each target's `value` is what the generator is expected to reproduce; `source` is the reference that value is claimed to come from; `status` records whether that source→value link has been INDEPENDENTLY VERIFIED against the cited paper. This file is deliberately separate from copd_generator.py so a passing calibration check is a claim about reality, not a tautology against the generator's own constants. Verified 2026-07-14 via PubMed for the four anchor citations; remaining rows are marked not_yet_verified.",
+  "_status_legend": {
+    "confirmed": "cited source located and the coded value is supported by it within tolerance",
+    "value_mismatch": "cited source located but it reports a different value than the code uses",
+    "metric_mismatch": "cited source located but reports a different quantity than the field measures",
+    "citation_mismatch": "the cited journal/volume/page resolves to a different (unrelated) article; correct source not yet identified",
+    "citation_locus_wrong": "author/year/topic correct but the volume/issue/page string is wrong; value still needs pinning to the real locus",
+    "definitional": "value is defined by the model (e.g. a stage cutoff), not an epidemiological target to calibrate",
+    "unsourced": "no calibration source stated in the module",
+    "not_yet_verified": "source named in code but not yet checked against the paper in this pass"
+  },
+  "module": "copd",
+  "cohort_reference": "output/copd_1000/copd_calibration_n1000.csv",
+  "default_tolerance": 0.08,
+  "targets": [
+    {
+      "id": "copd_prevalence_context",
+      "field": "(population framing)",
+      "value": 0.062,
+      "tolerance": null,
+      "population": "US adults >=18, diagnosed COPD",
+      "coded_at": "copd_generator.py:65-68",
+      "source": {"author": "Wheaton AG et al.", "citation_in_code": "MMWR 2015;64(SS-7):1-20", "actual_locus": "MMWR Morb Mortal Wkly Rep 2015;64(11):289-95", "pmid": "25811677", "doi": "10.15585/mmwr.mm6411a1", "reported_value": "6.4% (est. 15.7M adults)"},
+      "status": "citation_locus_wrong",
+      "note": "Author/year/topic confirmed via PubMed, but coded locus '64(SS-7):1-20' is wrong (real paper is 64(11):289-95). Reported prevalence 6.4% vs coded 6.2% (close). This paper does NOT provide the age-band distribution, so age weights remain unsourced."
+    },
+    {
+      "id": "age_mean",
+      "field": "age",
+      "value": 64.0,
+      "tolerance": 4.0,
+      "unit": "years (mean)",
+      "population": "diagnosed COPD",
+      "coded_at": "copd_generator.py:74-80",
+      "source": {"citation_in_code": "NHANES / Wheaton MMWR 2015", "status_detail": "age-band weights (40-49..80-85) have no pinned source table"},
+      "status": "unsourced",
+      "note": "Mean ~62-66 is plausible but the age_weights driving it are not tied to a specific NHANES/Wheaton table."
+    },
+    {
+      "id": "sex_female",
+      "field": "sex==female",
+      "value": 0.52,
+      "tolerance": 0.08,
+      "population": "diagnosed COPD",
+      "coded_at": "copd_generator.py:81",
+      "source": {"citation_in_code": "NHANES COPD sex distribution"},
+      "status": "not_yet_verified",
+      "note": "NHANES named but no specific cycle/table pinned."
+    },
+    {
+      "id": "gold_1", "field": "gold_stage==GOLD_1", "value": 0.20, "tolerance": 0.08,
+      "population": "diagnosed COPD", "coded_at": "copd_generator.py:95-100",
+      "source": {"author": "Lamprecht B et al.", "citation_in_code": "Respir Res 2011;12:121", "resolves_to": {"title": "Local interleukin-10 production during respiratory syncytial virus bronchiolitis...", "author": "Schuurhof A et al.", "pmid": "21910858", "doi": "10.1186/1465-9921-12-121"}},
+      "status": "citation_mismatch",
+      "note": "CRITICAL: Respir Res 2011;12:121 resolves to an RSV bronchiolitis paper, NOT a Lamprecht COPD study. GOLD-stage distribution target is unverified as cited. Correct Lamprecht/BOLD source must be located."
+    },
+    {"id": "gold_2", "field": "gold_stage==GOLD_2", "value": 0.38, "tolerance": 0.08, "population": "diagnosed COPD", "coded_at": "copd_generator.py:95-100", "source": {"author": "Lamprecht B et al.", "citation_in_code": "Respir Res 2011;12:121"}, "status": "citation_mismatch", "note": "Same mismatch as gold_1."},
+    {"id": "gold_3", "field": "gold_stage==GOLD_3", "value": 0.28, "tolerance": 0.08, "population": "diagnosed COPD", "coded_at": "copd_generator.py:95-100", "source": {"author": "Lamprecht B et al.", "citation_in_code": "Respir Res 2011;12:121"}, "status": "citation_mismatch", "note": "Same mismatch as gold_1."},
+    {"id": "gold_4", "field": "gold_stage==GOLD_4", "value": 0.14, "tolerance": 0.08, "population": "diagnosed COPD", "coded_at": "copd_generator.py:95-100", "source": {"author": "Lamprecht B et al.", "citation_in_code": "Respir Res 2011;12:121"}, "status": "citation_mismatch", "note": "Same mismatch as gold_1."},
+    {
+      "id": "smoking_never", "field": "smoking_status==never", "value": 0.15, "tolerance": 0.08,
+      "population": "diagnosed COPD (US)", "coded_at": "copd_generator.py:119-126",
+      "source": {"author": "Salvi SS, Barnes PJ", "citation_in_code": "Lancet 2009;374(9691):733-743", "pmid": "19716966", "doi": "10.1016/S0140-6736(09)61303-9", "reported_value": "25-45% of COPD patients have never smoked (global, biomass-driven)"},
+      "status": "value_mismatch",
+      "note": "Source CONFIRMED but it reports 25-45% never-smokers globally, not 15%. Coded 0.15 is a plausible US figure but is NOT what this source says. Needs a US-specific source or value adjustment."
+    },
+    {"id": "smoking_current", "field": "smoking_status==current", "value": 0.38, "tolerance": 0.08, "population": "diagnosed COPD", "coded_at": "copd_generator.py:119-126", "source": {"citation_in_code": "Salvi & Barnes Lancet 2009 (module block)"}, "status": "unsourced", "note": "Salvi 2009 does not provide a current/former/never split for US COPD; current=0.38 is not supported by the cited paper."},
+    {"id": "smoking_former", "field": "smoking_status==former", "value": 0.47, "tolerance": 0.08, "population": "diagnosed COPD", "coded_at": "copd_generator.py:119-126", "source": {"citation_in_code": "Salvi & Barnes Lancet 2009 (module block)"}, "status": "unsourced", "note": "Not supported by the cited paper; needs source."},
+    {
+      "id": "exac_gold2_rate", "field": "exacerbations_prior_yr (GOLD_2 mean)", "value": 0.85, "tolerance": 0.6,
+      "unit": "events/year", "population": "GOLD stage 2 COPD",
+      "coded_at": "copd_generator.py:157-162",
+      "source": {"author": "Hurst JR et al. (ECLIPSE)", "citation_in_code": "NEJM 2010;363(12):1128-1138", "pmid": "20843247", "doi": "10.1056/NEJMoa0909883", "reported_value": "yr1 rate 0.85 (GOLD2), 1.34 (GOLD3), 2.00 (GOLD4)"},
+      "status": "confirmed",
+      "note": "Source CONFIRMED. Coded ranges GOLD_2 (0.5-1.5), GOLD_3 (1.0-2.5), GOLD_4 (1.5-4.0) all contain the ECLIPSE point estimates."
+    },
+    {
+      "id": "exac_gold1_rate", "field": "exacerbations_prior_yr (GOLD_1)", "value": 0.4, "tolerance": 0.4,
+      "population": "GOLD stage 1 COPD", "coded_at": "copd_generator.py:157-162",
+      "source": {"author": "Hurst JR et al. (ECLIPSE)", "citation_in_code": "NEJM 2010;363(12):1128-1138", "pmid": "20843247", "doi": "10.1056/NEJMoa0909883"},
+      "status": "metric_mismatch",
+      "note": "ECLIPSE enrolled GOLD 2-4 only; it provides NO GOLD_1 exacerbation rate. GOLD_1 (0.0-0.8) is unsourced by Hurst."
+    },
+    {
+      "id": "hospitalization_rates", "field": "hospitalized_prior_yr by GOLD", "value": null, "tolerance": null,
+      "population": "diagnosed COPD", "coded_at": "copd_generator.py:164-170",
+      "source": {"author": "Hurst JR et al. (ECLIPSE)", "citation_in_code": "NEJM 2010;363(12):1128-1138", "pmid": "20843247", "doi": "10.1056/NEJMoa0909883", "reported_value": "frequent-exacerbator (>=2/yr): 22% GOLD2, 33% GOLD3, 47% GOLD4"},
+      "status": "metric_mismatch",
+      "note": "Coded hospitalization rates (0.05/0.12/0.28/0.45) are a DIFFERENT quantity than ECLIPSE's frequent-exacerbator %s (22/33/47%). The Hurst citation does not support hospitalization rates."
+    },
+    {"id": "fev1_gold2_mean", "field": "fev1_pct_predicted (GOLD_2 mean)", "value": 64.5, "tolerance": 6.0, "population": "GOLD stage 2", "coded_at": "copd_generator.py:103-108", "source": {"citation_in_code": "GOLD_FEV1 range midpoint (50-79)"}, "status": "definitional", "note": "This is the midpoint of the GOLD-2 definitional FEV1 band, not an independent epidemiological target."},
+    {"id": "ltot_gold4", "field": "ltot (GOLD_4)", "value": 0.42, "tolerance": 0.12, "population": "GOLD stage 4", "coded_at": "copd_generator.py:235-240", "source": {"citation_in_code": "NOTT Trial; ATS statement on LTOT"}, "status": "not_yet_verified", "note": "NOTT/ATS named but not pinned to a figure in this pass."},
+    {"id": "comorbid_hypertension", "field": "hypertension", "value": 0.55, "tolerance": 0.10, "population": "diagnosed COPD", "coded_at": "copd_generator.py:142-152", "source": {"author": "Sin DD et al.", "citation_in_code": "Chest 2006;129(6):1483-1489"}, "status": "not_yet_verified"},
+    {"id": "comorbid_t2dm", "field": "type2_diabetes", "value": 0.22, "tolerance": 0.10, "population": "diagnosed COPD", "coded_at": "copd_generator.py:142-152", "source": {"author": "Mirrakhimov AE", "citation_in_code": "Cardiovasc Diabetol 2012;11:97"}, "status": "not_yet_verified"},
+    {"id": "comorbid_depression", "field": "depression", "value": 0.27, "tolerance": 0.10, "population": "diagnosed COPD", "coded_at": "copd_generator.py:142-152", "source": {"author": "Yohannes AM et al.", "citation_in_code": "Respir Care 2014;59(7):1112-1120", "corroborating": "Cunningham/Wheaton COPD 2014 (PMID 25207639, doi 10.3109/15412555.2014.949001) reports depression 27.4% among current smokers"}, "status": "not_yet_verified", "note": "Coded 0.27 aligns with a 27.4% depression figure found in a related BRFSS analysis, but the population differs (current smokers vs COPD patients). Verify against Yohannes 2014 directly."},
+    {"id": "spo2_mean", "field": "spo2_pct (mean)", "value": 94.5, "tolerance": 2.5, "population": "diagnosed COPD", "coded_at": "copd_generator.py:242-248", "source": {"citation_in_code": "none"}, "status": "unsourced", "note": "No calibration source stated in module for SpO2."}
+  ]
+}
