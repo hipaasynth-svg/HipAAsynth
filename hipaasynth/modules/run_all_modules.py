@@ -34,6 +34,7 @@ Outputs:
 
 import sys
 import os
+import json
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -42,6 +43,7 @@ from hipaasynth.modules.copd.copd_generator import generate_copd_cohort, save_co
 from hipaasynth.modules.chf.chf_generator   import generate_chf_cohort,  save_cohort as save_chf
 from hipaasynth.modules.oud.oud_generator   import generate_oud_cohort,   save_cohort as save_oud
 from hipaasynth.modules.calibration_validator import run_all
+from hipaasynth.modules.calibration_validator_ext import run_extended
 
 BASE = os.path.join(os.path.dirname(__file__), "output")
 
@@ -87,8 +89,24 @@ def run():
     j, c, m = save_oud(pts, anchor, f"{BASE}/oud_1000", "oud_calibration")
     print(f"  Patients: {len(pts)} | Anchor: {anchor[:32]}...")
 
-    banner("CALIBRATION VALIDATOR")
-    run_all()
+    banner("CALIBRATION VALIDATOR — COPD / CHF / OUD")
+    report = run_all()
+
+    banner("EXTENDED CALIBRATION — STROKE / DIABETES / SMA / DMD / FABRY")
+    ext_modules = run_extended(BASE)
+    report["modules"].update(ext_modules)
+    for name, md in ext_modules.items():
+        print(f"  {name.upper():9s} {md['pass']} PASS / {md['fail']} FAIL")
+
+    # Recompute the suite summary across all modules and rewrite the report.
+    total_pass = sum(m["pass"] for m in report["modules"].values())
+    total_fail = sum(m["fail"] for m in report["modules"].values())
+    report["summary"] = {"total_pass": total_pass, "total_fail": total_fail}
+    report_path = os.path.join(BASE, "calibration_report.json")
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=2)
+    print(f"\n  Unified calibration report: {report_path}")
+    print(f"  SUITE TOTAL: {total_pass} PASS / {total_fail} FAIL across {len(report['modules'])} modules")
 
     banner("COMPLETE")
     print("  All cohorts generated and calibrated.")

@@ -1,15 +1,15 @@
 # Orphaned Module Audit
 
 **Generated:** 2026-06-27  
-**Branch:** `claude/verify-diabetes-calibration-4mzgm7`  
-**Auditor:** HipAAsynth automated audit (Claude Code)
+**Branch:** `verify-diabetes-calibration-4mzgm7`  
+**Auditor:** HipAAsynth automated audit
 
 ---
 
 ## Update: 7AAST Axes 6 & 7 Implemented (2026-06-28)
 
 The two adversarial axes described in the original task specification have been
-fully implemented on branch `claude/psf-cc-adversarial-axes`:
+fully implemented on branch `psf-cc-adversarial-axes`:
 
 ### PSF — Population Sparsity Fairness (Axis 6)
 

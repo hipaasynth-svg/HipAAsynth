@@ -35,3 +35,8 @@ output/grid_quarantine/
 output/validation_report_*.md
 output/meta.json
 output/failure.csv
+
+# Regenerable calibration cohorts written by modules/run_all_modules.py.
+# The committed report + SHA-256 hashes in docs/calibration/ make these
+# verifiable without checking in the (large, seed-regenerable) CSVs/JSONs.
+modules/output/

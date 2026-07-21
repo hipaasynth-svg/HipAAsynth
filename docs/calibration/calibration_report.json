@@ -1,0 +1,699 @@
+{
+  "generated_utc": "2026-07-20T23:41:26.075891Z",
+  "engine_version": "1.0.2",
+  "tolerance_default": 0.08,
+  "modules": {
+    "copd": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/copd_1000/copd_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "COPD age mean (target 62-66)",
+          "actual": 64.086,
+          "target": 64.0,
+          "diff": 0.086,
+          "tolerance": 4.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD female proportion (target 0.52)",
+          "actual": 0.518,
+          "target": 0.52,
+          "diff": 0.002,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "GOLD_1 proportion (target 0.20)",
+          "actual": 0.207,
+          "target": 0.2,
+          "diff": 0.007,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "GOLD_2 proportion (target 0.38)",
+          "actual": 0.364,
+          "target": 0.38,
+          "diff": 0.016,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "GOLD_3 proportion (target 0.28)",
+          "actual": 0.289,
+          "target": 0.28,
+          "diff": 0.009,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "GOLD_4 proportion (target 0.14)",
+          "actual": 0.14,
+          "target": 0.14,
+          "diff": 0.0,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD current smoker (target 0.38)",
+          "actual": 0.373,
+          "target": 0.38,
+          "diff": 0.007,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD former smoker (target 0.47)",
+          "actual": 0.474,
+          "target": 0.47,
+          "diff": 0.004,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD never smoker (target 0.15)",
+          "actual": 0.153,
+          "target": 0.15,
+          "diff": 0.003,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD hypertension (target 0.55)",
+          "actual": 0.606,
+          "target": 0.55,
+          "diff": 0.056,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD T2DM (target 0.22)",
+          "actual": 0.266,
+          "target": 0.22,
+          "diff": 0.046,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD depression (target 0.27)",
+          "actual": 0.323,
+          "target": 0.27,
+          "diff": 0.053,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "GOLD_2 FEV1% mean (target 64.5)",
+          "actual": 64.7022,
+          "target": 64.5,
+          "diff": 0.2022,
+          "tolerance": 6.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "GOLD_4 LTOT rate (target 0.42)",
+          "actual": 0.4143,
+          "target": 0.42,
+          "diff": 0.0057,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "COPD SpO2 mean (target 93-96)",
+          "actual": 92.3732,
+          "target": 94.5,
+          "diff": 2.1268,
+          "tolerance": 2.5,
+          "status": "PASS"
+        }
+      ],
+      "pass": 15,
+      "fail": 0
+    },
+    "chf": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/chf_1000/chf_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "CHF age mean (target 72-76)",
+          "actual": 71.93,
+          "target": 74.0,
+          "diff": 2.07,
+          "tolerance": 4.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF male proportion (target 0.52)",
+          "actual": 0.507,
+          "target": 0.52,
+          "diff": 0.013,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF Black ethnicity (target 0.20)",
+          "actual": 0.188,
+          "target": 0.2,
+          "diff": 0.012,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "HFrEF proportion (target 0.48)",
+          "actual": 0.481,
+          "target": 0.48,
+          "diff": 0.001,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "HFpEF proportion (target 0.38)",
+          "actual": 0.367,
+          "target": 0.38,
+          "diff": 0.013,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "HFmrEF proportion (target 0.14)",
+          "actual": 0.152,
+          "target": 0.14,
+          "diff": 0.012,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "NYHA III+IV proportion (target 0.83)",
+          "actual": 0.832,
+          "target": 0.83,
+          "diff": 0.002,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "HFrEF EF mean (target 24-34)",
+          "actual": 24.8378,
+          "target": 29.0,
+          "diff": 4.1622,
+          "tolerance": 6.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF hypertension (target 0.73)",
+          "actual": 0.736,
+          "target": 0.73,
+          "diff": 0.006,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF T2DM (target 0.45)",
+          "actual": 0.451,
+          "target": 0.45,
+          "diff": 0.001,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF afib (target 0.45)",
+          "actual": 0.446,
+          "target": 0.45,
+          "diff": 0.004,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF CKD (target 0.48)",
+          "actual": 0.488,
+          "target": 0.48,
+          "diff": 0.008,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "NYHA III BNP mean (target 400-900)",
+          "actual": 750.4194,
+          "target": 650.0,
+          "diff": 100.4194,
+          "tolerance": 250.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "CHF sodium mean (target 136-140)",
+          "actual": 136.7652,
+          "target": 138.0,
+          "diff": 1.2348,
+          "tolerance": 3.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "30-day readmission risk mean (target 0.20-0.28)",
+          "actual": 0.2508,
+          "target": 0.24,
+          "diff": 0.0108,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "HFrEF beta blocker (target 0.82)",
+          "actual": 0.8524,
+          "target": 0.82,
+          "diff": 0.0324,
+          "tolerance": 0.1,
+          "status": "PASS"
+        }
+      ],
+      "pass": 16,
+      "fail": 0
+    },
+    "oud": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/oud_1000/oud_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "OUD age mean (target 35-42)",
+          "actual": 38.204,
+          "target": 38.0,
+          "diff": 0.204,
+          "tolerance": 5.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD male proportion (target 0.57)",
+          "actual": 0.562,
+          "target": 0.57,
+          "diff": 0.008,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD rural+frontier (target 0.33)",
+          "actual": 0.347,
+          "target": 0.33,
+          "diff": 0.017,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD severe proportion (target 0.54)",
+          "actual": 0.536,
+          "target": 0.54,
+          "diff": 0.004,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Illicit fentanyl (target 0.35)",
+          "actual": 0.335,
+          "target": 0.35,
+          "diff": 0.015,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "IV drug use (target 0.32)",
+          "actual": 0.315,
+          "target": 0.32,
+          "diff": 0.005,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "No MOUD (treatment gap, target 0.78)",
+          "actual": 0.806,
+          "target": 0.78,
+          "diff": 0.026,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD depression (target 0.55)",
+          "actual": 0.551,
+          "target": 0.55,
+          "diff": 0.001,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD tobacco (target 0.72)",
+          "actual": 0.723,
+          "target": 0.72,
+          "diff": 0.003,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD HCV (target ~0.38)",
+          "actual": 0.471,
+          "target": 0.38,
+          "diff": 0.091,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD AUD comorbid (target 0.38)",
+          "actual": 0.394,
+          "target": 0.38,
+          "diff": 0.014,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "OUD PTSD (target 0.35)",
+          "actual": 0.327,
+          "target": 0.35,
+          "diff": 0.023,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Severe OUD prior overdose (target 0.52)",
+          "actual": 0.5187,
+          "target": 0.52,
+          "diff": 0.0013,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "Frontier naloxone access (target 0.18)",
+          "actual": 0.1513,
+          "target": 0.18,
+          "diff": 0.0287,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "Benzo co-use on UDS (target 0.38)",
+          "actual": 0.391,
+          "target": 0.38,
+          "diff": 0.011,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Medicaid insurance (target 0.42)",
+          "actual": 0.397,
+          "target": 0.42,
+          "diff": 0.023,
+          "tolerance": 0.1,
+          "status": "PASS"
+        }
+      ],
+      "pass": 16,
+      "fail": 0
+    },
+    "stroke": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/stroke_1000/stroke_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "Ischemic stroke proportion (target 0.84)",
+          "actual": 0.822,
+          "target": 0.84,
+          "diff": 0.018,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "Hemorrhagic stroke proportion (target 0.13)",
+          "actual": 0.128,
+          "target": 0.13,
+          "diff": 0.002,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "TIA proportion (target 0.05)",
+          "actual": 0.05,
+          "target": 0.05,
+          "diff": 0.0,
+          "tolerance": 0.04,
+          "status": "PASS"
+        },
+        {
+          "metric": "NIHSS mild category proportion (target 0.50)",
+          "actual": 0.492,
+          "target": 0.5,
+          "diff": 0.008,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Atrial fibrillation in stroke (target 0.28)",
+          "actual": 0.268,
+          "target": 0.28,
+          "diff": 0.012,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Onset-to-door median minutes (target 83)",
+          "actual": 88.0,
+          "target": 83.0,
+          "diff": 5.0,
+          "tolerance": 22.0,
+          "status": "PASS"
+        }
+      ],
+      "pass": 6,
+      "fail": 0
+    },
+    "diabetes": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/diabetes_1000/diabetes_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "Type 1 diabetes proportion (target 0.06)",
+          "actual": 0.056,
+          "target": 0.06,
+          "diff": 0.004,
+          "tolerance": 0.03,
+          "status": "PASS"
+        },
+        {
+          "metric": "Type 2 diabetes proportion (target 0.94)",
+          "actual": 0.944,
+          "target": 0.94,
+          "diff": 0.004,
+          "tolerance": 0.03,
+          "status": "PASS"
+        },
+        {
+          "metric": "White proportion (target 0.55)",
+          "actual": 0.557,
+          "target": 0.55,
+          "diff": 0.007,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Black proportion (target 0.18)",
+          "actual": 0.183,
+          "target": 0.18,
+          "diff": 0.003,
+          "tolerance": 0.07,
+          "status": "PASS"
+        },
+        {
+          "metric": "Hispanic proportion (target 0.15)",
+          "actual": 0.137,
+          "target": 0.15,
+          "diff": 0.013,
+          "tolerance": 0.07,
+          "status": "PASS"
+        },
+        {
+          "metric": "Asian proportion (target 0.08)",
+          "actual": 0.086,
+          "target": 0.08,
+          "diff": 0.006,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "Diabetes current-age mean (target 50-60)",
+          "actual": 55.512,
+          "target": 55.0,
+          "diff": 0.512,
+          "tolerance": 6.0,
+          "status": "PASS"
+        }
+      ],
+      "pass": 7,
+      "fail": 0
+    },
+    "sma": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/sma_1000/sma_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "SMA-I proportion (target 0.55)",
+          "actual": 0.544,
+          "target": 0.55,
+          "diff": 0.006,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "SMA-II proportion (target 0.30)",
+          "actual": 0.314,
+          "target": 0.3,
+          "diff": 0.014,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "SMA-III proportion (target 0.14)",
+          "actual": 0.129,
+          "target": 0.14,
+          "diff": 0.011,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "On DMT / nusinersen (target 0.65)",
+          "actual": 0.658,
+          "target": 0.65,
+          "diff": 0.008,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "SMA-II scoliosis (target 0.60)",
+          "actual": 0.5701,
+          "target": 0.6,
+          "diff": 0.0299,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "SMA-I feeding support (target 0.85)",
+          "actual": 0.8327,
+          "target": 0.85,
+          "diff": 0.0173,
+          "tolerance": 0.12,
+          "status": "PASS"
+        }
+      ],
+      "pass": 6,
+      "fail": 0
+    },
+    "dmd": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/dmd_1000/dmd_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "Male proportion (X-linked, target 1.0)",
+          "actual": 1.0,
+          "target": 1.0,
+          "diff": 0.0,
+          "tolerance": 0.001,
+          "status": "PASS"
+        },
+        {
+          "metric": "Deletion mutation (target 0.65)",
+          "actual": 0.636,
+          "target": 0.65,
+          "diff": 0.014,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Duplication mutation (target 0.10)",
+          "actual": 0.091,
+          "target": 0.1,
+          "diff": 0.009,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "Point mutation (target 0.25)",
+          "actual": 0.273,
+          "target": 0.25,
+          "diff": 0.023,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "On corticosteroids (target 0.70)",
+          "actual": 0.696,
+          "target": 0.7,
+          "diff": 0.004,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Diagnosis age mean years (target 4.5)",
+          "actual": 4.515,
+          "target": 4.5,
+          "diff": 0.015,
+          "tolerance": 1.0,
+          "status": "PASS"
+        },
+        {
+          "metric": "Ambulation-loss age mean years (target 11-14)",
+          "actual": 12.594,
+          "target": 12.5,
+          "diff": 0.094,
+          "tolerance": 2.0,
+          "status": "PASS"
+        }
+      ],
+      "pass": 7,
+      "fail": 0
+    },
+    "fabry": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/fabry_1000/fabry_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "Male classic phenotype (target 0.60)",
+          "actual": 0.5836,
+          "target": 0.6,
+          "diff": 0.0164,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Female late-cardiac phenotype (target 0.35)",
+          "actual": 0.392,
+          "target": 0.35,
+          "diff": 0.042,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Missense mutation (target 0.60)",
+          "actual": 0.593,
+          "target": 0.6,
+          "diff": 0.007,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Nonsense mutation (target 0.15)",
+          "actual": 0.143,
+          "target": 0.15,
+          "diff": 0.007,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "On enzyme replacement therapy (target 0.55)",
+          "actual": 0.551,
+          "target": 0.55,
+          "diff": 0.001,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Stroke/TIA history (target 0.15)",
+          "actual": 0.142,
+          "target": 0.15,
+          "diff": 0.008,
+          "tolerance": 0.08,
+          "status": "PASS"
+        }
+      ],
+      "pass": 6,
+      "fail": 0
+    }
+  },
+  "summary": {
+    "total_pass": 79,
+    "total_fail": 0
+  }
+}
