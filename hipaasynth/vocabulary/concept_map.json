@@ -1,7 +1,7 @@
 {
   "metadata": {
     "description": "HipAAsynth internal-term to OHDSI/OMOP standard-concept map. Maps the finite, controlled vocabulary emitted by HipAAsynth generators to standard clinical terminologies (SNOMED CT, ICD-10-CM, LOINC, RxNorm, ATC) and OMOP standard concept_ids.",
-    "map_version": "0.2.0",
+    "map_version": "0.3.0",
     "omop_cdm_version": "5.4",
     "vocabulary_release": "UNVALIDATED",
     "validation_status": "curated-pending-athena",
@@ -64,6 +64,35 @@
     "digoxin": {"concept_type": "rxnorm_ingredient", "rxnorm": "3407", "rxnorm_name": "digoxin", "omop_concept_id": null, "domain": "Drug"},
     "ivabradine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1439816", "rxnorm_name": "ivabradine", "omop_concept_id": null, "domain": "Drug"},
     "aspirin": {"concept_type": "rxnorm_ingredient", "rxnorm": "1191", "rxnorm_name": "aspirin", "omop_concept_id": null, "domain": "Drug"},
-    "hydralazine_nitrate": {"concept_type": "combination", "omop_concept_id": null, "domain": "Drug", "components": [{"rxnorm": "5470", "rxnorm_name": "hydralazine"}, {"rxnorm": "6058", "rxnorm_name": "isosorbide dinitrate"}], "note": "Fixed-dose combination (hydralazine + isosorbide dinitrate); no single standard ingredient concept, represented by its components."}
+    "hydralazine_nitrate": {"concept_type": "combination", "omop_concept_id": null, "domain": "Drug", "components": [{"rxnorm": "5470", "rxnorm_name": "hydralazine"}, {"rxnorm": "6058", "rxnorm_name": "isosorbide dinitrate"}], "note": "Fixed-dose combination (hydralazine + isosorbide dinitrate); no single standard ingredient concept, represented by its components."},
+
+    "saba_prn": {"concept_type": "atc_class", "atc": "R03AC", "atc_name": "Selective beta-2-adrenoreceptor agonists", "omop_concept_id": null, "domain": "Drug", "note": "Short-acting beta agonist (SABA) rescue inhaler; ATC groups short- and long-acting beta-2 agonists together under R03AC."},
+    "laba": {"concept_type": "atc_class", "atc": "R03AC", "atc_name": "Selective beta-2-adrenoreceptor agonists", "omop_concept_id": null, "domain": "Drug", "note": "Long-acting beta agonist (LABA); shares ATC R03AC with SABA."},
+    "lama": {"concept_type": "atc_class", "atc": "R03BB", "atc_name": "Anticholinergics (inhalants)", "omop_concept_id": null, "domain": "Drug"},
+    "ics_laba": {"concept_type": "atc_class", "atc": "R03AK", "atc_name": "Adrenergics in combination with corticosteroids or other drugs, excl. anticholinergics", "omop_concept_id": null, "domain": "Drug", "note": "Inhaled corticosteroid + LABA combination inhaler."},
+    "triple_therapy": {"concept_type": "atc_class", "atc": "R03AL", "atc_name": "Adrenergics in combination with anticholinergics incl. triple combinations with corticosteroids", "omop_concept_id": null, "domain": "Drug", "note": "ICS + LABA + LAMA triple-therapy inhaler."},
+    "oral_corticosteroid": {"concept_type": "atc_class", "atc": "H02AB", "atc_name": "Glucocorticoids", "omop_concept_id": null, "domain": "Drug"},
+    "roflumilast": {"concept_type": "rxnorm_ingredient", "rxnorm": "1091652", "rxnorm_name": "roflumilast", "omop_concept_id": null, "domain": "Drug"},
+
+    "buprenorphine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1819", "rxnorm_name": "buprenorphine", "omop_concept_id": null, "domain": "Drug", "note": "MOUD (medication for opioid use disorder)."},
+    "methadone_otp": {"concept_type": "rxnorm_ingredient", "rxnorm": "6813", "rxnorm_name": "methadone", "omop_concept_id": null, "domain": "Drug", "note": "MOUD; methadone dispensed via an Opioid Treatment Program."},
+    "naltrexone_oral": {"concept_type": "rxnorm_ingredient", "rxnorm": "7243", "rxnorm_name": "naltrexone", "omop_concept_id": null, "domain": "Drug", "note": "MOUD; oral naltrexone."},
+    "naltrexone_xr_im": {"concept_type": "rxnorm_ingredient", "rxnorm": "7243", "rxnorm_name": "naltrexone", "omop_concept_id": null, "domain": "Drug", "note": "MOUD; extended-release intramuscular naltrexone (Vivitrol). Same ingredient as oral naltrexone; formulation differs."},
+
+    "metformin": {"concept_type": "rxnorm_ingredient", "rxnorm": "6809", "rxnorm_name": "metformin", "omop_concept_id": null, "domain": "Drug"},
+    "sulfonylurea": {"concept_type": "atc_class", "atc": "A10BB", "atc_name": "Sulfonylureas", "omop_concept_id": null, "domain": "Drug"},
+    "dpp4_inhibitor": {"concept_type": "atc_class", "atc": "A10BH", "atc_name": "Dipeptidyl peptidase 4 (DPP-4) inhibitors", "omop_concept_id": null, "domain": "Drug"},
+    "glp1_agonist": {"concept_type": "atc_class", "atc": "A10BJ", "atc_name": "Glucagon-like peptide-1 (GLP-1) analogues", "omop_concept_id": null, "domain": "Drug"},
+    "sglt2_inhibitor": {"concept_type": "atc_class", "atc": "A10BK", "atc_name": "Sodium-glucose co-transporter 2 (SGLT2) inhibitors", "omop_concept_id": null, "domain": "Drug", "note": "Alias of sglt2i used by the diabetes/cardiology modules."},
+    "insulin": {"concept_type": "atc_class", "atc": "A10A", "atc_name": "Insulins and analogues", "omop_concept_id": null, "domain": "Drug"},
+
+    "thiazide": {"concept_type": "atc_class", "atc": "C03A", "atc_name": "Low-ceiling diuretics, thiazides", "omop_concept_id": null, "domain": "Drug"},
+    "ace_inhibitor": {"concept_type": "atc_class", "atc": "C09A", "atc_name": "ACE inhibitors, plain", "omop_concept_id": null, "domain": "Drug"},
+    "arb": {"concept_type": "atc_class", "atc": "C09C", "atc_name": "Angiotensin II receptor blockers (ARBs), plain", "omop_concept_id": null, "domain": "Drug"},
+    "ccb": {"concept_type": "atc_class", "atc": "C08", "atc_name": "Calcium channel blockers", "omop_concept_id": null, "domain": "Drug"},
+
+    "nusinersen": {"concept_type": "rxnorm_ingredient", "rxnorm": "1922512", "rxnorm_name": "nusinersen", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Spinraza). RxCUI curated best-effort; verify at ATHENA validation."},
+    "risdiplam": {"concept_type": "rxnorm_ingredient", "rxnorm": "2472695", "rxnorm_name": "risdiplam", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Evrysdi). RxCUI curated best-effort; verify at ATHENA validation."},
+    "onasemnogene": {"concept_type": "rxnorm_ingredient", "rxnorm": "2358846", "rxnorm_name": "onasemnogene abeparvovec", "omop_concept_id": null, "domain": "Drug", "note": "SMA gene therapy (Zolgensma). RxCUI curated best-effort; verify at ATHENA validation."}
   }
 }

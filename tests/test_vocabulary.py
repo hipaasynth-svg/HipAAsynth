@@ -41,11 +41,27 @@ PIPELINE_CONDITIONS = [
 ]
 PIPELINE_MEASUREMENTS = ["Glucose", "Creatinine", "LDL", "WBC"]
 PIPELINE_VISITS = ["outpatient", "urgent_care", "telehealth", "routine_check"]
-# The CHF module medication set (only module that models medications today).
+# The CHF module medication set.
 CHF_MEDICATIONS = [
     "acei_arb_arni", "beta_blocker", "mra", "sglt2i", "loop_diuretic",
     "digoxin", "hydralazine_nitrate", "ivabradine", "anticoagulant",
     "statin", "aspirin",
+]
+# Medication terms emitted by the other disease modules (COPD, OUD, diabetes,
+# cardiology, SMA). Every one must resolve to an ATC/RxNorm concept.
+MODULE_MEDICATIONS = [
+    # COPD
+    "saba_prn", "laba", "lama", "ics_laba", "triple_therapy",
+    "oral_corticosteroid", "roflumilast",
+    # OUD (MOUD treatments; "no_moud" is the absence of treatment, not a drug)
+    "buprenorphine", "methadone_otp", "naltrexone_oral", "naltrexone_xr_im",
+    # diabetes
+    "metformin", "sulfonylurea", "dpp4_inhibitor", "glp1_agonist",
+    "sglt2_inhibitor", "insulin",
+    # cardiology
+    "thiazide", "ace_inhibitor", "arb", "ccb",
+    # SMA disease-modifying therapies
+    "nusinersen", "risdiplam", "onasemnogene",
 ]
 
 
@@ -65,6 +81,23 @@ def test_all_pipeline_terms_are_mapped():
         medications=CHF_MEDICATIONS,
     )
     assert gaps == {"conditions": [], "measurements": [], "visits": [], "medications": []}, gaps
+
+
+def test_all_module_medications_are_mapped():
+    """Every medication term the disease modules emit must resolve."""
+    gaps = unmapped_terms(medications=CHF_MEDICATIONS + MODULE_MEDICATIONS)
+    assert gaps["medications"] == [], gaps["medications"]
+
+
+def test_copd_and_oud_and_sma_medication_shapes():
+    # COPD combination-inhaler class.
+    assert lookup_medication("triple_therapy").atc == "R03AL"
+    # OUD MOUD ingredient.
+    assert lookup_medication("buprenorphine").rxnorm == "1819"
+    # naltrexone oral and XR share the same ingredient code, different formulation.
+    assert lookup_medication("naltrexone_oral").rxnorm == lookup_medication("naltrexone_xr_im").rxnorm
+    # SMA disease-modifying therapy.
+    assert lookup_medication("nusinersen").concept_type == "rxnorm_ingredient"
 
 
 def test_medication_classes_map_to_atc():
