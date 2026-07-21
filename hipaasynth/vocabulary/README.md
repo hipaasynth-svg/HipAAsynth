@@ -57,19 +57,38 @@ best-effort — the map metadata carries `"validation_status":
 "curated-pending-athena"` and `"vocabulary_release": "UNVALIDATED"`.
 
 **Before using OMOP output in production tooling**, validate the `concept_id`
-values against a pinned [ATHENA](https://athena.ohdsi.org/) vocabulary download:
+values against a pinned [ATHENA](https://athena.ohdsi.org/) vocabulary download.
+This is automated — you do not check it by hand:
 
 1. Download the vocabulary bundle from ATHENA (SNOMED, LOINC, RxNorm, ICD-10-CM
    at minimum) and note the release date — this becomes the pinned
-   `vocabulary_release`.
-2. For each entry, confirm the `omop_concept_id` in `CONCEPT.csv` has
-   `standard_concept = 'S'`, matches the expected `domain_id`, and that its
-   `concept_code` equals the terminology code recorded here.
-3. Use [Usagi](https://github.com/OHDSI/Usagi) to review any additions when new
+   `vocabulary_release`. (ATHENA bundles are license-gated: you register, accept
+   per-vocabulary terms, and receive the bundle. There is no anonymous download,
+   which is why this step is run by a human with an account rather than fetched
+   automatically.)
+2. Run the validator against the bundle's `CONCEPT.csv`:
+
+   ```bash
+   python -m hipaasynth.vocabulary.validate --concept-csv /path/to/CONCEPT.csv
+   ```
+
+   It checks every mapped `concept_id` for existence, `standard_concept = 'S'`,
+   the expected `domain_id`, and (for conditions/measurements) that
+   `concept_code` equals the SNOMED/LOINC code recorded here. Exit code is
+   non-zero if anything fails, so it can gate CI. No network access is needed at
+   runtime — it reads the local file.
+
+3. Once it passes, record the release and flip the status in one step:
+
+   ```bash
+   python -m hipaasynth.vocabulary.validate --concept-csv /path/to/CONCEPT.csv \
+       --write-status --release "ATHENA 2026-07"
+   ```
+
+4. Use [Usagi](https://github.com/OHDSI/Usagi) to review any *additions* when new
    generator terms are introduced — it fuzzy-matches source terms to standard
-   concepts with human review, which is the OHDSI-sanctioned workflow.
-4. Update `map_version`, set `vocabulary_release` to the pinned release, and flip
-   `validation_status` to `validated`.
+   concepts with human review, which is the OHDSI-sanctioned workflow — then
+   re-run the validator.
 
 ## Adding a new generator term
 
