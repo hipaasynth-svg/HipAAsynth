@@ -1,0 +1,68 @@
+{
+  "Name": "Heart failure with atrial fibrillation",
+  "ConceptSets": [
+    {
+      "id": 0,
+      "name": "Heart failure",
+      "expression": {
+        "items": [
+          {
+            "concept": {
+              "CONCEPT_ID": 316139,
+              "CONCEPT_NAME": "Heart failure",
+              "DOMAIN_ID": "Condition",
+              "VOCABULARY_ID": "SNOMED",
+              "STANDARD_CONCEPT": "S",
+              "CONCEPT_CODE": "84114007"
+            },
+            "includeDescendants": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 1,
+      "name": "Atrial fibrillation",
+      "expression": {
+        "items": [
+          {
+            "concept": {
+              "CONCEPT_ID": 313217,
+              "CONCEPT_NAME": "Atrial fibrillation",
+              "DOMAIN_ID": "Condition",
+              "VOCABULARY_ID": "SNOMED",
+              "STANDARD_CONCEPT": "S",
+              "CONCEPT_CODE": "49436004"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "name": "Dementia (not modeled by HipAAsynth)",
+      "expression": {
+        "items": [
+          {
+            "concept": {
+              "CONCEPT_ID": 4182210,
+              "CONCEPT_NAME": "Dementia",
+              "DOMAIN_ID": "Condition",
+              "VOCABULARY_ID": "SNOMED",
+              "STANDARD_CONCEPT": "S",
+              "CONCEPT_CODE": "52448006"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "PrimaryCriteria": {
+    "CriteriaList": [
+      { "ConditionOccurrence": { "CodesetId": 0 } }
+    ],
+    "ObservationWindow": { "PriorDays": 0, "PostDays": 0 },
+    "PrimaryCriteriaLimit": { "Type": "First" }
+  },
+  "InclusionRules": []
+}

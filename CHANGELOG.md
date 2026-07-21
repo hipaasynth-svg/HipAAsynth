@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **ATLAS cohort ingestion** (`hipaasynth/ohdsi/atlas_cohort.py`) — read an OHDSI
+  ATLAS cohort definition (Circe JSON; bare or WebAPI-wrapped) and target a
+  matching synthetic cohort. Reverse-maps the definition's concept sets through
+  the vocabulary, reports matched/unmatched concept coverage, resolves the entry
+  criteria to an index condition, and produces a ready `GenerationConfig` that
+  seeds every synthetic patient with it. The bridge lets OHDSI define the cohort
+  and HipAAsynth generate the under-represented population to stress-test.
+- **`terms_for_concept_id`** — reverse vocabulary lookup (OMOP concept_id →
+  HipAAsynth generator term), preferring generator-accepted terms.
+
 ## [1.1.0] — 2026-07-21
 
 OHDSI / OMOP interoperability. HipAAsynth output is no longer text-only: the
