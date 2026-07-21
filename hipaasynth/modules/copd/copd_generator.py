@@ -24,8 +24,8 @@ Generates deterministic synthetic COPD patient cohorts calibrated to:
   - ATS/ERS spirometric reference equations (GLI-2012)
   - NHLBI COPD National Action Plan epidemiology
 
-Engine: HipAAsynth v1.0.1
-Schema: v1.1.0
+Engine: HipAAsynth v1.0.2
+Schema: v1.0.0
 Author: HipAAsynth / Cody Carlson
 License: CC-BY-NC-4.0
 

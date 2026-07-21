@@ -42,7 +42,7 @@ Nine geographic profiles that override engine demographics (age-band weights, se
 
 `hipaasynth/core/config.py:58-62` defines `DEFAULT_SYNTHETIC_DISCLAIMER`, imported by every module as the `disclaimer` field.
 
-> **Provenance discrepancy (verify at `copd_generator.py:27-28`, `chf_generator.py:44-45`, `oud_generator.py:36-37` vs `config.py:29-30`):** The COPD/CHF/OUD module docstrings state "Engine: HipAAsynth v1.0.1 / Schema: v1.1.0," but the code imports `ENGINE_VERSION`/`SCHEMA_VERSION` from `config.py`, so the values actually written to records are **1.0.2 / 1.0.0**. The docstring strings are stale and are not what patients receive.
+> **Provenance (verify at `copd_generator.py:27-28`, `chf_generator.py:44-45`, `oud_generator.py:36-37` vs `config.py:29-30`):** The COPD/CHF/OUD module docstrings now state "Engine: HipAAsynth v1.0.2 / Schema: v1.0.0," matching the `ENGINE_VERSION`/`SCHEMA_VERSION` constants imported from `config.py` and written to every record. A prior discrepancy — docstrings stale at v1.0.1 / v1.1.0 while records carried 1.0.2 / 1.0.0 — was corrected.
 
 ---
 
@@ -422,7 +422,7 @@ The engine consumes profiles via `age_band_weights` in `generator_demographics.p
 
 2. **Determinism model is not uniform across modules.** COPD/CHF/OUD use SHA-256 anchor→namespaced RNGs; Stroke/Sepsis are engine-anchor per-patient hooks; Diabetes uses `core.anchor.Anchor` derived seeds; DMD/Fabry/SMA use `random.Random(seed)` with self-tracked call counts; Oncology/Cardiology own no seed at all. A single global seed does **not** reproduce every module the same way.
 
-3. **Engine/schema version strings are inconsistent.** Records carry `ENGINE_VERSION=1.0.2`, `SCHEMA_VERSION=1.0.0` (`core/config.py:29-30`), while COPD/CHF/OUD docstrings still claim 1.0.1 / 1.1.0.
+3. **Engine/schema version strings are consistent.** Records carry `ENGINE_VERSION=1.0.2`, `SCHEMA_VERSION=1.0.0` (`core/config.py:29-30`), and the COPD/CHF/OUD docstrings now state the same 1.0.2 / 1.0.0 (previously stale at 1.0.1 / 1.1.0).
 
 4. **Calibration-source density varies enormously.** COPD/CHF/OUD/Stroke/Sepsis carry dense inline literature citations. DMD, Fabry, SMA, Oncology, Cardiology, and the Diabetes pack carry little to no field-level provenance (cohort-level names or none). Where a field's source is not in the module, this datasheet reports "no source stated."
 

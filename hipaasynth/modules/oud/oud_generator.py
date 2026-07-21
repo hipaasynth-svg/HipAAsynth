@@ -33,8 +33,8 @@ massively underrepresented in AI model training data. This module
 specifically stress-tests AI models that were trained on urban/suburban
 clinical datasets.
 
-Engine: HipAAsynth v1.0.1
-Schema: v1.1.0
+Engine: HipAAsynth v1.0.2
+Schema: v1.0.0
 Author: HipAAsynth / Cody Carlson
 License: CC-BY-NC-4.0
 
