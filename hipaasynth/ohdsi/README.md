@@ -47,3 +47,38 @@ Reverse lookup uses the OMOP `concept_id`s in the vocabulary map, which are
 `curated-pending-athena` until validated (see `hipaasynth/vocabulary/README.md`).
 Concepts map to the generator term that HipAAsynth actually accepts
 (`ALLOWED_CONDITIONS`) when several synonyms exist.
+
+## ACHILLES / DQD-style CDM audit (`cdm_audit.py`)
+
+Run OHDSI-style **characterization** (ACHILLES) and **data-quality checks**
+(DataQualityDashboard) directly over a HipAAsynth OMOP CDM cohort — pure Python,
+no OMOP database, R/Java, or network access required. The output is a **realism /
+QA credential**: evidence that a synthetic cohort passes the same structural and
+plausibility checks a real OMOP database is held to.
+
+```python
+from hipaasynth.exporters.omop import build_cdm_tables
+from hipaasynth.ohdsi import audit_cdm, render_markdown
+
+report = audit_cdm(build_cdm_tables(patients))   # or a path to exported CSVs
+print(render_markdown(report))
+```
+
+Or from the command line, against an exported cohort:
+
+```bash
+python -m hipaasynth.ohdsi.cdm_audit --omop-dir omop_cdm --out audit.md --json audit.json
+```
+
+- **Characterization** — person/record counts, gender and age-band distributions,
+  top conditions and drugs, per-measurement value summaries.
+- **Data-quality checks** — a representative battery across DQD's three
+  categories: **Conformance** (required fields, unique/valid keys, person foreign
+  keys), **Completeness** (populated dates/values, standard-concept mapping
+  rates), and **Plausibility** (birth-year range, non-negative values, ordered
+  visit dates). Each check has a failure threshold and PASS / FAIL /
+  NOT_APPLICABLE status; the CLI exits non-zero if any check fails.
+
+Scope: a defensible representative subset, not a re-implementation of DQD's full
+check catalogue. Drug rows with `concept_id = 0` (ATC-class terms) are expected
+and are not counted against condition/measurement mapping completeness.

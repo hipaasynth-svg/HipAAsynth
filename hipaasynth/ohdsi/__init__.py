@@ -14,13 +14,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""HipAAsynth ⇄ OHDSI ecosystem bridges (ATLAS cohort ingestion, ...)."""
+"""HipAAsynth ⇄ OHDSI ecosystem bridges (ATLAS cohort ingestion, CDM audit)."""
 from hipaasynth.ohdsi.atlas_cohort import (
     AtlasCohortPlan,
     MatchedConcept,
     UnmatchedConcept,
     load_atlas_cohort,
     parse_atlas_cohort,
+)
+from hipaasynth.ohdsi.cdm_audit import (
+    audit_cdm,
+    characterize,
+    load_cdm_dir,
+    render_markdown,
+    run_dq_checks,
 )
 
 __all__ = [
@@ -29,4 +36,9 @@ __all__ = [
     "UnmatchedConcept",
     "load_atlas_cohort",
     "parse_atlas_cohort",
+    "audit_cdm",
+    "characterize",
+    "load_cdm_dir",
+    "render_markdown",
+    "run_dq_checks",
 ]
