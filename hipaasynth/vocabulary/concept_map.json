@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "description": "HipAAsynth internal-term to OHDSI/OMOP standard-concept map. Maps the finite, controlled vocabulary emitted by HipAAsynth generators to standard clinical terminologies (SNOMED CT, ICD-10-CM, LOINC, RxNorm) and OMOP standard concept_ids.",
+    "map_version": "0.1.0",
+    "omop_cdm_version": "5.4",
+    "vocabulary_release": "UNVALIDATED",
+    "validation_status": "curated-pending-athena",
+    "notes": [
+      "concept_id values are curated best-effort and MUST be validated against a pinned ATHENA vocabulary download before use in production OMOP tooling. See hipaasynth/vocabulary/README.md.",
+      "Terminology codes (SNOMED/ICD-10-CM/LOINC/RxNorm) are stable identifiers; OMOP concept_ids are release-versioned and are the field most likely to drift between vocabulary versions."
+    ]
+  },
+  "conditions": {
+    "congestive_heart_failure": {"snomed_code": "42343007", "snomed_name": "Congestive heart failure", "icd10cm": "I50.9", "omop_concept_id": 316139, "omop_concept_name": "Heart failure", "domain": "Condition"},
+    "hypertension": {"snomed_code": "38341003", "snomed_name": "Hypertensive disorder, systemic arterial", "icd10cm": "I10", "omop_concept_id": 316866, "omop_concept_name": "Hypertensive disorder", "domain": "Condition"},
+    "type2_diabetes": {"snomed_code": "44054006", "snomed_name": "Diabetes mellitus type 2", "icd10cm": "E11.9", "omop_concept_id": 201826, "omop_concept_name": "Type 2 diabetes mellitus", "domain": "Condition"},
+    "chronic_kidney_disease": {"snomed_code": "709044004", "snomed_name": "Chronic kidney disease", "icd10cm": "N18.9", "omop_concept_id": 46271022, "omop_concept_name": "Chronic kidney disease", "domain": "Condition"},
+    "ckd": {"snomed_code": "709044004", "snomed_name": "Chronic kidney disease", "icd10cm": "N18.9", "omop_concept_id": 46271022, "omop_concept_name": "Chronic kidney disease", "domain": "Condition"},
+    "atrial_fibrillation": {"snomed_code": "49436004", "snomed_name": "Atrial fibrillation", "icd10cm": "I48.91", "omop_concept_id": 313217, "omop_concept_name": "Atrial fibrillation", "domain": "Condition"},
+    "afib": {"snomed_code": "49436004", "snomed_name": "Atrial fibrillation", "icd10cm": "I48.91", "omop_concept_id": 313217, "omop_concept_name": "Atrial fibrillation", "domain": "Condition"},
+    "copd": {"snomed_code": "13645005", "snomed_name": "Chronic obstructive lung disease", "icd10cm": "J44.9", "omop_concept_id": 255573, "omop_concept_name": "Chronic obstructive lung disease", "domain": "Condition"},
+    "coronary_artery_disease": {"snomed_code": "53741008", "snomed_name": "Coronary arteriosclerosis", "icd10cm": "I25.10", "omop_concept_id": 317576, "omop_concept_name": "Coronary arteriosclerosis", "domain": "Condition"},
+    "cad": {"snomed_code": "53741008", "snomed_name": "Coronary arteriosclerosis", "icd10cm": "I25.10", "omop_concept_id": 317576, "omop_concept_name": "Coronary arteriosclerosis", "domain": "Condition"},
+    "depression": {"snomed_code": "35489007", "snomed_name": "Depressive disorder", "icd10cm": "F32.9", "omop_concept_id": 440383, "omop_concept_name": "Depressive disorder", "domain": "Condition"},
+    "asthma": {"snomed_code": "195967001", "snomed_name": "Asthma", "icd10cm": "J45.909", "omop_concept_id": 317009, "omop_concept_name": "Asthma", "domain": "Condition"},
+    "hyperlipidemia": {"snomed_code": "55822004", "snomed_name": "Hyperlipidemia", "icd10cm": "E78.5", "omop_concept_id": 432867, "omop_concept_name": "Hyperlipidemia", "domain": "Condition"},
+    "prior_mi": {"snomed_code": "22298006", "snomed_name": "Myocardial infarction", "icd10cm": "I21.9", "omop_concept_id": 4329847, "omop_concept_name": "Myocardial infarction", "domain": "Condition"},
+    "anemia": {"snomed_code": "271737000", "snomed_name": "Anemia", "icd10cm": "D64.9", "omop_concept_id": 439777, "omop_concept_name": "Anemia", "domain": "Condition"},
+    "sleep_apnea": {"snomed_code": "73430006", "snomed_name": "Sleep apnea", "icd10cm": "G47.30", "omop_concept_id": 442588, "omop_concept_name": "Sleep apnea", "domain": "Condition"},
+    "peripheral_vascular_disease": {"snomed_code": "400047006", "snomed_name": "Peripheral vascular disease", "icd10cm": "I73.9", "omop_concept_id": 321052, "omop_concept_name": "Peripheral vascular disease", "domain": "Condition"},
+    "stroke_tia_history": {"snomed_code": "230690007", "snomed_name": "Cerebrovascular accident", "icd10cm": "I63.9", "omop_concept_id": 381591, "omop_concept_name": "Cerebrovascular accident", "domain": "Condition"},
+    "liver_disease": {"snomed_code": "235856003", "snomed_name": "Disorder of liver", "icd10cm": "K76.9", "omop_concept_id": 4212540, "omop_concept_name": "Disorder of liver", "domain": "Condition"},
+    "sepsis": {"snomed_code": "91302008", "snomed_name": "Sepsis", "icd10cm": "A41.9", "omop_concept_id": 132797, "omop_concept_name": "Sepsis", "domain": "Condition"}
+  },
+  "measurements": {
+    "Glucose": {"loinc": "2345-7", "loinc_name": "Glucose [Mass/volume] in Serum or Plasma", "unit_ucum": "mg/dL", "omop_concept_id": 3004501, "omop_concept_name": "Glucose [Mass/volume] in Serum or Plasma", "domain": "Measurement"},
+    "Creatinine": {"loinc": "2160-0", "loinc_name": "Creatinine [Mass/volume] in Serum or Plasma", "unit_ucum": "mg/dL", "omop_concept_id": 3016723, "omop_concept_name": "Creatinine [Mass/volume] in Serum or Plasma", "domain": "Measurement"},
+    "LDL": {"loinc": "13457-7", "loinc_name": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation", "unit_ucum": "mg/dL", "omop_concept_id": 3028288, "omop_concept_name": "Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation", "domain": "Measurement"},
+    "WBC": {"loinc": "6690-2", "loinc_name": "Leukocytes [#/volume] in Blood by Automated count", "unit_ucum": "10*3/uL", "omop_concept_id": 3000905, "omop_concept_name": "Leukocytes [#/volume] in Blood by Automated count", "domain": "Measurement"},
+    "bnp": {"loinc": "30934-4", "loinc_name": "Natriuretic peptide B [Mass/volume] in Serum or Plasma", "unit_ucum": "pg/mL", "omop_concept_id": 3011960, "omop_concept_name": "Natriuretic peptide B [Mass/volume] in Serum or Plasma", "domain": "Measurement"},
+    "ntprobnp": {"loinc": "33762-6", "loinc_name": "Natriuretic peptide.B prohormone N-Terminal [Mass/volume] in Serum or Plasma", "unit_ucum": "pg/mL", "omop_concept_id": 3016407, "omop_concept_name": "NT-proBNP [Mass/volume] in Serum or Plasma", "domain": "Measurement"},
+    "troponin_i_hs": {"loinc": "89579-7", "loinc_name": "Troponin I.cardiac [Mass/volume] in Serum or Plasma by High sensitivity method", "unit_ucum": "ng/L", "omop_concept_id": 42529224, "omop_concept_name": "Troponin I.cardiac by High sensitivity method", "domain": "Measurement"},
+    "sodium": {"loinc": "2951-2", "loinc_name": "Sodium [Moles/volume] in Serum or Plasma", "unit_ucum": "mmol/L", "omop_concept_id": 3019550, "omop_concept_name": "Sodium [Moles/volume] in Serum or Plasma", "domain": "Measurement"},
+    "potassium": {"loinc": "2823-3", "loinc_name": "Potassium [Moles/volume] in Serum or Plasma", "unit_ucum": "mmol/L", "omop_concept_id": 3023103, "omop_concept_name": "Potassium [Moles/volume] in Serum or Plasma", "domain": "Measurement"},
+    "hemoglobin": {"loinc": "718-7", "loinc_name": "Hemoglobin [Mass/volume] in Blood", "unit_ucum": "g/dL", "omop_concept_id": 3000963, "omop_concept_name": "Hemoglobin [Mass/volume] in Blood", "domain": "Measurement"},
+    "egfr": {"loinc": "33914-3", "loinc_name": "Glomerular filtration rate/1.73 sq M.predicted", "unit_ucum": "mL/min/{1.73_m2}", "omop_concept_id": 3049187, "omop_concept_name": "Glomerular filtration rate/1.73 sq M.predicted", "domain": "Measurement"}
+  },
+  "visits": {
+    "outpatient": {"omop_concept_id": 9202, "omop_concept_name": "Outpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
+    "routine_check": {"omop_concept_id": 9202, "omop_concept_name": "Outpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
+    "urgent_care": {"omop_concept_id": 9203, "omop_concept_name": "Emergency Room Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
+    "telehealth": {"omop_concept_id": 5083, "omop_concept_name": "Telehealth", "visit_source": "OMOP Visit", "domain": "Visit"},
+    "inpatient": {"omop_concept_id": 9201, "omop_concept_name": "Inpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"}
+  }
+}

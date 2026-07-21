@@ -31,6 +31,11 @@ from pathlib import Path
 from typing import Any, Iterable, List
 
 from hipaasynth.core.schema import Patient
+from hipaasynth.vocabulary import (
+    lookup_condition,
+    lookup_measurement,
+    lookup_visit,
+)
 
 _NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 _BIRTH_YEAR_REF = datetime.now().year
@@ -290,6 +295,27 @@ def _normalize_gender(sex):
     return "unknown"
 
 
+def _codeable_concept(mapping, fallback_text):
+    """Build a FHIR CodeableConcept from a vocabulary mapping.
+
+    Always carries a human-readable ``text``. When a standard-concept mapping
+    exists, attaches SNOMED/LOINC/ICD-10-CM ``coding[]`` entries so the resource
+    is queryable by coding-aware consumers. Unmapped terms degrade gracefully to
+    text-only (the pre-vocabulary behavior).
+    """
+    display_text = fallback_text
+    concept = {"text": display_text}
+    if mapping is not None:
+        codings = mapping.fhir_coding()
+        if codings:
+            concept["coding"] = codings
+        if mapping.omop_concept_name:
+            concept["text"] = mapping.omop_concept_name
+        else:
+            concept["text"] = display_text
+    return concept
+
+
 def _patient_to_fhir(patient):
     demo = patient.demographics
     pid = str(demo.patient_id)
@@ -328,7 +354,7 @@ def _patient_to_fhir(patient):
                     ]
                 },
                 "subject": {"reference": f"urn:uuid:{patient_uuid}"},
-                "code": {"text": cond.name},
+                "code": _codeable_concept(lookup_condition(cond.name), cond.name),
             }
         )
     for visit in patient.visits:
@@ -364,7 +390,7 @@ def _patient_to_fhir(patient):
                 "status": "final",
                 "subject": {"reference": f"urn:uuid:{patient_uuid}"},
                 "encounter": {"reference": f"urn:uuid:{encounter_uuid}"},
-                "code": {"text": str(lab.lab_name)},
+                "code": _codeable_concept(lookup_measurement(lab.lab_name), str(lab.lab_name)),
                 "valueQuantity": {"value": lab.value, "unit": str(lab.unit)},
             }
             if lab.date_recorded:

@@ -19,4 +19,5 @@ from hipaasynth.exporters.exporters import (
     print_profile_fit, print_summary, profile_fit_stats,
     summary_stats,
 )
+from hipaasynth.exporters.omop import build_cdm_tables, export_omop
 
