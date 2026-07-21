@@ -2,7 +2,7 @@
 
 **Generated:** 2026-06-27  
 **Branch:** `claude/verify-diabetes-calibration-4mzgm7`  
-**Auditor:** HipAAsynth automated audit (Claude Code)
+**Auditor:** HipAAsynth automated audit
 
 ---
 
