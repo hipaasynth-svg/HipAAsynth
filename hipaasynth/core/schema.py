@@ -47,6 +47,11 @@ class LabResult:
     date_recorded: str
 
 @dataclass(frozen=True)
+class Medication:
+    name: str
+    active: bool = True
+
+@dataclass(frozen=True)
 class Visit:
     visit_id: str
     visit_type: str
@@ -65,6 +70,7 @@ class Patient:
     synthetic: bool = True
     disclaimer: str = ""
     observations: dict[str, Any] = field(default_factory=dict)
+    medications: List[Medication] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Return this record as a plain dict via dataclasses.asdict, for exporters

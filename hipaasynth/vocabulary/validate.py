@@ -85,8 +85,21 @@ def _sniff_delimiter(sample: str) -> str:
     return "\t" if sample.count("\t") >= sample.count(",") else ","
 
 
-def load_concept_table(concept_csv: Path) -> dict[int, dict]:
-    """Load CONCEPT.csv into {concept_id: row}, keeping only needed columns."""
+@dataclass
+class ConceptTable:
+    """An OMOP CONCEPT table indexed for validation.
+
+    ``by_id`` maps concept_id -> row; ``by_code`` maps
+    (vocabulary_id, concept_code) -> row, used to resolve medication concept_ids
+    from the RxNorm/ATC codes we ship (their concept_id is intentionally null in
+    the map).
+    """
+    by_id: dict
+    by_code: dict
+
+
+def load_concept_table(concept_csv: Path) -> ConceptTable:
+    """Load CONCEPT.csv into a :class:`ConceptTable`, keeping needed columns."""
     with open(concept_csv, encoding="utf-8", newline="") as f:
         first_line = f.readline()
         delim = _sniff_delimiter(first_line)
@@ -99,21 +112,24 @@ def load_concept_table(concept_csv: Path) -> dict[int, dict]:
                 f"CONCEPT file {concept_csv} is missing required columns: "
                 f"{sorted(missing)}"
             )
-        table: dict[int, dict] = {}
+        by_id: dict[int, dict] = {}
+        by_code: dict[tuple, dict] = {}
         for row in reader:
             try:
                 cid = int(row["concept_id"])
             except (TypeError, ValueError):
                 continue
-            table[cid] = row
-    return table
+            by_id[cid] = row
+            vocab = (row.get("vocabulary_id") or "").strip()
+            code = (row.get("concept_code") or "").strip()
+            if vocab and code:
+                by_code[(vocab, code)] = row
+    return ConceptTable(by_id=by_id, by_code=by_code)
 
 
-def validate_map(concept_table: dict[int, dict]) -> list[Finding]:
-    """Return a list of findings; empty means the whole map validated cleanly."""
+def _validate_id_sections(table: ConceptTable, findings: list) -> None:
+    """Validate conditions/measurements/visits by their recorded concept_id."""
     raw = _raw_map()
-    findings: list[Finding] = []
-
     for section in ("conditions", "measurements", "visits"):
         code_field = _CODE_FIELD_BY_SECTION.get(section)
         expected_domain = {"conditions": "Condition",
@@ -126,7 +142,7 @@ def validate_map(concept_table: dict[int, dict]) -> list[Finding]:
                 findings.append(Finding(section, term, None, "no omop_concept_id recorded"))
                 continue
 
-            row = concept_table.get(int(cid))
+            row = table.by_id.get(int(cid))
             if row is None:
                 findings.append(Finding(section, term, cid, "concept_id not found in CONCEPT table"))
                 continue
@@ -152,14 +168,109 @@ def validate_map(concept_table: dict[int, dict]) -> list[Finding]:
                         f"concept_code mismatch: map says {code_field}="
                         f"{expected_code!r}, CONCEPT says {actual_code!r}"))
 
+
+def _med_lookups(term: str, entry: dict) -> list:
+    """Return the (vocabulary_id, code, expected_standard) checks for a med term.
+
+    An ingredient resolves to one standard RxNorm concept; an ATC class resolves
+    to one classification concept; a combination resolves each of its component
+    ingredients. ``expected_standard`` is 'S' for standard drug concepts and 'C'
+    for ATC classification concepts.
+    """
+    ctype = entry.get("concept_type")
+    if ctype == "rxnorm_ingredient":
+        return [("RxNorm", entry.get("rxnorm"), "S")]
+    if ctype == "atc_class":
+        return [("ATC", entry.get("atc"), "C")]
+    if ctype == "combination":
+        return [("RxNorm", comp.get("rxnorm"), "S") for comp in entry.get("components", [])]
+    return []
+
+
+def _validate_medications(table: ConceptTable, findings: list) -> None:
+    """Validate medications by resolving their RxNorm/ATC codes in CONCEPT.
+
+    Medication concept_ids are null by design; we confirm each code exists in
+    the target vocabulary, sits in the Drug domain, and has the expected
+    standard/classification flag.
+    """
+    raw = _raw_map()
+    for term, entry in raw.get("medications", {}).items():
+        checks = _med_lookups(term, entry)
+        if not checks:
+            findings.append(Finding("medications", term, None,
+                                    f"unknown concept_type {entry.get('concept_type')!r}"))
+            continue
+        for vocab, code, expected_standard in checks:
+            if not code:
+                findings.append(Finding("medications", term, None,
+                                        f"no {vocab} code recorded"))
+                continue
+            row = table.by_code.get((vocab, code))
+            if row is None:
+                findings.append(Finding("medications", term, None,
+                                        f"{vocab} code {code!r} not found in CONCEPT table"))
+                continue
+            actual_domain = (row.get("domain_id") or "").strip()
+            if actual_domain != "Drug":
+                findings.append(Finding("medications", term, int(row["concept_id"]),
+                                        f"domain mismatch: expected Drug, got {actual_domain!r}"))
+            actual_standard = (row.get("standard_concept") or "").strip().upper()
+            if actual_standard != expected_standard:
+                findings.append(Finding("medications", term, int(row["concept_id"]),
+                                        f"{vocab} {code} standard_concept expected "
+                                        f"{expected_standard!r}, got {actual_standard!r}"))
+
+
+def validate_map(concept_table: ConceptTable) -> list[Finding]:
+    """Return a list of findings; empty means the whole map validated cleanly."""
+    findings: list[Finding] = []
+    _validate_id_sections(concept_table, findings)
+    _validate_medications(concept_table, findings)
     return findings
 
 
-def write_validated_status(vocabulary_release: str) -> None:
-    """Flip the map metadata to validated against the given ATHENA release."""
+def resolve_medication_concept_ids(table: ConceptTable) -> dict[str, int]:
+    """Resolve each single-concept medication term to its concept_id via code.
+
+    Only ``rxnorm_ingredient`` and ``atc_class`` terms resolve to one concept;
+    combinations have no single concept and are skipped. Returns {term:
+    concept_id} for those that resolve cleanly.
+    """
+    raw = _raw_map()
+    resolved: dict[str, int] = {}
+    for term, entry in raw.get("medications", {}).items():
+        if entry.get("concept_type") not in ("rxnorm_ingredient", "atc_class"):
+            continue
+        checks = _med_lookups(term, entry)
+        if len(checks) != 1:
+            continue
+        vocab, code, _ = checks[0]
+        row = table.by_code.get((vocab, code)) if code else None
+        if row is not None:
+            try:
+                resolved[term] = int(row["concept_id"])
+            except (TypeError, ValueError, KeyError):
+                pass
+    return resolved
+
+
+def write_validated_status(vocabulary_release: str,
+                           medication_concept_ids: Optional[dict] = None) -> None:
+    """Flip the map metadata to validated against the given ATHENA release.
+
+    If ``medication_concept_ids`` is given, fill each term's resolved
+    ``omop_concept_id`` in place — this is how medication concept_ids get
+    populated (from their RxNorm/ATC codes) rather than being hand-entered.
+    """
     data = json.loads(_MAP_PATH.read_text(encoding="utf-8"))
     data["metadata"]["validation_status"] = "validated"
     data["metadata"]["vocabulary_release"] = vocabulary_release
+    if medication_concept_ids:
+        meds = data.get("medications", {})
+        for term, cid in medication_concept_ids.items():
+            if term in meds:
+                meds[term]["omop_concept_id"] = cid
     _MAP_PATH.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
@@ -189,14 +300,18 @@ def main(argv=None) -> int:
             print(f"  - {f}")
         return 1
 
-    total = sum(len(_raw_map().get(s, {})) for s in ("conditions", "measurements", "visits"))
+    total = sum(len(_raw_map().get(s, {}))
+                for s in ("conditions", "measurements", "visits", "medications"))
     print(f"OK: all {total} mapped concepts validated against {args.concept_csv}")
 
     if args.write_status:
         release = args.release or args.concept_csv.resolve().parent.name
-        write_validated_status(release)
+        resolved = resolve_medication_concept_ids(table)
+        write_validated_status(release, resolved)
         print(f"Updated concept_map.json metadata: validation_status=validated, "
               f"vocabulary_release={release!r}")
+        if resolved:
+            print(f"Resolved {len(resolved)} medication concept_id(s) from RxNorm/ATC codes.")
 
     return 0
 

@@ -22,9 +22,11 @@ import pytest
 
 from hipaasynth.core.config import GenerationConfig
 from hipaasynth.pipelines.population_pipeline import generate_patients
+from hipaasynth.core.schema import Medication
 from hipaasynth.vocabulary import (
     lookup_condition,
     lookup_measurement,
+    lookup_medication,
     lookup_visit,
     unmapped_terms,
 )
@@ -39,6 +41,12 @@ PIPELINE_CONDITIONS = [
 ]
 PIPELINE_MEASUREMENTS = ["Glucose", "Creatinine", "LDL", "WBC"]
 PIPELINE_VISITS = ["outpatient", "urgent_care", "telehealth", "routine_check"]
+# The CHF module medication set (only module that models medications today).
+CHF_MEDICATIONS = [
+    "acei_arb_arni", "beta_blocker", "mra", "sglt2i", "loop_diuretic",
+    "digoxin", "hydralazine_nitrate", "ivabradine", "anticoagulant",
+    "statin", "aspirin",
+]
 
 
 @pytest.fixture
@@ -54,8 +62,38 @@ def test_all_pipeline_terms_are_mapped():
         conditions=PIPELINE_CONDITIONS,
         measurements=PIPELINE_MEASUREMENTS,
         visits=PIPELINE_VISITS,
+        medications=CHF_MEDICATIONS,
     )
-    assert gaps == {"conditions": [], "measurements": [], "visits": []}, gaps
+    assert gaps == {"conditions": [], "measurements": [], "visits": [], "medications": []}, gaps
+
+
+def test_medication_classes_map_to_atc():
+    m = lookup_medication("beta_blocker")
+    assert m is not None
+    assert m.concept_type == "atc_class"
+    assert m.atc == "C07"
+    # concept_id is intentionally null until ATHENA validation resolves it.
+    assert m.omop_concept_id is None
+
+
+def test_medication_single_agent_maps_to_rxnorm():
+    m = lookup_medication("digoxin")
+    assert m.concept_type == "rxnorm_ingredient"
+    assert m.rxnorm == "3407"
+
+
+def test_medication_combination_carries_components():
+    m = lookup_medication("hydralazine_nitrate")
+    assert m.concept_type == "combination"
+    codes = {c["rxnorm"] for c in m.components}
+    assert codes == {"5470", "6058"}
+
+
+def test_medication_fhir_coding_uses_rxnorm_or_atc():
+    atc = lookup_medication("statin").fhir_coding()
+    assert any(c["system"] == "http://www.whocc.no/atc" for c in atc)
+    rx = lookup_medication("aspirin").fhir_coding()
+    assert any(c["system"] == "http://www.nlm.nih.gov/research/umls/rxnorm" for c in rx)
 
 
 def test_condition_lookup_is_case_insensitive():
@@ -115,6 +153,7 @@ def test_build_cdm_tables_structure(patients):
     tables = build_cdm_tables(patients)
     assert set(tables) == {
         "person", "condition_occurrence", "visit_occurrence", "measurement",
+        "drug_exposure",
     }
     assert len(tables["person"]) == len(patients)
     # person_ids are unique sequential surrogate keys.
@@ -138,10 +177,46 @@ def test_cdm_conditions_reference_persons(patients):
         assert row["condition_source_value"]
 
 
+def test_drug_exposure_empty_when_no_medications(patients):
+    # Base-pipeline patients carry no medications, so no drug rows are emitted.
+    tables = build_cdm_tables(patients)
+    assert tables["drug_exposure"] == []
+
+
+def test_drug_exposure_from_medications(patients):
+    import dataclasses
+    p = dataclasses.replace(patients[0], medications=[
+        Medication(name="beta_blocker"),   # ATC class -> concept_id 0, source kept
+        Medication(name="digoxin"),        # RxNorm ingredient
+    ])
+    tables = build_cdm_tables([p])
+    drugs = tables["drug_exposure"]
+    assert len(drugs) == 2
+    sources = {d["drug_source_value"] for d in drugs}
+    assert sources == {"beta_blocker", "digoxin"}
+    # concept_ids are null in the map until ATHENA validation, so exporter emits 0.
+    assert all(d["drug_concept_id"] == 0 for d in drugs)
+    assert all(d["person_id"] == 1 for d in drugs)
+
+
+def test_fhir_medication_statement(patients, tmp_path):
+    import dataclasses, json
+    p = dataclasses.replace(patients[0], medications=[Medication(name="statin")])
+    path = tmp_path / "bundle.json"
+    export_fhir([p], str(path))
+    bundle = json.loads(path.read_text())
+    meds = [e["resource"] for e in bundle["entry"]
+            if e["resource"]["resourceType"] == "MedicationStatement"]
+    assert len(meds) == 1
+    coding = meds[0]["medication"]["concept"]["coding"]
+    assert any(c["system"] == "http://www.whocc.no/atc" for c in coding)
+
+
 def test_export_omop_writes_valid_csvs(patients, tmp_path):
     counts = export_omop(patients, str(tmp_path / "omop_cdm"))
     out = tmp_path / "omop_cdm"
-    for table in ("person", "condition_occurrence", "visit_occurrence", "measurement"):
+    for table in ("person", "condition_occurrence", "visit_occurrence", "measurement",
+                  "drug_exposure"):
         path = out / f"{table}.csv"
         assert path.exists()
         with open(path, newline="") as f:

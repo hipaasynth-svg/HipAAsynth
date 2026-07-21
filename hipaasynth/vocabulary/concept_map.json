@@ -1,13 +1,14 @@
 {
   "metadata": {
-    "description": "HipAAsynth internal-term to OHDSI/OMOP standard-concept map. Maps the finite, controlled vocabulary emitted by HipAAsynth generators to standard clinical terminologies (SNOMED CT, ICD-10-CM, LOINC, RxNorm) and OMOP standard concept_ids.",
-    "map_version": "0.1.0",
+    "description": "HipAAsynth internal-term to OHDSI/OMOP standard-concept map. Maps the finite, controlled vocabulary emitted by HipAAsynth generators to standard clinical terminologies (SNOMED CT, ICD-10-CM, LOINC, RxNorm, ATC) and OMOP standard concept_ids.",
+    "map_version": "0.2.0",
     "omop_cdm_version": "5.4",
     "vocabulary_release": "UNVALIDATED",
     "validation_status": "curated-pending-athena",
     "notes": [
-      "concept_id values are curated best-effort and MUST be validated against a pinned ATHENA vocabulary download before use in production OMOP tooling. See hipaasynth/vocabulary/README.md.",
-      "Terminology codes (SNOMED/ICD-10-CM/LOINC/RxNorm) are stable identifiers; OMOP concept_ids are release-versioned and are the field most likely to drift between vocabulary versions."
+      "concept_id values for conditions/measurements/visits are curated best-effort and MUST be validated against a pinned ATHENA vocabulary download before use in production OMOP tooling. See hipaasynth/vocabulary/README.md.",
+      "Terminology codes (SNOMED/ICD-10-CM/LOINC/RxNorm/ATC) are stable identifiers; OMOP concept_ids are release-versioned and are the field most likely to drift between vocabulary versions.",
+      "Medication concept_ids are intentionally null: they are resolved from the ship-with RxNorm/ATC codes during ATHENA validation (validate.py --write-status), never fabricated. Drug classes map to ATC classification concepts, single agents to RxNorm ingredients."
     ]
   },
   "conditions": {
@@ -51,5 +52,18 @@
     "urgent_care": {"omop_concept_id": 9203, "omop_concept_name": "Emergency Room Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
     "telehealth": {"omop_concept_id": 5083, "omop_concept_name": "Telehealth", "visit_source": "OMOP Visit", "domain": "Visit"},
     "inpatient": {"omop_concept_id": 9201, "omop_concept_name": "Inpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"}
+  },
+  "medications": {
+    "beta_blocker": {"concept_type": "atc_class", "atc": "C07", "atc_name": "Beta blocking agents", "omop_concept_id": null, "domain": "Drug"},
+    "statin": {"concept_type": "atc_class", "atc": "C10AA", "atc_name": "HMG CoA reductase inhibitors", "omop_concept_id": null, "domain": "Drug"},
+    "loop_diuretic": {"concept_type": "atc_class", "atc": "C03C", "atc_name": "High-ceiling diuretics", "omop_concept_id": null, "domain": "Drug"},
+    "mra": {"concept_type": "atc_class", "atc": "C03DA", "atc_name": "Aldosterone antagonists", "omop_concept_id": null, "domain": "Drug"},
+    "sglt2i": {"concept_type": "atc_class", "atc": "A10BK", "atc_name": "Sodium-glucose co-transporter 2 (SGLT2) inhibitors", "omop_concept_id": null, "domain": "Drug"},
+    "anticoagulant": {"concept_type": "atc_class", "atc": "B01A", "atc_name": "Antithrombotic agents", "omop_concept_id": null, "domain": "Drug"},
+    "acei_arb_arni": {"concept_type": "atc_class", "atc": "C09", "atc_name": "Agents acting on the renin-angiotensin system", "omop_concept_id": null, "domain": "Drug", "note": "Composite generator term spanning ACE inhibitors (C09A), ARBs (C09C), and ARNI (C09DX04); mapped to the shared C09 parent."},
+    "digoxin": {"concept_type": "rxnorm_ingredient", "rxnorm": "3407", "rxnorm_name": "digoxin", "omop_concept_id": null, "domain": "Drug"},
+    "ivabradine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1439816", "rxnorm_name": "ivabradine", "omop_concept_id": null, "domain": "Drug"},
+    "aspirin": {"concept_type": "rxnorm_ingredient", "rxnorm": "1191", "rxnorm_name": "aspirin", "omop_concept_id": null, "domain": "Drug"},
+    "hydralazine_nitrate": {"concept_type": "combination", "omop_concept_id": null, "domain": "Drug", "components": [{"rxnorm": "5470", "rxnorm_name": "hydralazine"}, {"rxnorm": "6058", "rxnorm_name": "isosorbide dinitrate"}], "note": "Fixed-dose combination (hydralazine + isosorbide dinitrate); no single standard ingredient concept, represented by its components."}
   }
 }

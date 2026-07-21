@@ -29,6 +29,7 @@ from hipaasynth.vocabulary import concept_map
 from hipaasynth.vocabulary.validate import (
     load_concept_table,
     validate_map,
+    resolve_medication_concept_ids,
     main,
 )
 
@@ -58,7 +59,11 @@ def _build_concept_csv(path, rows, delimiter="\t"):
 
 
 def _full_valid_table():
-    """A CONCEPT row for every concept_id in the shipped map, all correct."""
+    """A CONCEPT row for every concept in the shipped map, all correct.
+
+    Includes RxNorm/ATC rows for medications (whose concept_ids are null in the
+    map and get resolved from codes), with synthetic but unique concept_ids.
+    """
     raw = concept_map._raw_map()
     rows = []
     seen = set()
@@ -77,6 +82,23 @@ def _full_valid_table():
             else:
                 vocab, code = "Visit", "OP"
             rows.append(_row(cid, entry.get("omop_concept_name", term), domain, vocab, code))
+
+    # Medications: build a CONCEPT row per RxNorm/ATC code. Synthetic concept_ids
+    # start high to avoid colliding with the curated condition/measurement ids.
+    next_id = 90000000
+    for term, entry in raw["medications"].items():
+        ctype = entry["concept_type"]
+        if ctype == "rxnorm_ingredient":
+            codes = [("RxNorm", entry["rxnorm"], "S")]
+        elif ctype == "atc_class":
+            codes = [("ATC", entry["atc"], "C")]
+        else:  # combination
+            codes = [("RxNorm", c["rxnorm"], "S") for c in entry["components"]]
+        for vocab, code, standard in codes:
+            if (vocab, code) in {(r["vocabulary_id"], r["concept_code"]) for r in rows}:
+                continue
+            rows.append(_row(next_id, term, "Drug", vocab, code, standard=standard))
+            next_id += 1
     return rows
 
 
@@ -127,6 +149,55 @@ def test_detects_code_mismatch(tmp_path):
     _build_concept_csv(path, rows)
     findings = validate_map(load_concept_table(path))
     assert any("concept_code mismatch" in f.problem for f in findings)
+
+
+def test_medication_atc_class_wrong_standard_flag(tmp_path):
+    # ATC classes must be classification concepts ('C'); 'S' is a defect.
+    rows = _full_valid_table()
+    for r in rows:
+        if r["domain_id"] == "Drug" and r["vocabulary_id"] == "ATC" and r["concept_name"] == "beta_blocker":
+            r["standard_concept"] = "S"
+    path = tmp_path / "CONCEPT.csv"
+    _build_concept_csv(path, rows)
+    findings = validate_map(load_concept_table(path))
+    assert any(f.section == "medications" and "standard_concept expected 'C'" in f.problem
+               for f in findings)
+
+
+def test_medication_missing_rxnorm_code(tmp_path):
+    rows = [r for r in _full_valid_table()
+            if not (r["vocabulary_id"] == "RxNorm" and r["concept_code"] == "3407")]
+    path = tmp_path / "CONCEPT.csv"
+    _build_concept_csv(path, rows)
+    findings = validate_map(load_concept_table(path))
+    assert any(f.source_term == "digoxin" and "not found" in f.problem for f in findings)
+
+
+def test_resolve_medication_concept_ids(tmp_path):
+    path = tmp_path / "CONCEPT.csv"
+    _build_concept_csv(path, _full_valid_table())
+    resolved = resolve_medication_concept_ids(load_concept_table(path))
+    # Single-concept meds resolve; the combination does not.
+    assert "beta_blocker" in resolved and "digoxin" in resolved
+    assert "hydralazine_nitrate" not in resolved
+    assert all(isinstance(v, int) for v in resolved.values())
+
+
+def test_write_status_fills_medication_concept_ids(tmp_path, monkeypatch):
+    import json
+    original = concept_map._raw_map()
+    temp_map = tmp_path / "concept_map.json"
+    temp_map.write_text(json.dumps(original, indent=2), encoding="utf-8")
+    from hipaasynth.vocabulary import validate as validate_mod
+    monkeypatch.setattr(validate_mod, "_MAP_PATH", temp_map)
+
+    concept_csv = tmp_path / "CONCEPT.csv"
+    _build_concept_csv(concept_csv, _full_valid_table())
+    rc = main(["--concept-csv", str(concept_csv), "--write-status", "--release", "ATHENA 2026-07"])
+    assert rc == 0
+    updated = json.loads(temp_map.read_text())
+    # beta_blocker's concept_id was null; after write it is a resolved integer.
+    assert isinstance(updated["medications"]["beta_blocker"]["omop_concept_id"], int)
 
 
 def test_comma_delimited_is_accepted(tmp_path):

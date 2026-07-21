@@ -45,14 +45,20 @@ class ConceptMapping:
     loinc: Optional[str] = None
     loinc_name: Optional[str] = None
     rxnorm: Optional[str] = None
+    rxnorm_name: Optional[str] = None
+    atc: Optional[str] = None
+    atc_name: Optional[str] = None
+    concept_type: Optional[str] = None
     unit_ucum: Optional[str] = None
+    components: tuple = ()
 
     def fhir_coding(self) -> list[dict]:
         """Return FHIR ``coding[]`` entries for this concept.
 
         Emits one entry per terminology available for the term (SNOMED, LOINC,
-        ICD-10-CM). Callers wrap this in a ``CodeableConcept`` alongside a
-        ``text`` display.
+        ICD-10-CM, RxNorm, ATC — plus component ingredients for a combination
+        drug). Callers wrap this in a ``CodeableConcept`` alongside a ``text``
+        display.
         """
         codings: list[dict] = []
         if self.snomed_code:
@@ -78,6 +84,32 @@ class ConceptMapping:
                     "code": self.icd10cm,
                 }
             )
+        if self.rxnorm:
+            codings.append(
+                {
+                    "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                    "code": self.rxnorm,
+                    "display": self.rxnorm_name,
+                }
+            )
+        if self.atc:
+            codings.append(
+                {
+                    "system": "http://www.whocc.no/atc",
+                    "code": self.atc,
+                    "display": self.atc_name,
+                }
+            )
+        for comp in self.components:
+            code = comp.get("rxnorm")
+            if code:
+                codings.append(
+                    {
+                        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                        "code": code,
+                        "display": comp.get("rxnorm_name"),
+                    }
+                )
         return codings
 
 
@@ -127,7 +159,12 @@ def _lookup(section: str, term: str) -> Optional[ConceptMapping]:
         loinc=entry.get("loinc"),
         loinc_name=entry.get("loinc_name"),
         rxnorm=entry.get("rxnorm"),
+        rxnorm_name=entry.get("rxnorm_name"),
+        atc=entry.get("atc"),
+        atc_name=entry.get("atc_name"),
+        concept_type=entry.get("concept_type"),
         unit_ucum=entry.get("unit_ucum"),
+        components=tuple(entry.get("components", ())),
     )
 
 
@@ -146,7 +183,20 @@ def lookup_visit(visit_type: str) -> Optional[ConceptMapping]:
     return _lookup("visits", visit_type)
 
 
-def unmapped_terms(conditions=(), measurements=(), visits=()) -> dict[str, list[str]]:
+def lookup_medication(name: str) -> Optional[ConceptMapping]:
+    """Map a HipAAsynth medication term to standard drug concepts, or ``None``.
+
+    Medication terms are either drug *classes* (``concept_type == 'atc_class'``,
+    carrying an ATC code) or single ingredients (``concept_type ==
+    'rxnorm_ingredient'``, carrying an RxNorm code), or a fixed-dose
+    ``combination`` carrying component RxNorm codes. ``omop_concept_id`` is
+    intentionally null in the shipped map and is resolved from the ATC/RxNorm
+    code during ATHENA validation (see ``validate.py``) rather than fabricated.
+    """
+    return _lookup("medications", name)
+
+
+def unmapped_terms(conditions=(), measurements=(), visits=(), medications=()) -> dict[str, list[str]]:
     """Return terms with no concept mapping, grouped by domain.
 
     Useful for coverage checks in CI: pass the term sets a generator can emit
@@ -156,4 +206,5 @@ def unmapped_terms(conditions=(), measurements=(), visits=()) -> dict[str, list[
         "conditions": [c for c in conditions if lookup_condition(c) is None],
         "measurements": [m for m in measurements if lookup_measurement(m) is None],
         "visits": [v for v in visits if lookup_visit(v) is None],
+        "medications": [m for m in medications if lookup_medication(m) is None],
     }
