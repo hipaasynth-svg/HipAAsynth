@@ -24,8 +24,8 @@ Generates deterministic synthetic COPD patient cohorts calibrated to:
   - ATS/ERS spirometric reference equations (GLI-2012)
   - NHLBI COPD National Action Plan epidemiology
 
-Engine: HipAAsynth v1.0.1
-Schema: v1.1.0
+Engine: HipAAsynth v1.0.2
+Schema: v1.0.0
 Author: HipAAsynth / Cody Carlson
 License: CC-BY-NC-4.0
 
@@ -91,7 +91,9 @@ PROFILE = {
 
 # ── GOLD staging calibration ──────────────────────────────────────────────────
 # GOLD 1-4 prevalence in diagnosed COPD population
-# Source: Lamprecht B et al. Respir Res 2011;12:121.
+# Source: Buist AS et al. International variation in the prevalence of COPD
+#         (BOLD Study). Lancet 2007;370(9589):741-750.
+#         doi:10.1016/S0140-6736(07)61377-4. GOLD 2024 staging framework.
 GOLD_DIST = {
     "GOLD_1": 0.20,  # Mild:      FEV1 ≥80% predicted
     "GOLD_2": 0.38,  # Moderate:  50≤FEV1<80%

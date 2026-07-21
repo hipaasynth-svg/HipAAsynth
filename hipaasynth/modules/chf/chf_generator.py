@@ -41,8 +41,8 @@ IMPORTANT — COHORT FRAMING:
   inpatient care.  Do not compare these distributions to outpatient or
   population-based HF registries.
 
-Engine: HipAAsynth v1.0.1
-Schema: v1.1.0
+Engine: HipAAsynth v1.0.2
+Schema: v1.0.0
 Author: HipAAsynth / Cody Carlson
 License: CC-BY-NC-4.0
 
