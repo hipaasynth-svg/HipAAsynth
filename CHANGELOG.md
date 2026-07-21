@@ -5,7 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] — 2026-07-21
+
+OHDSI ecosystem bridges (Phase 3). HipAAsynth now interoperates with OHDSI in
+both directions: an ATLAS cohort definition can drive generation, and a generated
+OMOP cohort can be characterized and quality-checked the way a real OMOP database
+is. Backward-compatible; no schema change.
 
 ### Added
 
@@ -18,6 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and HipAAsynth generate the under-represented population to stress-test.
 - **`terms_for_concept_id`** — reverse vocabulary lookup (OMOP concept_id →
   HipAAsynth generator term), preferring generator-accepted terms.
+- **ACHILLES / DQD-style CDM audit** (`hipaasynth/ohdsi/cdm_audit.py`) — run
+  OHDSI-style characterization (ACHILLES) and data-quality checks
+  (DataQualityDashboard) directly over a generated OMOP CDM cohort, pure Python
+  and offline. Produces a realism/QA credential: characterization
+  (counts, gender/age distributions, top conditions/drugs, measurement summaries)
+  plus a representative check battery across Conformance / Completeness /
+  Plausibility, with a Markdown/JSON report and a CLI
+  (`python -m hipaasynth.ohdsi.cdm_audit`).
+- **Extended medication vocabulary** — the medication map now covers the COPD,
+  OUD, diabetes, cardiology, and SMA modules in addition to CHF (drug classes →
+  ATC, single agents → RxNorm, combinations → components), 35 terms total.
+
+### Changed
+
+- `ENGINE_VERSION` 1.1.0 → 1.2.0 (`SCHEMA_VERSION` unchanged at 1.1.0).
 
 ## [1.1.0] — 2026-07-21
 
