@@ -28,6 +28,29 @@ this is a small, curated, versioned map — not an open-ended NLP mapping proble
 | `conditions` | e.g. `congestive_heart_failure`  | SNOMED CT, ICD-10-CM, OMOP concept_id |
 | `measurements` | e.g. `Glucose`, `bnp`, `egfr`  | LOINC, OMOP concept_id, UCUM unit     |
 | `visits`     | e.g. `outpatient`, `telehealth`  | OMOP visit concept_id                 |
+| `medications` | e.g. `beta_blocker`, `digoxin`  | ATC (classes) / RxNorm (ingredients); concept_id resolved at validation |
+
+### Medications: classes vs. ingredients
+
+HipAAsynth generators assert a drug *class* (`beta_blocker`), not a specific
+product. Mapping is faithful to that:
+
+- **Drug classes** (`beta_blocker`, `statin`, `loop_diuretic`, `mra`, `sglt2i`,
+  `anticoagulant`, `acei_arb_arni`) → **ATC classification concepts**. In OMOP
+  these are classification concepts (`standard_concept = 'C'`), used to group
+  member drugs via `CONCEPT_ANCESTOR` — the OHDSI-standard way to represent
+  class-level drug info. They are **not** valid in `DRUG_EXPOSURE.drug_concept_id`,
+  so the exporter writes `drug_concept_id = 0` with the class in
+  `drug_source_value`.
+- **Single agents** (`digoxin`, `ivabradine`, `aspirin`) → **RxNorm ingredients**.
+- **Fixed-dose combinations** (`hydralazine_nitrate`) → their **component
+  ingredients**.
+
+We deliberately do **not** map a class to a representative ingredient (e.g.
+`beta_blocker` → metoprolol): that would fabricate a prescription the synthetic
+patient was never given, which a fairness-audit tool must never do. Medication
+`omop_concept_id`s are therefore null in the shipped map and are resolved from
+the RxNorm/ATC codes by the validator (below).
 
 ## API
 

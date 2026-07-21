@@ -26,6 +26,7 @@ Tables written:
   * condition_occurrence.csv
   * visit_occurrence.csv
   * measurement.csv
+  * drug_exposure.csv
 
 Standard concepts come from ``hipaasynth.vocabulary``. Terms with no mapping are
 written with ``*_concept_id = 0`` (the OMOP convention for "no matching
@@ -44,6 +45,7 @@ from pathlib import Path
 from hipaasynth.vocabulary import (
     lookup_condition,
     lookup_measurement,
+    lookup_medication,
     lookup_visit,
 )
 
@@ -81,6 +83,11 @@ _MEASUREMENT_COLUMNS = [
     "value_as_number", "unit_source_value",
     "measurement_source_value", "measurement_source_concept_id",
 ]
+_DRUG_COLUMNS = [
+    "drug_exposure_id", "person_id", "drug_concept_id",
+    "drug_exposure_start_date", "drug_type_concept_id",
+    "drug_source_value", "drug_source_concept_id",
+]
 
 # HipAAsynth Patient.birthDate reference year mirrors the FHIR exporter.
 from datetime import datetime as _dt
@@ -103,10 +110,12 @@ def build_cdm_tables(patients):
     condition_rows = []
     visit_rows = []
     measurement_rows = []
+    drug_rows = []
 
     condition_seq = 0
     visit_seq = 0
     measurement_seq = 0
+    drug_seq = 0
 
     for person_id, patient in enumerate(patients, start=1):
         demo = patient.demographics
@@ -135,6 +144,25 @@ def build_cdm_tables(patients):
                 "condition_type_concept_id": _TYPE_CONCEPT_EHR,
                 "condition_source_value": cond.name,
                 "condition_source_concept_id": _NO_CONCEPT,
+            })
+
+        # DRUG_EXPOSURE. Medications live on the Patient (schema 1.1.0+); older
+        # patients without the field simply produce no drug rows. Class-level
+        # terms (ATC) and combinations have no standard drug concept, so they
+        # carry drug_concept_id 0 with the source value preserved — the OMOP
+        # convention for "no standard mapping", which DQD can surface.
+        for med in getattr(patient, "medications", ()) or ():
+            drug_seq += 1
+            dmap = lookup_medication(med.name)
+            concept_id = (dmap.omop_concept_id if dmap and dmap.omop_concept_id else _NO_CONCEPT)
+            drug_rows.append({
+                "drug_exposure_id": drug_seq,
+                "person_id": person_id,
+                "drug_concept_id": concept_id,
+                "drug_exposure_start_date": default_date,
+                "drug_type_concept_id": _TYPE_CONCEPT_EHR,
+                "drug_source_value": med.name,
+                "drug_source_concept_id": _NO_CONCEPT,
             })
 
         for visit in patient.visits:
@@ -169,6 +197,7 @@ def build_cdm_tables(patients):
         "condition_occurrence": condition_rows,
         "visit_occurrence": visit_rows,
         "measurement": measurement_rows,
+        "drug_exposure": drug_rows,
     }
 
 
@@ -177,6 +206,7 @@ _TABLE_COLUMNS = {
     "condition_occurrence": _CONDITION_COLUMNS,
     "visit_occurrence": _VISIT_COLUMNS,
     "measurement": _MEASUREMENT_COLUMNS,
+    "drug_exposure": _DRUG_COLUMNS,
 }
 
 

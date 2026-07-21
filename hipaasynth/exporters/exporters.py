@@ -34,6 +34,7 @@ from hipaasynth.core.schema import Patient
 from hipaasynth.vocabulary import (
     lookup_condition,
     lookup_measurement,
+    lookup_medication,
     lookup_visit,
 )
 
@@ -355,6 +356,19 @@ def _patient_to_fhir(patient):
                 },
                 "subject": {"reference": f"urn:uuid:{patient_uuid}"},
                 "code": _codeable_concept(lookup_condition(cond.name), cond.name),
+            }
+        )
+    for i, med in enumerate(getattr(patient, "medications", ()) or ()):
+        med_uuid = _duuid(f"medication::{pid}::{med.name}::{i}")
+        resources.append(
+            {
+                "resourceType": "MedicationStatement",
+                "id": med_uuid,
+                "status": "recorded" if getattr(med, "active", True) else "entered-in-error",
+                "subject": {"reference": f"urn:uuid:{patient_uuid}"},
+                "medication": {
+                    "concept": _codeable_concept(lookup_medication(med.name), med.name)
+                },
             }
         )
     for visit in patient.visits:

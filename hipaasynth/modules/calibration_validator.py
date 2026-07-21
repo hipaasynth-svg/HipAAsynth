@@ -233,7 +233,7 @@ def validate_oud(path):
 def run_all():
     report = {
         "generated_utc": datetime.utcnow().isoformat() + "Z",
-        "engine_version": "1.0.2",
+        "engine_version": "1.1.0",
         "tolerance_default": TOLERANCE,
         "modules": {}
     }

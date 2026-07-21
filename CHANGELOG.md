@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-07-21
+
+OHDSI / OMOP interoperability. HipAAsynth output is no longer text-only: the
+generated vocabulary now carries standard clinical codes, and cohorts can be
+emitted as OMOP CDM tables consumable by the OHDSI tool ecosystem (ATLAS,
+ACHILLES, DataQualityDashboard, HADES). Backward-compatible: existing FHIR/CSV/
+JSON exports are unchanged except for added `coding[]`, and the new `Patient`
+field defaults to empty.
+
+### Added
+
+- **Vocabulary layer** (`hipaasynth/vocabulary/`) — a versioned concept map plus
+  loader API mapping every internal generator term (conditions, labs, visit
+  types, medications) to SNOMED CT, ICD-10-CM, LOINC, RxNorm, and ATC, with OMOP
+  standard `concept_id`s. Lookups are case-insensitive; unmapped terms return
+  `None`.
+- **OMOP CDM v5.4 exporter** (`export_omop`) — writes `person`,
+  `condition_occurrence`, `visit_occurrence`, `measurement`, and `drug_exposure`
+  CSVs loadable into an existing OMOP database with no ETL. Unmapped terms use
+  `concept_id 0` with the source value preserved.
+- **FHIR standard codings** — `Condition`, `Observation`, and the new
+  `MedicationStatement` resources now carry SNOMED/LOINC/RxNorm/ATC `coding[]`,
+  degrading gracefully to text-only for unmapped terms.
+- **Medication mapping** — drug *classes* (`beta_blocker`, `statin`, …) map to
+  ATC classification concepts; single agents (`digoxin`, `aspirin`, …) to RxNorm
+  ingredients; fixed-dose combinations to their components. Medication
+  `concept_id`s are resolved from the ship-with codes during validation, never
+  fabricated.
+- **Concept-map validator** (`python -m hipaasynth.vocabulary.validate`) — checks
+  every mapped concept against an ATHENA `CONCEPT.csv` (existence, standard flag,
+  domain, code match) and resolves/fills medication `concept_id`s from their
+  codes. Runs offline against the local file; non-zero exit gates CI.
+- **`Medication`** dataclass and `Patient.medications` field (schema 1.1.0).
+
+### Changed
+
+- `SCHEMA_VERSION` 1.0.0 → 1.1.0 (added `Patient.medications`); `ENGINE_VERSION`
+  1.0.2 → 1.1.0.
+
 ## [1.0.2] — 2026-07-08
 
 Compliance-readiness hardening. No change to the synthetic-data generation
