@@ -52,6 +52,10 @@ patient was never given, which a fairness-audit tool must never do. Medication
 `omop_concept_id`s are therefore null in the shipped map and are resolved from
 the RxNorm/ATC codes by the validator (below).
 
+Coverage spans the CHF, COPD, OUD, diabetes, cardiology, and SMA modules (the
+`no_moud` sentinel — absence of treatment — is intentionally not a drug and is
+not mapped).
+
 ## API
 
 ```python
