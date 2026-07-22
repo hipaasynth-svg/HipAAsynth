@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-07-20T23:41:26.075891Z",
-  "engine_version": "1.0.2",
+  "generated_utc": "2026-07-22T01:16:13.556574Z",
+  "engine_version": "1.2.0",
   "tolerance_default": 0.08,
   "modules": {
     "copd": {
@@ -690,10 +690,184 @@
       ],
       "pass": 6,
       "fail": 0
+    },
+    "oncology": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/oncology_1000/oncology_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "Breast site share (target 0.44)",
+          "actual": 0.417,
+          "target": 0.44,
+          "diff": 0.023,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Lung site share (target 0.34)",
+          "actual": 0.365,
+          "target": 0.34,
+          "diff": 0.025,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Colon site share (target 0.22)",
+          "actual": 0.218,
+          "target": 0.22,
+          "diff": 0.002,
+          "tolerance": 0.07,
+          "status": "PASS"
+        },
+        {
+          "metric": "Breast metastatic at dx (target 0.06)",
+          "actual": 0.036,
+          "target": 0.06,
+          "diff": 0.024,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "Lung metastatic at dx (target 0.57)",
+          "actual": 0.5562,
+          "target": 0.57,
+          "diff": 0.0138,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Colon metastatic at dx (target 0.24)",
+          "actual": 0.2064,
+          "target": 0.24,
+          "diff": 0.0336,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Breast overall 5-yr survival (target 0.90)",
+          "actual": 0.9233,
+          "target": 0.9,
+          "diff": 0.0233,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Lung overall 5-yr survival (target 0.27)",
+          "actual": 0.2685,
+          "target": 0.27,
+          "diff": 0.0015,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Colon overall 5-yr survival (target 0.62)",
+          "actual": 0.5917,
+          "target": 0.62,
+          "diff": 0.0283,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Breast HR+/HER2- luminal (target 0.73)",
+          "actual": 0.7434,
+          "target": 0.73,
+          "diff": 0.0134,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Breast triple-negative (target 0.12)",
+          "actual": 0.1175,
+          "target": 0.12,
+          "diff": 0.0025,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "Colon MSI-H (target 0.15)",
+          "actual": 0.1376,
+          "target": 0.15,
+          "diff": 0.0124,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "Lung KRAS+ (target 0.25)",
+          "actual": 0.2658,
+          "target": 0.25,
+          "diff": 0.0158,
+          "tolerance": 0.08,
+          "status": "PASS"
+        }
+      ],
+      "pass": 13,
+      "fail": 0
+    },
+    "cardiology": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/cardiology_1000/cardiology_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "ASCVD low risk <5% (target 0.28)",
+          "actual": 0.261,
+          "target": 0.28,
+          "diff": 0.019,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "ASCVD high risk >=20% (target 0.16)",
+          "actual": 0.131,
+          "target": 0.16,
+          "diff": 0.029,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Statin use among eligible (target 0.55)",
+          "actual": 0.5465,
+          "target": 0.55,
+          "diff": 0.0035,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Anticoagulation in AF (CHA2DS2-VASc>=2) (target 0.70)",
+          "actual": 0.6667,
+          "target": 0.7,
+          "diff": 0.0333,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "Current smoker (target 0.14)",
+          "actual": 0.148,
+          "target": 0.14,
+          "diff": 0.008,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "Diabetes prevalence (target 0.15)",
+          "actual": 0.17,
+          "target": 0.15,
+          "diff": 0.02,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "Hypertension prevalence (target 0.50)",
+          "actual": 0.51,
+          "target": 0.5,
+          "diff": 0.01,
+          "tolerance": 0.1,
+          "status": "PASS"
+        }
+      ],
+      "pass": 7,
+      "fail": 0
     }
   },
   "summary": {
-    "total_pass": 79,
+    "total_pass": 99,
     "total_fail": 0
   }
 }

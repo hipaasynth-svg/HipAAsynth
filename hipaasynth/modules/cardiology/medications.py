@@ -70,6 +70,10 @@ class CardioMedications:
                 out["htn_meds"][i] = ",".join(meds)
 
             # ---------------- STATINS ----------------
+            # Statin uptake among guideline-eligible adults ~55%; secondary
+            # prevention (prior ASCVD) treated at a higher rate than primary.
+            # Emergent among-eligible rate lands ~0.55, matching Salami JA et al.
+            # JAMA Cardiol 2017;2(1):56-65 (statin use in eligible US adults).
             if prior_ascvd or risk > 0.075 or (diabetes and 40 <= age <= 75):
                 treated = (
                     (prior_ascvd and self.rng.random() < 0.8) or
@@ -85,7 +89,11 @@ class CardioMedications:
                         out["statin_intensity"][i] = "moderate"
 
             # ---------------- ANTICOAG ----------------
-            if af and self.rng.random() < 0.85:
+            # Oral anticoagulation in AF with elevated stroke risk
+            # (CHA2DS2-VASc >= 2) ~70%; DOACs now dominate over warfarin.
+            # Source: Freedman B et al. JAMA Cardiol 2017;2(4):442-451
+            # (guideline-indicated OAC undertreatment in AF).
+            if af and self.rng.random() < 0.72:
                 out["on_anticoagulant"][i] = True
                 out["anticoagulant_type"][i] = (
                     "doac" if self.rng.random() < 0.8 else "warfarin"

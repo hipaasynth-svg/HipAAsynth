@@ -43,17 +43,32 @@ class PopulationModule:
     def _default_config(self):
         return {
             "sites": ["breast", "lung", "colon"],
-            "site_probs": [0.40, 0.35, 0.25],
+            # Share among these three sites, from US annual incidence
+            # (ACS Cancer Facts & Figures 2024: breast ~310k, lung ~235k,
+            # colorectal ~153k new cases) normalized to sum to 1.
+            # Source: Siegel RL et al. Cancer Statistics 2024. CA Cancer J Clin
+            # 2024;74(1):12-49. https://doi.org/10.3322/caac.21820
+            "site_probs": [0.44, 0.34, 0.22],
+            # Median age at diagnosis by site (SEER Cancer Stat Facts):
+            # breast 63, lung 71, colorectal 66. Means shaded slightly younger
+            # to reflect the treated-cohort skew.
+            # Source: SEER Cancer Stat Facts (breast/lung/colorectal),
+            # https://seer.cancer.gov/statfacts/
             "age_params": {
-                "breast": (55, 8),
-                "lung": (68, 9),
-                "colon": (70, 8),
+                "breast": (60, 12),
+                "lung": (70, 9),
+                "colon": (66, 12),
             },
+            # Male fraction by site. Breast ~1% male (Giordano SH.
+            # N Engl J Med 2018;378:2311-2320); lung/colon near-even with
+            # slight male predominance (SEER incidence by sex).
             "sex_probs": {
                 "breast": [0.01, 0.99],  # [M, F]
-                "lung": [0.55, 0.45],
-                "colon": [0.52, 0.48],
+                "lung": [0.54, 0.46],
+                "colon": [0.53, 0.47],
             },
+            # US population race/ethnicity frame (US Census ACS); race-specific
+            # incidence differences are modeled downstream, not here.
             "races": ["White", "Black", "Asian", "Hispanic", "Other"],
             "race_probs": [0.70, 0.12, 0.08, 0.08, 0.02],
             "age_bounds": (18, 90),

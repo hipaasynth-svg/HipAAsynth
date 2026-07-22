@@ -77,7 +77,7 @@ class OutcomesModule:
             data["best_response"][i] = response
 
             # ---------------- PROGRESSION ----------------
-            prog_prob, median_ttp = self._stage_progression(stage)
+            prog_prob, median_ttp = self._stage_progression(site, stage)
 
             if response == "CR":
                 prog_prob *= 0.2
@@ -96,7 +96,7 @@ class OutcomesModule:
                 data["progression_site"][i] = self._progression_site(site)
 
             # ---------------- SURVIVAL ----------------
-            os_5yr, median_os = self._stage_survival(stage)
+            os_5yr, median_os = self._stage_survival(site, stage)
 
             if response == "CR":
                 median_os *= 2
@@ -117,23 +117,40 @@ class OutcomesModule:
 
     # ---------------- HELPERS ----------------
 
-    def _stage_progression(self, stage):
-        if stage == "I":
-            return 0.15, 36
-        if stage == "II":
-            return 0.30, 24
-        if stage == "III":
-            return 0.50, 18
-        return 0.90, 6
+    def _stage_progression(self, site, stage):
+        """Progression probability + median time-to-progression (months).
 
-    def _stage_survival(self, stage):
-        if stage == "I":
-            return 0.95, 120
-        if stage == "II":
-            return 0.85, 96
-        if stage == "III":
-            return 0.65, 60
-        return 0.20, 18
+        Progression risk rises with stage and is broadly site-independent;
+        survival (below) is where the three sites diverge sharply.
+        """
+        table = {
+            "I":   (0.15, 36),
+            "II":  (0.30, 24),
+            "III": (0.50, 18),
+            "IV":  (0.90, 6),
+        }
+        return table.get(stage, (0.90, 6))
+
+    # 5-year overall survival by SITE and stage. Using one curve for all three
+    # sites is clinically wrong (e.g. stage I lung ~65% vs stage I breast ~99%),
+    # so each site carries its own stage-specific 5-year survival, calibrated to:
+    #   breast — SEER Cancer Stat Facts (localized ~99% / regional ~86% /
+    #            distant ~30%).
+    #   lung   — SEER / ACS non-small-cell lung (localized ~65% / regional
+    #            ~37% / distant ~9%).
+    #   colon  — O'Connell JB et al. J Natl Cancer Inst 2004;96(19):1420-1425,
+    #            SEER AJCC 6th ed., n=119,363 (I 93.2% / II ~83% / III ~60% /
+    #            IV 8.1%). https://doi.org/10.1093/jnci/djh275
+    # median_os (months) is a modeling parameter scaled from the 5-year figure.
+    _SURVIVAL = {
+        "breast": {"I": (0.99, 180), "II": (0.93, 150), "III": (0.86, 96),  "IV": (0.30, 36)},
+        "lung":   {"I": (0.65, 96),  "II": (0.53, 60),  "III": (0.37, 36),  "IV": (0.09, 12)},
+        "colon":  {"I": (0.93, 150), "II": (0.84, 120), "III": (0.64, 60),  "IV": (0.11, 18)},
+    }
+
+    def _stage_survival(self, site, stage):
+        site_curve = self._SURVIVAL.get(site, self._SURVIVAL["colon"])
+        return site_curve.get(stage, (0.20, 18))
 
     def _exp(self, mean):
         return -mean * math.log(1 - self.rng.random())

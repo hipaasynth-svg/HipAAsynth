@@ -52,6 +52,8 @@ from hipaasynth.modules.diabetes.population import DiabetesPopulationGenerator
 from hipaasynth.modules.sma.sma import SMACohortGenerator, SMA_TYPES
 from hipaasynth.modules.dmd.dmd import DMDCohortGenerator
 from hipaasynth.modules.fabry.fabry import FabryCohortGenerator
+from hipaasynth.modules.sepsis.oncology.cohort import OncologyCohortGenerator
+from hipaasynth.modules.cardiology.cohort import CardiologyCohortGenerator
 
 
 # ── dict-row helpers ──────────────────────────────────────────────────────────
@@ -205,13 +207,97 @@ def validate_fabry(rows):
     return results
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# ONCOLOGY  (breast/lung/colon; SEER + LCMC — see CITATIONS.md § Oncology)
+# Six sub-modules wired via OncologyCohortGenerator; each patient is one flat row
+# ════════════════════════════════════════════════════════════════════════════
+def generate_oncology_cohort(seed=1002, n=1000):
+    return OncologyCohortGenerator(seed=seed).generate(n=n)
+
+
+def validate_oncology(rows):
+    results = []
+    breast = [r for r in rows if r["site"] == "breast"]
+    lung   = [r for r in rows if r["site"] == "lung"]
+    colon  = [r for r in rows if r["site"] == "colon"]
+
+    # Site incidence share (ACS Cancer Statistics 2024, normalized to 3 sites)
+    results.append(check("Breast site share (target 0.44)", dprop(rows, "site", "breast"), 0.44, tol=0.08))
+    results.append(check("Lung site share (target 0.34)",   dprop(rows, "site", "lung"),   0.34, tol=0.08))
+    results.append(check("Colon site share (target 0.22)",  dprop(rows, "site", "colon"),  0.22, tol=0.07))
+
+    # Stage IV (distant / M1) at diagnosis by site (SEER Cancer Stat Facts)
+    results.append(check("Breast metastatic at dx (target 0.06)", dprop(breast, "stage", "IV"), 0.06, tol=0.05))
+    results.append(check("Lung metastatic at dx (target 0.57)",   dprop(lung,   "stage", "IV"), 0.57, tol=0.10))
+    results.append(check("Colon metastatic at dx (target 0.24)",  dprop(colon,  "stage", "IV"), 0.24, tol=0.08))
+
+    # Overall 5-year survival by site: emergent product of stage mix × site-
+    # specific stage survival. "Alive" = not deceased within the 60-month window.
+    def alive5(rows_):
+        return sum(1 for r in rows_ if r.get("death") is not True) / len(rows_) if rows_ else 0.0
+    results.append(check("Breast overall 5-yr survival (target 0.90)", alive5(breast), 0.90, tol=0.08))
+    results.append(check("Lung overall 5-yr survival (target 0.27)",   alive5(lung),   0.27, tol=0.10))
+    results.append(check("Colon overall 5-yr survival (target 0.62)",  alive5(colon),  0.62, tol=0.10))
+
+    # Breast molecular subtypes (Howlader 2014, SEER joint HR/HER2)
+    def luminal(rows_):
+        return sum(1 for r in rows_ if r.get("subtype") in ("Luminal_A", "Luminal_B")) / len(rows_) if rows_ else 0.0
+    results.append(check("Breast HR+/HER2- luminal (target 0.73)", luminal(breast), 0.73, tol=0.08))
+    results.append(check("Breast triple-negative (target 0.12)", dprop(breast, "subtype", "Triple_negative"), 0.12, tol=0.05))
+
+    # Colon MSI-H (Boland & Goel 2010) and lung KRAS (Kris 2014, LCMC)
+    results.append(check("Colon MSI-H (target 0.15)", dprop(colon, "msi_status", "MSI-H"), 0.15, tol=0.06))
+    results.append(check("Lung KRAS+ (target 0.25)",  dprop(lung,  "kras_status", "+"),   0.25, tol=0.08))
+    return results
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CARDIOLOGY  (CV-risk-enriched adult clinic population; PCE + treatment rates)
+# Population generator supplies the front half the risk-score/medication utility
+# classes always lacked — see CITATIONS.md § Cardiology
+# ════════════════════════════════════════════════════════════════════════════
+def generate_cardiology_cohort(seed=1102, n=1000):
+    return CardiologyCohortGenerator(seed=seed).generate(n=n)
+
+
+def validate_cardiology(rows):
+    results = []
+
+    # ASCVD 10-yr risk tiers — informative low/high tails (ACC/AHA PCE, Goff 2014).
+    # The wide intermediate band is descriptive, not asserted (see CITATIONS.md).
+    results.append(check("ASCVD low risk <5% (target 0.28)",  dprop(rows, "ascvd_category", "low"),  0.28, tol=0.10))
+    results.append(check("ASCVD high risk >=20% (target 0.16)", dprop(rows, "ascvd_category", "high"), 0.16, tol=0.08))
+
+    # Statin uptake among guideline-eligible adults ~55% (Salami 2017)
+    eligible = [
+        r for r in rows
+        if r.get("prior_ascvd") or (r.get("ascvd_10yr") or 0) > 0.075
+        or (r.get("diabetes") and 40 <= r.get("age", 0) <= 75)
+    ]
+    statin_rate = sum(1 for r in eligible if r.get("on_statin")) / len(eligible) if eligible else 0.0
+    results.append(check("Statin use among eligible (target 0.55)", statin_rate, 0.55, tol=0.10))
+
+    # Oral anticoagulation in AF with CHA2DS2-VASc >= 2 ~70% (Freedman 2017)
+    af_high = [r for r in rows if r.get("atrial_fibrillation") and r.get("cha2ds2_vasc", 0) >= 2]
+    ac_rate = sum(1 for r in af_high if r.get("on_anticoagulant")) / len(af_high) if af_high else 0.0
+    results.append(check("Anticoagulation in AF (CHA2DS2-VASc>=2) (target 0.70)", ac_rate, 0.70, tol=0.12))
+
+    # Risk-factor prevalences (NHANES / CDC / AHA), CV-risk-enriched clinic frame
+    results.append(check("Current smoker (target 0.14)", dprop(rows, "smoking_status", "current"), 0.14, tol=0.05))
+    results.append(check("Diabetes prevalence (target 0.15)", dprop(rows, "diabetes", True), 0.15, tol=0.06))
+    results.append(check("Hypertension prevalence (target 0.50)", dprop(rows, "hypertension", True), 0.50, tol=0.10))
+    return results
+
+
 # ── extended runner ───────────────────────────────────────────────────────────
 EXT_MODULES = [
-    ("stroke",   generate_stroke_cohort,   validate_stroke),
-    ("diabetes", generate_diabetes_cohort, validate_diabetes),
-    ("sma",      generate_sma_cohort,      validate_sma),
-    ("dmd",      generate_dmd_cohort,      validate_dmd),
-    ("fabry",    generate_fabry_cohort,    validate_fabry),
+    ("stroke",    generate_stroke_cohort,    validate_stroke),
+    ("diabetes",  generate_diabetes_cohort,  validate_diabetes),
+    ("sma",       generate_sma_cohort,       validate_sma),
+    ("dmd",       generate_dmd_cohort,       validate_dmd),
+    ("fabry",     generate_fabry_cohort,     validate_fabry),
+    ("oncology",  generate_oncology_cohort,  validate_oncology),
+    ("cardiology", generate_cardiology_cohort, validate_cardiology),
 ]
 
 
