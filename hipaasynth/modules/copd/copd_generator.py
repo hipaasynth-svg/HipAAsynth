@@ -65,7 +65,8 @@ def derive_rng(anchor: str, namespace: str) -> random.Random:
 # Calibrated to US national COPD burden (NHANES / CDC BRFSS 2022)
 # COPD prevalence ~6.2% adults overall; higher in rural, older, lower SES
 # Age distribution among diagnosed COPD patients: predominantly 45+
-# Source: Wheaton AG et al. MMWR 2015;64(SS-7):1-20.
+# Source: Wheaton AG et al. MMWR Morb Mortal Wkly Rep 2019;68(24):533-538
+# (6.2% age-adjusted BRFSS prevalence). doi:10.15585/mmwr.mm6824a1
 PROFILE = {
     "label":      "us_copd_national",
     "source":     "NHANES 2017-2020, CDC BRFSS 2022, GOLD 2024",
@@ -136,8 +137,11 @@ PACK_YEARS = {
 
 # ── Comorbidity prevalence in COPD patients ───────────────────────────────────
 # Sources:
-#   Cardiovascular: Sin DD et al. Chest 2006;129(6):1483-1489
-#   T2DM: Mirrakhimov AE. Cardiovasc Diabetol 2012;11:97
+#   Cardiovascular/hypertension: Chen W et al. Lancet Respir Med 2015;3(8):631-639
+#     (systematic review + meta-analysis of CV comorbidity in COPD).
+#     doi:10.1016/S2213-2600(15)00241-6
+#   T2DM: Mirrakhimov AE. Cardiovasc Diabetol 2012;11:132.
+#     doi:10.1186/1475-2840-11-132
 #   Depression/Anxiety: Yohannes AM et al. Respir Care 2014;59(7):1112-1120
 #   OSA: Shawon MS et al. Respir Med 2017;131:79-90
 #   Pulm HTN: Chaouat A et al. Eur Respir J 2008;32(5):1371-1385
@@ -233,7 +237,9 @@ MEDICATIONS = {
 
 # ── Oxygen therapy ────────────────────────────────────────────────────────────
 # LTOT indication: PaO2 ≤55 mmHg or SaO2 ≤88%
-# Source: NOTT Trial; ATS statement on LTOT
+# Source: Nocturnal Oxygen Therapy Trial Group. Ann Intern Med 1980;93(3):391-398
+# (NOTT, the landmark LTOT survival trial). doi:10.7326/0003-4819-93-3-391;
+# GOLD 2024 Report (LTOT recommendation for severe hypoxemia).
 LTOT_RATES = {
     "GOLD_1": 0.01,
     "GOLD_2": 0.04,

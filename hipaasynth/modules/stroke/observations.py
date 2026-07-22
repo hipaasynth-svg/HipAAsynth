@@ -21,8 +21,10 @@ Generates stroke-specific clinical fields as an observations hook.
 Calibrated to published epidemiological data — all sources cited inline.
 
 Key calibration sources:
-  [1] Ren H et al. MedComm. 2025;6(12). doi:10.1002/mco2.70558
-      Stroke epidemiology, racial disparities, subtype frequencies
+  [1] Tsao CW et al. Heart Disease and Stroke Statistics-2023 Update: A Report
+      From the American Heart Association. Circulation 2023;147(8):e93-e621.
+      doi:10.1161/CIR.0000000000001123
+      Stroke subtype frequencies (ischemic ~87%, hemorrhagic ~13%).
   [2] Winder K et al. J Neuroimaging. 2023;33(4):575-581. doi:10.1111/jon.13110
       NIHSS median 4 (IQR 2-10), AF 28%, HTN 90%, n=809
   [3] Feng L et al. J Clin Lab Anal. 2018;33(1). doi:10.1002/jcla.22629
@@ -239,7 +241,7 @@ def build_stroke_observations(
 
     # ----------------------------------------------------------------
     # STROKE TYPE
-    # Ischemic 87%, Hemorrhagic 13% — Ren et al. MedComm 2025 [1]
+    # Ischemic 87%, Hemorrhagic 13% — AHA Stroke Statistics 2023 [1]
     # TIA modeled as separate subtype, ~10% of acute presentations
     # ----------------------------------------------------------------
     r = rng.random()
