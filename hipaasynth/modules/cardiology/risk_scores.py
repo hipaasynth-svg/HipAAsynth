@@ -23,11 +23,16 @@ Calculates:
 - HAS-BLED
 - HEART score
 
-ASCVD calibration targets (ACC/AHA 2013 PCE-like distribution):
-  low:          <5%    (~25-30% of cardio population)
-  borderline:   5-7.5% (~15-20%)
-  intermediate: 7.5-20% (~30-35%)
-  high:         >20%   (~15-20%)
+ASCVD risk tiers follow the ACC/AHA Pooled Cohort Equations thresholds
+(Goff DC et al. Circulation 2014;129(25 Suppl 2):S49-S73): low <5%,
+borderline 5-7.5%, intermediate 7.5-20%, high >=20%. The simplified logistic
+below is tuned so that, over a CV-risk-enriched cardiology population, the
+low (<5%) and high (>=20%) tails land at the PCE-consistent ~25% and ~16%
+respectively; the wide intermediate band (a 2.7x risk span) is descriptive
+rather than asserted (see docs/calibration/CITATIONS.md § Cardiology).
+
+Source: Goff DC et al. 2014 ACC/AHA Guideline on the Assessment of
+Cardiovascular Risk. Circulation 2014. https://doi.org/10.1161/01.cir.0000437741.48606.98
 """
 
 import math
@@ -60,9 +65,11 @@ class CardioRiskScores:
             smoker = data.get("smoking_status", ["never"]*self.n)[i] == "current"
             diabetes = data.get("diabetes", [False]*self.n)[i]
 
+            # Intercept and age slope tuned so the low/high PCE tails match
+            # published proportions over a CV-risk-enriched cohort (see docstring).
             logit = (
-                -3.5
-                + 0.045 * (age - 40)
+                -3.6
+                + 0.06 * (age - 40)
                 + 0.004 * (tc - 180)
                 - 0.008 * (hdl - 45)
                 + 0.008 * (sbp - 110)

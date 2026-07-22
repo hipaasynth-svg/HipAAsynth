@@ -1,13 +1,13 @@
 ========================================================
 HIPAASYNTH CALIBRATION CERTIFICATION — CAP v1.0
 ========================================================
-Certification Date: 2026-07-22 00:56:40 UTC
+Certification Date: 2026-07-22 01:16:13 UTC
 Engine Version:     1.2.0
 Default Tolerance:  +/-0.08
 Cohort Size:        n=1000 per module
 
 CALIBRATION RESULT:
-  TOTAL: 92 PASS / 0 FAIL
+  TOTAL: 99 PASS / 0 FAIL
 
 MODULE RESULTS:
   COPD       15 PASS / 0 FAIL
@@ -19,6 +19,7 @@ MODULE RESULTS:
   DMD        7 PASS / 0 FAIL
   FABRY      6 PASS / 0 FAIL
   ONCOLOGY   13 PASS / 0 FAIL
+  CARDIOLOGY  7 PASS / 0 FAIL
 
 COHORT CSV HASHES (SHA-256):
   COPD      7882ecb037786469c7eb15e04d048cf7354160852f9ba2fd199f09c3be4b47c3
@@ -30,12 +31,13 @@ COHORT CSV HASHES (SHA-256):
   DMD       529db66c1ab790b23da95a2c91b8b8b979df222b1753cff1ed2cb514243a26e7
   FABRY     998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402
   ONCOLOGY  cbd7eb6227c83cfcec951b530ae23b432327f94965fbc44095758ee3d901330f
+  CARDIOLOGY 8641b699e25c8a0619d6925f627ac5cc5604b3f1e43c43a3f6b295cc58fad492
 
 CALIBRATION REPORT CONTENT HASH (SHA-256, excl. timestamp):
-  5b91bc406051eb129321bd37fa73c75907551d81400c3e1807dff2435ee2b216
+  8e830782685f5b70b7523dd43f869d194961306a470d0d2679dc7e87a5aa6713
 
 CHAIN HASH (SHA-256 of all cohort CSV hashes + report content hash):
-  665cc9e06b53a72b804edda27ca79d81c9ae799a63671712f55b9cd62a29c37f
+  47f7b351d75bc3ddf249b2a404ffe184d780bcd61ca59d7383307d109b21a972
 
 CHAIN INTEGRITY:
 Any modification to any cohort CSV or the calibration

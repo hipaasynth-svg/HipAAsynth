@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-07-22T00:56:40.423411Z",
+  "generated_utc": "2026-07-22T01:16:13.556574Z",
   "engine_version": "1.2.0",
   "tolerance_default": 0.08,
   "modules": {
@@ -801,10 +801,73 @@
       ],
       "pass": 13,
       "fail": 0
+    },
+    "cardiology": {
+      "csv": "/home/user/HipAAsynth/hipaasynth/modules/output/cardiology_1000/cardiology_calibration_n1000.csv",
+      "checks": [
+        {
+          "metric": "ASCVD low risk <5% (target 0.28)",
+          "actual": 0.261,
+          "target": 0.28,
+          "diff": 0.019,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "ASCVD high risk >=20% (target 0.16)",
+          "actual": 0.131,
+          "target": 0.16,
+          "diff": 0.029,
+          "tolerance": 0.08,
+          "status": "PASS"
+        },
+        {
+          "metric": "Statin use among eligible (target 0.55)",
+          "actual": 0.5465,
+          "target": 0.55,
+          "diff": 0.0035,
+          "tolerance": 0.1,
+          "status": "PASS"
+        },
+        {
+          "metric": "Anticoagulation in AF (CHA2DS2-VASc>=2) (target 0.70)",
+          "actual": 0.6667,
+          "target": 0.7,
+          "diff": 0.0333,
+          "tolerance": 0.12,
+          "status": "PASS"
+        },
+        {
+          "metric": "Current smoker (target 0.14)",
+          "actual": 0.148,
+          "target": 0.14,
+          "diff": 0.008,
+          "tolerance": 0.05,
+          "status": "PASS"
+        },
+        {
+          "metric": "Diabetes prevalence (target 0.15)",
+          "actual": 0.17,
+          "target": 0.15,
+          "diff": 0.02,
+          "tolerance": 0.06,
+          "status": "PASS"
+        },
+        {
+          "metric": "Hypertension prevalence (target 0.50)",
+          "actual": 0.51,
+          "target": 0.5,
+          "diff": 0.01,
+          "tolerance": 0.1,
+          "status": "PASS"
+        }
+      ],
+      "pass": 7,
+      "fail": 0
     }
   },
   "summary": {
-    "total_pass": 92,
+    "total_pass": 99,
     "total_fail": 0
   }
 }

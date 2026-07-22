@@ -53,6 +53,7 @@ from hipaasynth.modules.sma.sma import SMACohortGenerator, SMA_TYPES
 from hipaasynth.modules.dmd.dmd import DMDCohortGenerator
 from hipaasynth.modules.fabry.fabry import FabryCohortGenerator
 from hipaasynth.modules.sepsis.oncology.cohort import OncologyCohortGenerator
+from hipaasynth.modules.cardiology.cohort import CardiologyCohortGenerator
 
 
 # ── dict-row helpers ──────────────────────────────────────────────────────────
@@ -250,14 +251,53 @@ def validate_oncology(rows):
     return results
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# CARDIOLOGY  (CV-risk-enriched adult clinic population; PCE + treatment rates)
+# Population generator supplies the front half the risk-score/medication utility
+# classes always lacked — see CITATIONS.md § Cardiology
+# ════════════════════════════════════════════════════════════════════════════
+def generate_cardiology_cohort(seed=1102, n=1000):
+    return CardiologyCohortGenerator(seed=seed).generate(n=n)
+
+
+def validate_cardiology(rows):
+    results = []
+
+    # ASCVD 10-yr risk tiers — informative low/high tails (ACC/AHA PCE, Goff 2014).
+    # The wide intermediate band is descriptive, not asserted (see CITATIONS.md).
+    results.append(check("ASCVD low risk <5% (target 0.28)",  dprop(rows, "ascvd_category", "low"),  0.28, tol=0.10))
+    results.append(check("ASCVD high risk >=20% (target 0.16)", dprop(rows, "ascvd_category", "high"), 0.16, tol=0.08))
+
+    # Statin uptake among guideline-eligible adults ~55% (Salami 2017)
+    eligible = [
+        r for r in rows
+        if r.get("prior_ascvd") or (r.get("ascvd_10yr") or 0) > 0.075
+        or (r.get("diabetes") and 40 <= r.get("age", 0) <= 75)
+    ]
+    statin_rate = sum(1 for r in eligible if r.get("on_statin")) / len(eligible) if eligible else 0.0
+    results.append(check("Statin use among eligible (target 0.55)", statin_rate, 0.55, tol=0.10))
+
+    # Oral anticoagulation in AF with CHA2DS2-VASc >= 2 ~70% (Freedman 2017)
+    af_high = [r for r in rows if r.get("atrial_fibrillation") and r.get("cha2ds2_vasc", 0) >= 2]
+    ac_rate = sum(1 for r in af_high if r.get("on_anticoagulant")) / len(af_high) if af_high else 0.0
+    results.append(check("Anticoagulation in AF (CHA2DS2-VASc>=2) (target 0.70)", ac_rate, 0.70, tol=0.12))
+
+    # Risk-factor prevalences (NHANES / CDC / AHA), CV-risk-enriched clinic frame
+    results.append(check("Current smoker (target 0.14)", dprop(rows, "smoking_status", "current"), 0.14, tol=0.05))
+    results.append(check("Diabetes prevalence (target 0.15)", dprop(rows, "diabetes", True), 0.15, tol=0.06))
+    results.append(check("Hypertension prevalence (target 0.50)", dprop(rows, "hypertension", True), 0.50, tol=0.10))
+    return results
+
+
 # ── extended runner ───────────────────────────────────────────────────────────
 EXT_MODULES = [
-    ("stroke",   generate_stroke_cohort,   validate_stroke),
-    ("diabetes", generate_diabetes_cohort, validate_diabetes),
-    ("sma",      generate_sma_cohort,      validate_sma),
-    ("dmd",      generate_dmd_cohort,      validate_dmd),
-    ("fabry",    generate_fabry_cohort,    validate_fabry),
-    ("oncology", generate_oncology_cohort, validate_oncology),
+    ("stroke",    generate_stroke_cohort,    validate_stroke),
+    ("diabetes",  generate_diabetes_cohort,  validate_diabetes),
+    ("sma",       generate_sma_cohort,       validate_sma),
+    ("dmd",       generate_dmd_cohort,       validate_dmd),
+    ("fabry",     generate_fabry_cohort,     validate_fabry),
+    ("oncology",  generate_oncology_cohort,  validate_oncology),
+    ("cardiology", generate_cardiology_cohort, validate_cardiology),
 ]
 
 

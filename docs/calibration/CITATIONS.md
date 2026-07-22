@@ -223,6 +223,34 @@ standard-of-care logic and is not asserted as a calibrated prevalence.
 
 ---
 
+## Cardiology  (`hipaasynth/modules/cardiology/`)
+
+`cardiology/` shipped two utility classes (`risk_scores.py`, `medications.py`)
+but no population generator. `cardiology/cohort.py::CardiologyCohortGenerator`
+supplies that front half: a **CV-risk-enriched adult clinic population** (ages
+40–79, the PCE applicability window; risk factors correlated by a
+cardiometabolic-burden latent) that then calls the risk-score and medication
+utilities as sub-components. Because the cohort is deliberately CV-enriched (not
+a general NHANES sample), comorbidity prevalences run at clinic — not
+population — levels, the same framing CHF uses for its hospitalized cohort.
+
+| Metric | Target | Source | Verify | Where to look | Prov. |
+|---|---|---|---|---|---|
+| ASCVD 10-yr low risk (<5%) | 0.28 | Goff DC et al. *Circulation* 2014;129(25 Suppl 2):S49-S73 (ACC/AHA Pooled Cohort Equations) | https://doi.org/10.1161/01.cir.0000437741.48606.98 | PCE risk-tier thresholds; low tail | [in-code] |
+| ASCVD 10-yr high risk (≥20%) | 0.16 | Goff DC et al. *Circulation* 2014;129(25 Suppl 2):S49-S73 | https://doi.org/10.1161/01.cir.0000437741.48606.98 | PCE risk-tier thresholds; high tail | [in-code] |
+| Statin use among eligible | 0.55 | Salami JA et al. *JAMA Cardiol* 2017;2(1):56-65 | https://doi.org/10.1001/jamacardio.2016.4700 | Statin use in guideline-eligible US adults (~55.5%) | [in-code] |
+| Anticoagulation in AF (CHA₂DS₂-VASc ≥2) | 0.70 | Freedman B et al. *JAMA Cardiol* 2017;2(4):442-451 | https://doi.org/10.1001/jamacardio.2016.5975 | Guideline-indicated OAC in AF; ~70% treated | [in-code] |
+| Current smoker | 0.14 | CDC MMWR 2023; AHA Heart Disease & Stroke Statistics 2023 | https://www.cdc.gov/tobacco/ | Adult cigarette smoking prevalence | [in-code] |
+| Diabetes prevalence | 0.15 | CDC National Diabetes Statistics Report 2022 | https://www.cdc.gov/diabetes/php/data-research/ | Diagnosed diabetes in adults (~13-15%) | [in-code] |
+| Hypertension prevalence | 0.50 | AHA Heart Disease & Stroke Statistics 2023 (2017 ACC/AHA threshold) | https://doi.org/10.1161/CIR.0000000000001123 | Adult hypertension prevalence (~48%) | [in-code] |
+
+Additional in-code sources: lipid means — Carroll MD et al. *NCHS Data Brief*
+2017 (No. 290); atrial-fibrillation prevalence — Go AS et al. *JAMA*
+2001;285:2370-2375 (ATRIA). The CHA₂DS₂-VASc, HAS-BLED, and HEART scores follow
+their original derivation rules and are computed, not charted as prevalence.
+
+---
+
 ## ND Tribal Region Profiles  (`hipaasynth/profiles/nd_tribal_region_*.json`)
 
 These anchors carry DOIs directly in each profile's `sources` block.
@@ -287,6 +315,11 @@ Honesty about what is *not* yet a passing calibrated row:
   row is the distant (stage IV / M1) fraction, which maps cleanly; the I/II/III
   split within localized+regional is modeled to reproduce the summary-stage
   totals, not asserted stage-by-stage.
+- **Cardiology ASCVD intermediate band** — only the low (<5%) and high (≥20%)
+  PCE tails are charted. The intermediate band (7.5–20%, a ~2.7× risk span)
+  captures ~40% of the cohort and is descriptive, not asserted as a PASS row.
+  Comorbidity prevalences reflect a CV-risk-enriched clinic population, not a
+  general-population sample.
 
 ---
 

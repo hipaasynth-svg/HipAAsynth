@@ -18,7 +18,7 @@ deterministic randomness against these anchors. This guarantees:
 
 ## Calibration Results at a Glance
 
-Latest run — `n=1000` per module, **92 / 92 checks PASS across 9 modules**.
+Latest run — `n=1000` per module, **99 / 99 checks PASS across 10 modules**.
 
 | Module | Checks | Result |
 |---|---|---|
@@ -31,14 +31,17 @@ Latest run — `n=1000` per module, **92 / 92 checks PASS across 9 modules**.
 | DMD | 7 | ✅ 7 PASS / 0 FAIL |
 | Fabry | 6 | ✅ 6 PASS / 0 FAIL |
 | Oncology | 13 | ✅ 13 PASS / 0 FAIL |
-| **Total** | **92** | **✅ 92 PASS / 0 FAIL** |
+| Cardiology | 7 | ✅ 7 PASS / 0 FAIL |
+| **Total** | **99** | **✅ 99 PASS / 0 FAIL** |
 
 COPD/CHF/OUD are validated by `calibration_validator.py`; the stroke, diabetes,
-SMA, DMD, Fabry, and oncology modules are validated by
+SMA, DMD, Fabry, oncology, and cardiology modules are validated by
 `calibration_validator_ext.py` (added so every module with a self-contained
 cohort generator is calibrated, not just the original three). The oncology
 sub-package (breast/lung/colon, six chained sub-modules) is driven by
-`oncology/cohort.py::OncologyCohortGenerator`. Sepsis is a physiological
+`oncology/cohort.py::OncologyCohortGenerator`; the cardiology module's
+`cohort.py::CardiologyCohortGenerator` supplies the population front half its
+risk-score/medication utility classes always lacked. Sepsis is a physiological
 observation generator with no population-prevalence rows to calibrate — its
 sources are catalogued in the citation registry.
 
@@ -213,7 +216,7 @@ This writes into `docs/calibration/`:
 hash; the certification is valid only when the recomputed chain hash matches the
 recorded value.
 
-**Latest stamp** (`n=1000`/module, 92/92 PASS across 9 modules):
+**Latest stamp** (`n=1000`/module, 99/99 PASS across 10 modules):
 
 | Artifact | SHA-256 |
 |---|---|
@@ -226,8 +229,9 @@ recorded value.
 | DMD cohort CSV | `529db66c1ab790b23da95a2c91b8b8b979df222b1753cff1ed2cb514243a26e7` |
 | Fabry cohort CSV | `998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402` |
 | Oncology cohort CSV | `cbd7eb6227c83cfcec951b530ae23b432327f94965fbc44095758ee3d901330f` |
-| Calibration report (content, excl. timestamp) | `5b91bc406051eb129321bd37fa73c75907551d81400c3e1807dff2435ee2b216` |
-| **Chain hash** | `665cc9e06b53a72b804edda27ca79d81c9ae799a63671712f55b9cd62a29c37f` |
+| Cardiology cohort CSV | `8641b699e25c8a0619d6925f627ac5cc5604b3f1e43c43a3f6b295cc58fad492` |
+| Calibration report (content, excl. timestamp) | `8e830782685f5b70b7523dd43f869d194961306a470d0d2679dc7e87a5aa6713` |
+| **Chain hash** | `47f7b351d75bc3ddf249b2a404ffe184d780bcd61ca59d7383307d109b21a972` |
 
 > The chain hash is computed over the cohort CSV hashes plus a **canonical
 > content hash** of the report (the wall-clock `generated_utc` is excluded), so
@@ -388,6 +392,22 @@ values. `Δ` is `|actual − target|`.
 | Breast triple-negative | 12.0% | 11.8% | ±5.0% | ✅ PASS |
 | Colon MSI-H | 15.0% | 13.8% | ±6.0% | ✅ PASS |
 | Lung KRAS+ | 25.0% | 26.6% | ±8.0% | ✅ PASS |
+
+### CARDIOLOGY — 7 PASS / 0 FAIL
+(CV-risk-enriched adult clinic population; population generator via `cardiology/cohort.py`; see CITATIONS.md § Cardiology)
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| ASCVD low risk (<5%) | 28.0% | 26.1% | ±10.0% | ✅ PASS |
+| ASCVD high risk (≥20%) | 16.0% | 13.1% | ±8.0% | ✅ PASS |
+| Statin use among eligible | 55.0% | 54.6% | ±10.0% | ✅ PASS |
+| Anticoagulation in AF (CHA₂DS₂-VASc ≥2) | 70.0% | 66.7% | ±12.0% | ✅ PASS |
+| Current smoker | 14.0% | 14.8% | ±5.0% | ✅ PASS |
+| Diabetes prevalence | 15.0% | 17.0% | ±6.0% | ✅ PASS |
+| Hypertension prevalence | 50.0% | 51.0% | ±10.0% | ✅ PASS |
+
+> The ASCVD intermediate band (7.5–20%) is descriptive, not charted — see
+> CITATIONS.md § Documented gaps.
 
 > **Documented gaps** (not asserted as calibrated): stroke tPA-within-window
 > (~27% vs literature 47–53%) and SBP>185 fraction (~15% vs 20–25% target) are

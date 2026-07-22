@@ -41,6 +41,7 @@ from hipaasynth.modules.fabry.fabry import FabryCohortGenerator
 from hipaasynth.modules.sma.sma import SMACohortGenerator
 from hipaasynth.modules.diabetes.population import DiabetesPopulationGenerator
 from hipaasynth.modules.sepsis.oncology.cohort import OncologyCohortGenerator
+from hipaasynth.modules.cardiology.cohort import CardiologyCohortGenerator
 
 # Real-identifier shapes that must never appear (boundary-anchored so they can't
 # match a digit run inside a hex string). Kept local to keep this test module
@@ -79,6 +80,7 @@ _MODULE_COHORTS = [
     ("sma", lambda n: SMACohortGenerator(seed=42).generate(n)),
     ("diabetes", lambda n: DiabetesPopulationGenerator(n=n, seed=42).generate()),
     ("oncology", lambda n: OncologyCohortGenerator(seed=42).generate(n)),
+    ("cardiology", lambda n: CardiologyCohortGenerator(seed=42).generate(n)),
 ]
 
 
