@@ -48,17 +48,17 @@ Every metric charted in the calibration report maps to a row below.
 
 | Metric | Target | Source | Verify | Where to look | Prov. |
 |---|---|---|---|---|---|
-| Overall COPD prevalence context | ~6.2% adults | Wheaton AG et al. *MMWR* 2015;64(SS-7):1-20 | PubMed: Wheaton MMWR 2015 | Age-adjusted COPD prevalence table | [in-code] |
+| Overall COPD prevalence context | ~6.2% adults | Wheaton AG et al. *MMWR Morb Mortal Wkly Rep* 2019;68(24):533-538 | https://doi.org/10.15585/mmwr.mm6824a1 | 6.2% age-adjusted BRFSS prevalence (abstract) | [in-code] |
 | Age mean (diagnosed) | ~64 | NHANES 2017–2020 | NHANES site | COPD-diagnosed adult age distribution | [in-code] |
 | Female proportion | 0.52 | NHANES 2017–2020 | NHANES site | COPD sex distribution | [in-code] |
 | GOLD 1/2/3/4 split | 0.20/0.38/0.28/0.14 | Buist AS et al. International variation in the prevalence of COPD (BOLD Study). *Lancet* 2007;370(9589):741-750; GOLD 2024 staging framework | https://doi.org/10.1016/S0140-6736(07)61377-4 | BOLD post-bronchodilator spirometry GOLD-grade distribution; GOLD 2024 §2 staging | [in-code] |
 | Smoking current/former/never | 0.38/0.47/0.15 | NHANES / CDC BRFSS 2022; GOLD 2024 | NHANES / BRFSS sites | Smoking status among COPD adults | [in-code] |
-| Hypertension comorbidity | 0.55 | Sin DD et al. *Chest* 2006;129(6):1483-1489 | https://doi.org/10.1378/chest.129.6.1483 | COPD cardiovascular comorbidity | [in-code] |
-| Type 2 diabetes comorbidity | 0.22 | Mirrakhimov AE. *Cardiovasc Diabetol* 2012;11:97 | https://doi.org/10.1186/1475-2840-11-97 | T2DM prevalence in COPD | [in-code] |
+| Hypertension comorbidity | 0.55 | Chen W et al. *Lancet Respir Med* 2015;3(8):631-639 | https://doi.org/10.1016/S2213-2600(15)00241-6 | CV comorbidity meta-analysis (HTN OR 1.33 vs non-COPD) | [in-code] |
+| Type 2 diabetes comorbidity | 0.22 | Mirrakhimov AE. *Cardiovasc Diabetol* 2012;11:132 | https://doi.org/10.1186/1475-2840-11-132 | COPD & glucose metabolism review | [in-code] |
 | Depression comorbidity | 0.27 | Yohannes AM et al. *Respir Care* 2014;59(7):1112-1120 | https://doi.org/10.4187/respcare.02458 | Depression/anxiety in COPD | [in-code] |
 | GOLD_2 FEV1% mean | 64.5 | GOLD 2024; ATS/ERS GLI-2012 | GOLD site | FEV1% predicted band for GOLD 2 (50–79%) | [in-code] |
-| GOLD_4 LTOT rate | 0.42 | Cote C et al. *Chest* 2007;131(6):1635-1643; NOTT | https://doi.org/10.1378/chest.06-2438 | Long-term O2 therapy in severe COPD | [in-code] |
-| SpO2 mean | ~94.5 | Stolz D et al. *Chest* 2008;133(4):952-960 | https://doi.org/10.1378/chest.07-1817 | Resting SpO2 in COPD | [in-code] |
+| GOLD_4 LTOT rate | 0.42 | Nocturnal Oxygen Therapy Trial Group. *Ann Intern Med* 1980;93(3):391-398; GOLD 2024 | https://doi.org/10.7326/0003-4819-93-3-391 | Landmark LTOT survival trial; GOLD 2024 LTOT recommendation | [in-code] |
+| SpO2 mean | ~94.5 | GOLD 2024 Report (oximetry/LTOT thresholds) | https://goldcopd.org/2024-gold-report/ | SpO2 monitoring; LTOT triggered at SpO2 ≤88%, so non-severe stable COPD sits ~92-96% | [canonical] |
 
 Additional in-code comorbidity sources: OSA — Shawon MS et al. *Respir Med*
 2017;131:79-90; Pulmonary HTN — Chaouat A et al. *Eur Respir J*
@@ -110,8 +110,8 @@ Intrinsic anchors (validated against a clean base — see notes in
 
 | Metric | Target | Source | Verify | Where to look | Prov. |
 |---|---|---|---|---|---|
-| Ischemic proportion | 0.84 | Ren H et al. *MedComm* 2025;6(12) | https://doi.org/10.1002/mco2.70558 | Stroke subtype frequencies | [in-code] |
-| Hemorrhagic proportion | 0.13 | Ren H et al. *MedComm* 2025;6(12) | https://doi.org/10.1002/mco2.70558 | Ischemic vs hemorrhagic split | [in-code] |
+| Ischemic proportion | 0.84 | Tsao CW et al. (AHA) *Circulation* 2023;147(8):e93-e621 | https://doi.org/10.1161/CIR.0000000000001123 | Stroke subtype frequencies (ischemic ~87% of strokes) | [in-code] |
+| Hemorrhagic proportion | 0.13 | Tsao CW et al. (AHA) *Circulation* 2023;147(8):e93-e621 | https://doi.org/10.1161/CIR.0000000000001123 | Ischemic vs hemorrhagic split (~13% hemorrhagic) | [in-code] |
 | TIA proportion | 0.05 | Modeled (acute presentation subtype) | — | Module docstring, TIA carve-out | [in-code] |
 | NIHSS mild category | 0.50 | Winder K et al. *J Neuroimaging* 2023;33(4):575-581 (median NIHSS 4) | https://doi.org/10.1111/jon.13110 | NIHSS median 4 (IQR 2–10), n=809 | [in-code] |
 | Atrial fibrillation | 0.28 | Winder K et al. *J Neuroimaging* 2023;33(4):575-581 | https://doi.org/10.1111/jon.13110 | AF 28% in ischemic stroke | [in-code] |

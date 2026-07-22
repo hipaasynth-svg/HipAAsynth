@@ -64,12 +64,12 @@ COPD-specific fields and the source **as stated in the module**:
 
 | Field group | Fields (type) | Source as stated in code | Location |
 |---|---|---|---|
-| Population/demographics | age, sex, ethnicity | "Calibrated to US national COPD burden (NHANES / CDC BRFSS 2022)"; "Wheaton AG et al. MMWR 2015;64(SS-7):1-20." | `:65-90` |
+| Population/demographics | age, sex, ethnicity | "Calibrated to US national COPD burden (NHANES / CDC BRFSS 2022)"; "Wheaton AG et al. MMWR 2019;68(24):533-538." | `:65-90` |
 | GOLD stage | `gold_stage` (str) | "Lamprecht B et al. Respir Res 2011;12:121." | `:93-100` |
 | Spirometry | `fev1_pct_predicted` (float), `fev1_fvc_ratio` (float), `fev1_absolute_l` (float) | FEV1 ranges no explicit citation (`GOLD_FEV1`); FEV1/FVC "GOLD 2024 Global Strategy for COPD"; absolute FEV1 "GLI-2012 reference; sex/age/height adjusted" | `:102-117, 347-353` |
 | ABCD group | `gold_abcd_group` (str A/B/E) | "ABCD grouping (GOLD 2023+)" — no journal source stated | `:419-426` |
 | Smoking | `smoking_status` (str), `pack_years` (float) | "Salvi SS, Barnes PJ. Lancet 2009;374(9691):733-743." | `:119-133` |
-| Comorbidities (9 bool) | hypertension, cardiovascular_disease, type2_diabetes, depression, anxiety, osa, pulmonary_hypertension, osteoporosis, lung_cancer_history | Sin DD Chest 2006; Mirrakhimov Cardiovasc Diabetol 2012; Yohannes Respir Care 2014; Shawon Respir Med 2017; Chaouat Eur Respir J 2008 | `:135-152` |
+| Comorbidities (9 bool) | hypertension, cardiovascular_disease, type2_diabetes, depression, anxiety, osa, pulmonary_hypertension, osteoporosis, lung_cancer_history | Chen Lancet Respir Med 2015; Mirrakhimov Cardiovasc Diabetol 2012;11:132; Yohannes Respir Care 2014; Shawon Respir Med 2017; Chaouat Eur Respir J 2008 | `:135-152` |
 | Medications (7 bool) | med_saba_prn, med_laba, med_lama, med_ics_laba, med_triple_therapy, med_oral_corticosteroid, med_roflumilast | "GOLD 2024 pharmacotherapy recommendations" | `:191-230` |
 | Oxygen | `ltot` (bool) | "NOTT Trial; ATS statement on LTOT" | `:232-240` |
 | Functional | `mmrc_dyspnea_grade` (int 0-4), `cat_score` (int), `six_min_walk_m` (float) | mMRC & CAT "Jones PW et al. ERJ 2009;34(3):648-654."; 6MWD "Enright PL, Sherrill DL. Am J Respir Crit Care Med 1998;158(5):1384-1387." | `:172-189, 250-257` |
@@ -176,7 +176,7 @@ For non-stroke patients most fields are `None` with `stroke_flag=False` (`:208-2
 
 | Field (type) | Source as stated in code | Location |
 |---|---|---|
-| `stroke_flag` (bool), `stroke_type` (str ischemic/hemorrhagic/tia) | "Ischemic 87%, Hemorrhagic 13% — Ren et al. MedComm 2025 [1]"; TIA modeled ~10% (coded thresholds r<0.11 hemorrhagic, <0.16 tia) | `:240-251` |
+| `stroke_flag` (bool), `stroke_type` (str ischemic/hemorrhagic/tia) | "Ischemic 87%, Hemorrhagic 13% — AHA Stroke Statistics 2023 [1]"; TIA modeled ~10% (coded thresholds r<0.11 hemorrhagic, <0.16 tia) | `:240-251` |
 | `nihss_score` (int), `nihss_category` (str) | "Winder K et al. J Neuroimaging 2023 [2]"; categories "Feng L et al. J Clin Lab Anal 2018 [3]"; hemorrhagic conditioning "Broderick JP Stroke 2010 [11]" | `:97-102, 272-300` |
 | `tpa_eligible` (bool), `tpa_administered` (bool), `door_to_needle_minutes` (int/None) | "AHA/ASA Guidelines 2019 [7]"; "Bergh E et al. Acta Neurol Scand 2022 [4]"; "Havenon A et al. Ann Neurol 2023 [5]" | `:105-157, 348-364` |
 | `onset_to_door_minutes` (int) | "Bergh 2022 [4]"; rural tail "Internal calibration review, 2026-04-30 [10]" | `:321-336` |
