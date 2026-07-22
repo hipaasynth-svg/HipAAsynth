@@ -41,11 +41,20 @@ class StagingModule:
         self.config = config or self._default_config()
 
     def _default_config(self):
+        # Stage-at-diagnosis distributions [I, II, III, IV] per site, chosen so
+        # that the SEER summary-stage grouping is reproduced:
+        #   localized ≈ I(+II), regional ≈ (II)III, distant ≈ IV.
+        # SEER Cancer Stat Facts stage-at-diagnosis:
+        #   breast    localized 64% / regional 27% / distant 6%
+        #   lung      localized 15% / regional 22% / distant 57%
+        #   colorect. localized 35% / regional 36% / distant 24%
+        # Source: SEER Cancer Stat Facts (breast/lung/colorectal),
+        # https://seer.cancer.gov/statfacts/  (distant = stage IV / M1).
         return {
             "stage_probs": {
-                "breast": [0.40, 0.30, 0.20, 0.10],
-                "lung": [0.15, 0.15, 0.30, 0.40],
-                "colon": [0.20, 0.25, 0.30, 0.25],
+                "breast": [0.38, 0.29, 0.27, 0.06],
+                "lung":   [0.17, 0.08, 0.18, 0.57],
+                "colon":  [0.21, 0.19, 0.36, 0.24],
             },
             "stages": ["I", "II", "III", "IV"],
         }

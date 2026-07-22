@@ -113,7 +113,14 @@ class BiomarkerModule:
     # ---------------- BREAST ----------------
 
     def _breast(self, i, d, age):
-        er = self._choice(["+", "-"], [0.75, 0.25])
+        # ER+ and HER2+ marginals set so the emergent joint subtypes reproduce
+        # SEER HR/HER2 subtype incidence: HR+/HER2- ~72.7%, triple-negative
+        # ~12.2%, HER2+ (any HR) ~14.9%. ER and HER2 are drawn independently,
+        # which reproduces the marginals (ER+ 0.86 * HER2- 0.85 ≈ 0.73 luminal;
+        # ER- 0.14 * HER2- 0.85 ≈ 0.12 triple-negative).
+        # Source: Howlader N et al. J Natl Cancer Inst 2014;106(5):dju055
+        # (SEER). https://doi.org/10.1093/jnci/dju055
+        er = self._choice(["+", "-"], [0.86, 0.14])
         her2 = self._choice(["+", "-"], [0.15, 0.85])
 
         pr = (
@@ -151,6 +158,13 @@ class BiomarkerModule:
     # ---------------- LUNG ----------------
 
     def _lung(self, i, d, race):
+        # Driver-mutation frequencies anchor to the Lung Cancer Mutation
+        # Consortium (lung adenocarcinoma): KRAS ~25%, sensitizing EGFR ~17%,
+        # ALK ~8%, BRAF ~2%. EGFR/ALK are enriched in never-smokers and (for
+        # EGFR) in East-Asian ancestry, so the rates below are conditioned on
+        # smoking status and race; emergent all-lung EGFR+ lands ~12-15%.
+        # Source: Kris MG et al. JAMA 2014;311(19):1998-2006.
+        # https://doi.org/10.1001/jama.2014.3741
         nonsmoke = self.rng.random() < (0.15 if race == "Asian" else 0.10)
 
         if nonsmoke and race == "Asian":
@@ -194,8 +208,18 @@ class BiomarkerModule:
     # ---------------- COLON ----------------
 
     def _colon(self, i, d):
+        # ~60% of colon primaries are right-sided in older cohorts; MSI-H is
+        # strongly right-sided. Site-specific MSI rates set so overall MSI-H
+        # among colon ≈ 15% (0.60*0.22 + 0.40*0.03 ≈ 0.14), matching the
+        # sporadic-CRC MSI-H prevalence.
+        # Sources: MSI-H ~15% of CRC — Boland CR, Goel A. Gastroenterology
+        # 2010;138(6):2073-2087 (https://doi.org/10.1053/j.gastro.2009.12.064);
+        # BRAF V600E ~40-50% of MSI-H — Lochhead P et al. J Natl Cancer Inst
+        # 2013;105(15):1151-1156 (https://doi.org/10.1093/jnci/djt173);
+        # KRAS ~40% of CRC — Neumann J et al. Pathol Res Pract
+        # 2009;205(12):858-862.
         right = self.rng.random() < 0.60
-        msi = "MSI-H" if self.rng.random() < (0.15 if right else 0.02) else "MSS"
+        msi = "MSI-H" if self.rng.random() < (0.22 if right else 0.03) else "MSS"
 
         braf = (
             "+" if self.rng.random() < (0.50 if msi == "MSI-H" else 0.10) else "-"

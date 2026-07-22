@@ -18,7 +18,7 @@ deterministic randomness against these anchors. This guarantees:
 
 ## Calibration Results at a Glance
 
-Latest run — engine `v1.0.2`, `n=1000` per module, **79 / 79 checks PASS across 8 modules**.
+Latest run — `n=1000` per module, **92 / 92 checks PASS across 9 modules**.
 
 | Module | Checks | Result |
 |---|---|---|
@@ -30,14 +30,17 @@ Latest run — engine `v1.0.2`, `n=1000` per module, **79 / 79 checks PASS acros
 | SMA | 6 | ✅ 6 PASS / 0 FAIL |
 | DMD | 7 | ✅ 7 PASS / 0 FAIL |
 | Fabry | 6 | ✅ 6 PASS / 0 FAIL |
-| **Total** | **79** | **✅ 79 PASS / 0 FAIL** |
+| Oncology | 13 | ✅ 13 PASS / 0 FAIL |
+| **Total** | **92** | **✅ 92 PASS / 0 FAIL** |
 
 COPD/CHF/OUD are validated by `calibration_validator.py`; the stroke, diabetes,
-SMA, DMD, and Fabry modules are validated by `calibration_validator_ext.py`
-(added so every module with a self-contained cohort generator is calibrated, not
-just the original three). Sepsis is a physiological observation generator with
-no population-prevalence rows to calibrate — its sources are catalogued in the
-citation registry.
+SMA, DMD, Fabry, and oncology modules are validated by
+`calibration_validator_ext.py` (added so every module with a self-contained
+cohort generator is calibrated, not just the original three). The oncology
+sub-package (breast/lung/colon, six chained sub-modules) is driven by
+`oncology/cohort.py::OncologyCohortGenerator`. Sepsis is a physiological
+observation generator with no population-prevalence rows to calibrate — its
+sources are catalogued in the citation registry.
 
 **→ Full citation registry (every anchor, its source URL, and where to look so
 you can verify one by one):**
@@ -210,20 +213,21 @@ This writes into `docs/calibration/`:
 hash; the certification is valid only when the recomputed chain hash matches the
 recorded value.
 
-**Latest stamp** (engine `v1.0.2`, `n=1000`/module, 79/79 PASS across 8 modules):
+**Latest stamp** (`n=1000`/module, 92/92 PASS across 9 modules):
 
 | Artifact | SHA-256 |
 |---|---|
-| COPD cohort CSV | `c2e9d750fea83fec63dacb36cdfa0b680b53408dabb646afbcaebc54a8f15df6` |
-| CHF cohort CSV  | `8790871cdcb864d259108a1fa8d8920785dc007389ca07294f10f174aace78f8` |
-| OUD cohort CSV  | `38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199` |
+| COPD cohort CSV | `7882ecb037786469c7eb15e04d048cf7354160852f9ba2fd199f09c3be4b47c3` |
+| CHF cohort CSV  | `a7efc6b042a6179204bdca43b2394aac5f75dbbbf1b3887c643455ef3f7f2987` |
+| OUD cohort CSV  | `937a0cc02a4de62e06d3ba7dde4252ece841dc0b42cd3bdeac84dd5c2c3dd535` |
 | Stroke cohort CSV | `703833e9c5bc4f21c3cda3696027d7ef9fc619a1046fa9467a738117149fb0ab` |
 | Diabetes cohort CSV | `49da9d45e151333b0fef3e9317979c40859e3aa99e11c8574f840c9ff1c65cde` |
 | SMA cohort CSV | `5cd84f39b77fd31e79680bf3904f88bd5430a0a1cd18be5233fe271e903c26db` |
 | DMD cohort CSV | `529db66c1ab790b23da95a2c91b8b8b979df222b1753cff1ed2cb514243a26e7` |
 | Fabry cohort CSV | `998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402` |
-| Calibration report (content, excl. timestamp) | `84c977329ce537bfa352ce95893d85da81be415d292702fa5537fc48388afa68` |
-| **Chain hash** | `ffeaffd1335e4038d7e56840671524e17d11bd95ed007e841a626e9ec2c7de91` |
+| Oncology cohort CSV | `cbd7eb6227c83cfcec951b530ae23b432327f94965fbc44095758ee3d901330f` |
+| Calibration report (content, excl. timestamp) | `5b91bc406051eb129321bd37fa73c75907551d81400c3e1807dff2435ee2b216` |
+| **Chain hash** | `665cc9e06b53a72b804edda27ca79d81c9ae799a63671712f55b9cd62a29c37f` |
 
 > The chain hash is computed over the cohort CSV hashes plus a **canonical
 > content hash** of the report (the wall-clock `generated_utc` is excluded), so
@@ -366,6 +370,25 @@ values. `Δ` is `|actual − target|`.
 | On enzyme replacement therapy | 55.0% | 55.1% | ±8.0% | ✅ PASS |
 | Stroke/TIA history | 15.0% | 14.2% | ±8.0% | ✅ PASS |
 
+### ONCOLOGY — 13 PASS / 0 FAIL
+(breast/lung/colon; six chained sub-modules via `oncology/cohort.py`; see CITATIONS.md § Oncology)
+
+| Metric | Target | Actual | Tolerance | Status |
+|---|---|---|---|---|
+| Breast site share | 44.0% | 41.7% | ±8.0% | ✅ PASS |
+| Lung site share | 34.0% | 36.5% | ±8.0% | ✅ PASS |
+| Colon site share | 22.0% | 21.8% | ±7.0% | ✅ PASS |
+| Breast metastatic at dx (stage IV) | 6.0% | 3.6% | ±5.0% | ✅ PASS |
+| Lung metastatic at dx (stage IV) | 57.0% | 55.6% | ±10.0% | ✅ PASS |
+| Colon metastatic at dx (stage IV) | 24.0% | 20.6% | ±8.0% | ✅ PASS |
+| Breast overall 5-yr survival | 90.0% | 92.3% | ±8.0% | ✅ PASS |
+| Lung overall 5-yr survival | 27.0% | 26.9% | ±10.0% | ✅ PASS |
+| Colon overall 5-yr survival | 62.0% | 59.2% | ±10.0% | ✅ PASS |
+| Breast HR+/HER2- luminal | 73.0% | 74.3% | ±8.0% | ✅ PASS |
+| Breast triple-negative | 12.0% | 11.8% | ±5.0% | ✅ PASS |
+| Colon MSI-H | 15.0% | 13.8% | ±6.0% | ✅ PASS |
+| Lung KRAS+ | 25.0% | 26.6% | ±8.0% | ✅ PASS |
+
 > **Documented gaps** (not asserted as calibrated): stroke tPA-within-window
 > (~27% vs literature 47–53%) and SBP>185 fraction (~15% vs 20–25% target) are
 > catalogued in CITATIONS.md § Documented gaps rather than charted as PASS.
@@ -392,4 +415,4 @@ zero network calls, zero PHI.
 
 ---
 
-Last updated: 2026-07-20 by Cody Carlson
+Last updated: 2026-07-22 by Cody Carlson

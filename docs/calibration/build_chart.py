@@ -277,7 +277,7 @@ DATA.modules.forEach(mod => {
 document.getElementById('note').textContent =
   'Each row is centered on its published target (middle line); the green box is the ±tolerance acceptance band, '
   + 'identical across metrics. The dot is the synthetic cohort value, placed by how far it lands from target in units '
-  + 'of that metric’s tolerance — a dot inside the box PASSES, a dot outside FAILS. All 47 dots sit inside their '
+  + 'of that metric’s tolerance — a dot inside the box PASSES, a dot outside FAILS. All ' + (s.total_pass + s.total_fail) + ' dots sit inside their '
   + 'bands. Exact target and actual values are on the right of each row (and in the data table). Continuous metrics '
   + '(means, ages, lab values, minutes) use value units; all others are proportions. Every target is sourced in '
   + 'docs/calibration/CITATIONS.md.';

@@ -1,10 +1,10 @@
 {
   "cap_version": "1.0",
-  "certified_utc": "2026-07-20 23:41:26 UTC",
-  "engine_version": "1.0.2",
+  "certified_utc": "2026-07-22 00:56:40 UTC",
+  "engine_version": "1.2.0",
   "cohort_size": 1000,
   "summary": {
-    "total_pass": 79,
+    "total_pass": 92,
     "total_fail": 0
   },
   "module_results": {
@@ -39,19 +39,24 @@
     "fabry": {
       "pass": 6,
       "fail": 0
+    },
+    "oncology": {
+      "pass": 13,
+      "fail": 0
     }
   },
   "cohort_csv_sha256": {
-    "copd": "c2e9d750fea83fec63dacb36cdfa0b680b53408dabb646afbcaebc54a8f15df6",
-    "chf": "8790871cdcb864d259108a1fa8d8920785dc007389ca07294f10f174aace78f8",
-    "oud": "38f5706d71bf2e5eed059ed3d362e71de09cce963585da52978b15263a028199",
+    "copd": "7882ecb037786469c7eb15e04d048cf7354160852f9ba2fd199f09c3be4b47c3",
+    "chf": "a7efc6b042a6179204bdca43b2394aac5f75dbbbf1b3887c643455ef3f7f2987",
+    "oud": "937a0cc02a4de62e06d3ba7dde4252ece841dc0b42cd3bdeac84dd5c2c3dd535",
     "stroke": "703833e9c5bc4f21c3cda3696027d7ef9fc619a1046fa9467a738117149fb0ab",
     "diabetes": "49da9d45e151333b0fef3e9317979c40859e3aa99e11c8574f840c9ff1c65cde",
     "sma": "5cd84f39b77fd31e79680bf3904f88bd5430a0a1cd18be5233fe271e903c26db",
     "dmd": "529db66c1ab790b23da95a2c91b8b8b979df222b1753cff1ed2cb514243a26e7",
-    "fabry": "998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402"
+    "fabry": "998f4c533fdf279c8d030b90557602862f49bfc6ee024b4fffa3282456cd8402",
+    "oncology": "cbd7eb6227c83cfcec951b530ae23b432327f94965fbc44095758ee3d901330f"
   },
-  "calibration_report_sha256": "84c977329ce537bfa352ce95893d85da81be415d292702fa5537fc48388afa68",
-  "chain_hash_sha256": "ffeaffd1335e4038d7e56840671524e17d11bd95ed007e841a626e9ec2c7de91",
+  "calibration_report_sha256": "5b91bc406051eb129321bd37fa73c75907551d81400c3e1807dff2435ee2b216",
+  "chain_hash_sha256": "665cc9e06b53a72b804edda27ca79d81c9ae799a63671712f55b9cd62a29c37f",
   "opentimestamps_anchor": "PENDING"
 }

@@ -186,6 +186,43 @@ Module header cites: Fabry Registry, FOS (Fabry Outcome Survey), FDA label.
 
 ---
 
+## Oncology  (`hipaasynth/modules/sepsis/oncology/`)
+
+Six sub-modules (`population`, `staging`, `biomarkers`, `comorbidity`,
+`treatment`, `outcomes`) driven deterministically by
+`oncology/cohort.py::OncologyCohortGenerator`. Covers three primary sites
+(breast, lung, colon). Stage rows use the SEER summary-stage grouping
+(localized ≈ I/II, regional ≈ III, distant ≈ stage IV / M1); the charted
+metric is the distant (stage IV) fraction, which maps cleanly to M1.
+
+| Metric | Target | Source | Verify | Where to look | Prov. |
+|---|---|---|---|---|---|
+| Breast site share (of 3 sites) | 0.44 | Siegel RL et al. *CA Cancer J Clin* 2024;74(1):12-49 | https://doi.org/10.3322/caac.21820 | US annual incidence (breast/lung/colorectal) normalized to 3 sites | [in-code] |
+| Lung site share (of 3 sites) | 0.34 | Siegel RL et al. *CA Cancer J Clin* 2024;74(1):12-49 | https://doi.org/10.3322/caac.21820 | US annual incidence, normalized | [in-code] |
+| Colon site share (of 3 sites) | 0.22 | Siegel RL et al. *CA Cancer J Clin* 2024;74(1):12-49 | https://doi.org/10.3322/caac.21820 | US annual incidence, normalized | [in-code] |
+| Breast metastatic (stage IV) at dx | 0.06 | SEER Cancer Stat Facts — Female Breast | https://seer.cancer.gov/statfacts/html/breast.html | Stage distribution: distant 6% | [in-code] |
+| Lung metastatic (stage IV) at dx | 0.57 | SEER Cancer Stat Facts — Lung & Bronchus | https://seer.cancer.gov/statfacts/html/lungb.html | Stage distribution: distant 57% | [in-code] |
+| Colon metastatic (stage IV) at dx | 0.24 | SEER Cancer Stat Facts — Colorectal | https://seer.cancer.gov/statfacts/html/colorect.html | Stage distribution: distant ~24% | [in-code] |
+| Breast overall 5-yr survival | 0.90 | SEER Cancer Stat Facts — Female Breast (localized ~99% / regional ~86% / distant ~30%) | https://seer.cancer.gov/statfacts/html/breast.html | 5-yr relative survival by stage | [in-code] |
+| Lung overall 5-yr survival | 0.27 | SEER / ACS non-small-cell lung (localized ~65% / regional ~37% / distant ~9%) | https://seer.cancer.gov/statfacts/html/lungb.html | 5-yr relative survival by stage | [in-code] |
+| Colon overall 5-yr survival | 0.62 | O'Connell JB et al. *J Natl Cancer Inst* 2004;96(19):1420-1425 (SEER AJCC 6th; I 93.2% / II ~83% / III ~60% / IV 8.1%; overall 65.2%) | https://doi.org/10.1093/jnci/djh275 | Stage-specific 5-yr survival, n=119,363 | [in-code] |
+| Breast HR+/HER2- (luminal) | 0.73 | Howlader N et al. *J Natl Cancer Inst* 2014;106(5):dju055 (SEER) | https://doi.org/10.1093/jnci/dju055 | Joint HR/HER2 subtype incidence (HR+/HER2- 72.7%) | [in-code] |
+| Breast triple-negative | 0.12 | Howlader N et al. *J Natl Cancer Inst* 2014;106(5):dju055 (SEER) | https://doi.org/10.1093/jnci/dju055 | Triple-negative 12.2% | [in-code] |
+| Colon MSI-H | 0.15 | Boland CR, Goel A. *Gastroenterology* 2010;138(6):2073-2087 | https://doi.org/10.1053/j.gastro.2009.12.064 | MSI-H ~15% of sporadic CRC (right-sided enriched) | [in-code] |
+| Lung KRAS+ | 0.25 | Kris MG et al. *JAMA* 2014;311(19):1998-2006 (Lung Cancer Mutation Consortium) | https://doi.org/10.1001/jama.2014.3741 | KRAS 25% of lung adenocarcinoma | [in-code] |
+
+Additional in-code biomarker sources (modeled, not charted as pass/fail — see
+**Documented gaps**): breast ER/PR/HER2 marginals and BRCA (Howlader 2014,
+above); lung EGFR/ALK/BRAF driver frequencies conditioned on smoking status and
+ancestry (Kris MG et al. *JAMA* 2014, https://doi.org/10.1001/jama.2014.3741);
+colon BRAF V600E in MSI-H (Lochhead P et al. *J Natl Cancer Inst*
+2013;105(15):1151-1156, https://doi.org/10.1093/jnci/djt173) and KRAS ~40% of
+CRC (Neumann J et al. *Pathol Res Pract* 2009;205(12):858-862). Treatment
+selection (surgery/chemo/targeted/IO by stage and biomarker) follows NCCN-style
+standard-of-care logic and is not asserted as a calibrated prevalence.
+
+---
+
 ## ND Tribal Region Profiles  (`hipaasynth/profiles/nd_tribal_region_*.json`)
 
 These anchors carry DOIs directly in each profile's `sources` block.
@@ -239,7 +276,18 @@ Honesty about what is *not* yet a passing calibrated row:
 - **DMD/SMA/Fabry `[canonical]` rows** — the module encodes the value as a
   parameter; the source given is the standard reference for that constant, not
   an inline code citation. Verify the value against the linked source.
+- **Oncology lung EGFR/ALK prevalence** — modeled conditionally on smoking
+  status and ancestry (Kris 2014). In a mixed-histology, smoker-inclusive
+  synthetic cohort the emergent all-lung EGFR+ (~6–12%) is lower than the
+  adenocarcinoma-only 17% reported by the Lung Cancer Mutation Consortium, so
+  EGFR/ALK are documented here rather than charted as a PASS row; lung KRAS
+  (~25%) is charted.
+- **Oncology stage mapping** — SEER publishes summary stage
+  (localized/regional/distant); the module emits AJCC I–IV. The charted stage
+  row is the distant (stage IV / M1) fraction, which maps cleanly; the I/II/III
+  split within localized+regional is modeled to reproduce the summary-stage
+  totals, not asserted stage-by-stage.
 
 ---
 
-Last updated: 2026-07-20 by Cody Carlson
+Last updated: 2026-07-22 by Cody Carlson
