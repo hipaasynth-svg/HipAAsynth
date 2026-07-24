@@ -105,8 +105,9 @@ def extract_fact_set(patient: Any) -> ClinicalFactSet:
     """Build the canonical :class:`ClinicalFactSet` for ``patient``.
 
     Acute status is read from the observation bundle (``sepsis_flag`` /
-    ``stroke_flag``) so it is consistent with the acuity a form renders. Labs are
-    taken from the most recent visit — the same visit the form builders render.
+    ``stroke_flag`` / ``dka_flag`` / ``fabry_referral_flag``) so it is consistent
+    with the acuity a form renders. Labs are taken from the most recent visit —
+    the same visit the form builders render.
     """
     obs = patient.observations or {}
     acute_type: Optional[str] = None
@@ -114,6 +115,10 @@ def extract_fact_set(patient: Any) -> ClinicalFactSet:
         acute_type = "sepsis"
     elif obs.get("stroke_flag"):
         acute_type = "stroke"
+    elif obs.get("dka_flag"):
+        acute_type = "dka"
+    elif obs.get("fabry_referral_flag"):
+        acute_type = "fabry_referral"
 
     labs: List[Tuple[str, float]] = []
     if patient.visits:
