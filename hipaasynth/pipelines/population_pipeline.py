@@ -49,6 +49,14 @@ from hipaasynth.validation.validator import validate_patient
 from hipaasynth.core.profile_loader import load_population_profile
 from hipaasynth.modules.sepsis.observations import build_sepsis_observations
 from hipaasynth.modules.stroke.observations import build_stroke_observations
+from hipaasynth.modules.diabetes.observations import (
+    DKA_REQUIRED_KEYS,
+    build_dka_observations,
+)
+from hipaasynth.modules.fabry.observations import (
+    FABRY_REQUIRED_KEYS,
+    build_fabry_observations,
+)
 
 # Module version — must match anchor config for hash stability
 PIPELINE_MODULE_VERSION = "v1.0"
@@ -199,24 +207,23 @@ def _generate_one(cfg: GenerationConfig, patient_seed: int) -> Patient:
     required = getattr(cfg, 'required_condition', None)
     condition_names = {c.name for c in conditions}
 
+    obs_kwargs = dict(
+        rng=obs_rng,
+        demographics=demographics,
+        anthropometrics=anthropometrics,
+        conditions=conditions,
+        visits=visits,
+        cfg=cfg,
+    )
+
     if required == 'stroke' or 'stroke' in condition_names:
-        observations = build_stroke_observations(
-            rng=obs_rng,
-            demographics=demographics,
-            anthropometrics=anthropometrics,
-            conditions=conditions,
-            visits=visits,
-            cfg=cfg,
-        )
+        observations = build_stroke_observations(**obs_kwargs)
+    elif required in DKA_REQUIRED_KEYS or 'dka' in condition_names:
+        observations = build_dka_observations(**obs_kwargs)
+    elif required in FABRY_REQUIRED_KEYS or 'fabry' in condition_names:
+        observations = build_fabry_observations(**obs_kwargs)
     else:
-        observations = build_sepsis_observations(
-            rng=obs_rng,
-            demographics=demographics,
-            anthropometrics=anthropometrics,
-            conditions=conditions,
-            visits=visits,
-            cfg=cfg,
-        )
+        observations = build_sepsis_observations(**obs_kwargs)
 
     patient = Patient(
         demographics=demographics,

@@ -17,8 +17,9 @@
 """DIF mock models for demonstrating polymorphic fairness signals.
 
 These models are intentionally simple.  They operate on the synthetic patient's
-acute-condition ground truth (sepsis_flag or stroke_flag in ``observations``)
-and produce deterministic binary decisions for every polymorphic form.
+acute-condition ground truth (sepsis_flag, stroke_flag, dka_flag, or
+fabry_referral_flag in ``observations``) and produce deterministic binary
+decisions for every polymorphic form.
 """
 
 from dataclasses import dataclass
@@ -86,9 +87,20 @@ class ClinicalModel(Protocol):
 
 
 def _ground_truth(patient: Patient) -> bool:
-    """Return the acute-condition ground truth for a synthetic patient."""
+    """Return the acute-condition ground truth for a synthetic patient.
+
+    A positive determination is any active acute/actionable finding across the
+    supported modules: sepsis, acute stroke, diabetic ketoacidosis, or a
+    Fabry-disease referral. The DIF audit scores a model's decision
+    *consistency* across the seven polymorphic forms against this value.
+    """
     obs = patient.observations or {}
-    return bool(obs.get("sepsis_flag") or obs.get("stroke_flag"))
+    return bool(
+        obs.get("sepsis_flag")
+        or obs.get("stroke_flag")
+        or obs.get("dka_flag")
+        or obs.get("fabry_referral_flag")
+    )
 
 
 class MockFairModel:
