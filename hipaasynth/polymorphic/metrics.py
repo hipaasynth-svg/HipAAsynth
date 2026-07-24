@@ -32,7 +32,13 @@ from hipaasynth.polymorphic.forms import Form
 
 @dataclass(frozen=True)
 class PolymorphicMetrics:
-    """Container for the four polymorphic fairness metrics."""
+    """Container for the four polymorphic fairness metrics.
+
+    ``truth_evaluated`` distinguishes a genuine pass on the truth-dependent
+    metrics (ISG/LFDI/SAF) from the case where no ground truth was supplied and
+    those metrics could not be evaluated at all (audit finding F5). DCS never
+    needs ground truth, so it is always evaluated.
+    """
 
     dcs: float
     isg: float
@@ -43,6 +49,8 @@ class PolymorphicMetrics:
     isg_pass: bool
     lfdi_pass: bool
     saf_pass: bool
+
+    truth_evaluated: bool = True
 
     def all_pass(self) -> bool:
         return self.dcs_pass and self.isg_pass and self.lfdi_pass and self.saf_pass
@@ -122,6 +130,7 @@ class PolymorphicMetricCalculator:
             isg_pass=isg_pass,
             lfdi_pass=lfdi_pass,
             saf_pass=saf_pass,
+            truth_evaluated=ground_truth is not None,
         )
 
     def _decision_consistency_score(self, decisions: Dict[str, bool]) -> float:

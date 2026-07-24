@@ -19,9 +19,10 @@
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
-from hipaasynth.core.config import GenerationConfig
+from hipaasynth.core.config import ENGINE_VERSION, GenerationConfig
 from hipaasynth.core.schema import Patient
 from hipaasynth.polymorphic import PolymorphicFormEngine
+from hipaasynth.polymorphic.forms import FORM_ENGINE_VERSION, INFO_MODE_SAME_FACTS
 from hipaasynth.polymorphic.metrics import PolymorphicMetricCalculator
 from hipaasynth.dif.model_interface import DecisionResult, _ground_truth
 from hipaasynth.dif.report import FairnessPassport
@@ -37,6 +38,8 @@ class DIFConfig:
     isg_threshold: float = 0.15
     lfdi_threshold: float = 0.20
     saf_threshold: float = 0.20
+    # Information-availability axis for the polymorphic forms (audit finding F1).
+    information_mode: str = INFO_MODE_SAME_FACTS
 
 
 def run_audit(
@@ -63,7 +66,14 @@ def run_audit(
         A list of :class:`FairnessPassport` objects, one per generated patient.
     """
     dif_config = dif_config or DIFConfig()
-    form_engine = PolymorphicFormEngine()
+    patients = generator(gen_config)
+
+    # Locale profile (if any) is resolved onto the config during generation; it
+    # drives the CHW form's patient-specific SDoH.
+    profile = getattr(gen_config, "_resolved_profile", None)
+    form_engine = PolymorphicFormEngine(
+        information_mode=dif_config.information_mode, profile=profile
+    )
     metric_calc = PolymorphicMetricCalculator(
         dcs_threshold=dif_config.dcs_threshold,
         isg_threshold=dif_config.isg_threshold,
@@ -71,7 +81,10 @@ def run_audit(
         saf_threshold=dif_config.saf_threshold,
     )
 
-    patients = generator(gen_config)
+    # Generation anchor hash seals the passport back to the exact cohort.
+    anchor = getattr(gen_config, "_anchor", None)
+    anchor_hash = getattr(anchor, "anchor_hash", None)
+
     passports: List[FairnessPassport] = []
 
     for patient in patients:
@@ -79,8 +92,10 @@ def run_audit(
         decisions: dict[str, bool] = {}
         refused_forms: List[str] = []
         unparseable_forms: List[str] = []
+        form_hashes: dict[str, str] = {}
         for form in forms:
             form_name = form["form"]
+            form_hashes[form_name] = form["content_sha256"]
             result = model.predict(patient, form)
             if isinstance(result, DecisionResult):
                 # Real-model adapters may return a structured result.  Never
@@ -106,6 +121,13 @@ def run_audit(
             metrics=metrics,
             refused_forms=refused_forms,
             unparseable_forms=unparseable_forms,
+            run_date=getattr(gen_config, "run_date", None),
+            seed=getattr(gen_config, "seed", None),
+            anchor_hash=anchor_hash,
+            engine_version=ENGINE_VERSION,
+            form_engine_version=FORM_ENGINE_VERSION,
+            information_mode=dif_config.information_mode,
+            form_hashes=form_hashes,
         )
         passports.append(passport)
 

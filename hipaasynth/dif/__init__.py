@@ -15,6 +15,16 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from hipaasynth.dif.framework import DIFConfig, run_audit
-from hipaasynth.dif.report import FairnessPassport
+from hipaasynth.dif.report import (
+    CohortFairnessSummary,
+    FairnessPassport,
+    summarize_cohort,
+)
 
-__all__ = ["DIFConfig", "FairnessPassport", "run_audit"]
+__all__ = [
+    "DIFConfig",
+    "FairnessPassport",
+    "CohortFairnessSummary",
+    "run_audit",
+    "summarize_cohort",
+]

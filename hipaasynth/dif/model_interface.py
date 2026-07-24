@@ -122,3 +122,25 @@ class MockBiasedModel:
         if form_name in self.UNDER_TRIAGED_FORMS and gt:
             return False
         return gt
+
+
+class MockSDoHBiasedModel:
+    """
+    Reference SDoH-biased model: accurate everywhere except the SDoH-rich CHW
+    intake form for patients carrying a high social-determinant burden, whom it
+    under-triages. Demonstrates the SDoH Amplification Factor (SAF) — the CHW
+    form is where a model that penalizes social complexity reveals itself.
+    """
+
+    HIGH_SDOH_BURDEN = 2  # of 4 adverse factors
+
+    def predict(self, patient: Patient, form: dict[str, Any]) -> bool:
+        """Under-triage acute-positive high-SDoH-burden patients on the CHW form."""
+        gt = _ground_truth(patient)
+        if form.get("form", "") == Form.CHW_SDOH_RICH.value and gt:
+            # Import locally to keep the module import graph light.
+            from hipaasynth.polymorphic.sdoh import derive_sdoh
+
+            if derive_sdoh(patient).get("sdoh_burden_score", 0) >= self.HIGH_SDOH_BURDEN:
+                return False
+        return gt
