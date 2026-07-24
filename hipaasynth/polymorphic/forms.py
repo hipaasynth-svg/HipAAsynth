@@ -239,7 +239,7 @@ class PolymorphicFormEngine:
 
     @staticmethod
     def _acuity_line(obs: dict[str, Any]) -> str:
-        """Build a one-line acuity summary from sepsis/stroke observations."""
+        """Build a one-line acuity summary from the acute observation bundle."""
         parts: list[str] = []
         if "sepsis_flag" in obs:
             parts.append(
@@ -254,8 +254,36 @@ class PolymorphicFormEngine:
             )
             parts.append(f"NIHSS {obs.get('nihss_score', '?')} ({obs.get('nihss_category', '?')})")
             parts.append(f"Onset-to-door {obs.get('onset_to_door_minutes', '?')} min")
+        if "dka_flag" in obs:
+            parts.append(
+                f"DKA criteria {'MET' if obs.get('dka_flag') else 'not met'}"
+                + (f" ({obs.get('dka_severity')})" if obs.get("dka_severity") else "")
+            )
+            parts.append(f"Glucose {obs.get('glucose_mg_dl', '?')} mg/dL")
+            parts.append(f"pH {obs.get('arterial_ph', '?')}")
+            parts.append(f"HCO3 {obs.get('bicarbonate_meq_l', '?')} mEq/L")
+            parts.append(f"anion gap {obs.get('anion_gap', '?')}")
+            parts.append(f"β-OHB {obs.get('beta_hydroxybutyrate_mmol_l', '?')} mmol/L")
+        if "fabry_referral_flag" in obs:
+            parts.append(
+                f"Fabry workup {'INDICATED' if obs.get('fabry_referral_flag') else 'not indicated'}"
+            )
+            parts.append(f"{obs.get('red_flag_count', '?')} red flag(s)")
+            flags = [
+                label
+                for key, label in (
+                    ("neuropathic_pain", "acroparesthesias"),
+                    ("cornea_verticillata", "cornea verticillata"),
+                    ("angiokeratoma", "angiokeratoma"),
+                    ("proteinuria", "proteinuria"),
+                    ("left_ventricular_hypertrophy", "LVH"),
+                    ("family_history_fabry", "family hx"),
+                )
+                if obs.get(key)
+            ]
+            parts.append("findings: " + (", ".join(flags) if flags else "none specific"))
         if not parts:
-            parts.append("No acute sepsis/stroke observation bundle recorded")
+            parts.append("No acute observation bundle recorded")
         return " | ".join(parts)
 
     # ------------------------------------------------------------------
@@ -364,6 +392,16 @@ class PolymorphicFormEngine:
             body_feeling = "I feel very hot and confused, like something bad is spreading inside me."
         elif obs.get("stroke_flag"):
             body_feeling = "One side of my face feels strange and my words come out wrong."
+        elif obs.get("dka_flag"):
+            body_feeling = (
+                "I am so thirsty and I keep having to pee. My belly hurts, I feel sick, "
+                "and I am breathing fast. My breath smells sweet and funny."
+            )
+        elif obs.get("fabry_referral_flag"):
+            body_feeling = (
+                "My hands and feet burn like fire, and I barely sweat even when it is hot. "
+                "It has been like this since I was young, and others in my family have it too."
+            )
 
         lab_line = (
             f"The blood test numbers were {self._plain_labs(visit['labs'])}."
@@ -402,6 +440,10 @@ class PolymorphicFormEngine:
             body_feeling = "You feel hot. You feel confused."
         elif obs.get("stroke_flag"):
             body_feeling = "One side of your face is weak. Your speech is not clear."
+        elif obs.get("dka_flag"):
+            body_feeling = "You are very thirsty. You pass urine many times. Your belly hurts. You breathe fast."
+        elif obs.get("fabry_referral_flag"):
+            body_feeling = "Your hands and feet burn. You do not sweat much. This started when you were young."
 
         lab_line = (
             f"Your blood test numbers: {self._plain_labs(visit['labs'])}."
@@ -441,6 +483,10 @@ class PolymorphicFormEngine:
             body_feeling = "They feel hot and confused."
         elif obs.get("stroke_flag"):
             body_feeling = "One side of their face is weak."
+        elif obs.get("dka_flag"):
+            body_feeling = "They are very thirsty and urinating often. Their belly hurts and they are breathing fast."
+        elif obs.get("fabry_referral_flag"):
+            body_feeling = "Their hands and feet burn, and they sweat very little. It started young."
 
         lab_line = (
             f"  Blood test numbers: {self._plain_labs(visit['labs'])}."
