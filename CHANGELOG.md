@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-07-24
+
+Polymorphic fidelity: the seven documentation forms and the FairnessPassport are
+now **fact-invariant** and **third-party-verifiable**, so decision divergence is
+attributable to documentation form and every passport can be independently
+re-rendered and confirmed. Implements audit findings F1–F6. Backward-compatible;
+determinism, stdlib-only core, and zero PHI preserved. See
+[`docs/POLYMORPHIC_FIDELITY.md`](docs/POLYMORPHIC_FIDELITY.md).
+
+### Added
+
+- **Canonical clinical fact set** (`hipaasynth/polymorphic/facts.py`) — shared by
+  every form so all forms encode the same facts (F1). Lexical coverage for
+  narrative forms; structural (coded-resource) coverage for FHIR.
+- **Information-availability axis** — `PolymorphicFormEngine(information_mode=...)`:
+  `same_facts` (default, every form encodes every fact) vs.
+  `realistic_missingness` (patient/LEP/CHW forms may omit numeric labs, with the
+  omission measured per form via `omitted_fact_categories`) (F1).
+- **Form versioning + content hashing** — every rendered form carries
+  `form_engine_version` and `content_sha256`; the passport seals `seed`,
+  `run_date`, generation `anchor_hash`, engine/form-engine versions, and per-form
+  hashes. `FairnessPassport.content_sha256()` and `verify()` make it
+  byte-identical across runs and tamper-evident (F2).
+- **Patient-specific SDoH** (`hipaasynth/polymorphic/sdoh.py`) — deterministic,
+  locale-tunable per-patient social-determinant profile powering the CHW form;
+  new `MockSDoHBiasedModel` makes the SAF metric demonstrable (F3).
+- **Cohort aggregation** — `CohortFairnessSummary` / `summarize_cohort()` roll up
+  per-patient passports into cohort means (with 95% CIs), pass rates, and the
+  worst-performing form (F4).
+- **Polymorphic-fidelity tests** (`tests/test_polymorphic_fidelity.py`, 22 tests).
+
+### Changed
+
+- **Forms** (`polymorphic/forms.py`) — every form now encodes labs (in
+  register-appropriate language) in `same_facts` mode; the LEP form uses a short,
+  interpreter-relayed register (F6). Builders take an `include_labs` flag.
+- **Metrics** (`polymorphic/metrics.py`) — `PolymorphicMetrics.truth_evaluated`
+  distinguishes a genuine pass from "no ground truth supplied"; the passport
+  renders **NOT EVALUATED** instead of a silent PASS on truth-free runs (F5).
+- **Passport** (`dif/report.py`) — deterministic `test_date` (defaults to
+  `run_date`, no wall-clock), verification-seal section in the markdown.
+
 ## [1.2.1] — 2026-07-24
 
 Conditional dependence for comorbidity clusters. COPD and CHF comorbidities are
