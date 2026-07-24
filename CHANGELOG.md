@@ -5,6 +5,46 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] — 2026-07-24
+
+Conditional dependence for comorbidity clusters. COPD and CHF comorbidities are
+no longer drawn as independent Bernoulli trials — they are conditioned on
+primary-condition severity (COPD → GOLD stage, CHF → NYHA class) while preserving
+every published national marginal exactly. Backward-compatible; no schema change;
+determinism and all existing invariants intact. See
+[`docs/CONDITIONAL_DEPENDENCE.md`](docs/CONDITIONAL_DEPENDENCE.md).
+
+### Added
+
+- **Conditional dependence module** (`hipaasynth/core/dependence.py`) — dedicated,
+  stdlib-only home for correlation logic. Tilts each comorbidity's published
+  marginal across severity strata with a literature-shaped, monotonic gradient
+  that is normalized so the stratum-weighted mean equals the marginal exactly
+  (marginal preserved by construction). Exposes `draw_copd_comorbidities`,
+  `draw_chf_comorbidities`, resolved rate tables, and an optional
+  `marginal_overrides` "locale knob" so a population profile can retarget any
+  marginal and have the gradient re-center on it automatically.
+- **Life-outcomes stage-7 scaffold** (`dependence.draw_life_outcomes`) — the
+  sequential pipeline's final stage (relationship stability, employment, income
+  band) conditional on functional status + condition burden + age + demographics.
+  Provisional/uncalibrated and not part of the default record; structure and
+  direction are test-locked, ready to calibrate and wire in later.
+- **Joint-fidelity tests** (`tests/test_conditional_dependence.py`, 21 tests) —
+  marginal preservation (analytic + sampled), directional severity gradients with
+  anti-tamper thresholds that fail if dependence is flattened, and the
+  one-draw-per-comorbidity determinism contract.
+
+### Changed
+
+- **COPD comorbidities** (`copd_generator.py`) — replaced the independent draw +
+  blanket 1.3× for GOLD 3-4 with per-comorbidity GOLD-conditional rates. E.g.
+  pulmonary hypertension now climbs ~0.08 → ~0.33 across GOLD 1 → 4 while its
+  overall prevalence stays 0.18.
+- **CHF comorbidities** (`chf_generator.py`) — replaced the fully independent draw
+  with per-comorbidity NYHA-conditional rates. E.g. CKD climbs ~0.26 → ~0.60
+  across NYHA I → IV while its overall prevalence stays 0.48. Ischemic → CAD
+  forcing preserved.
+
 ## [1.2.0] — 2026-07-21
 
 OHDSI ecosystem bridges (Phase 3). HipAAsynth now interoperates with OHDSI in

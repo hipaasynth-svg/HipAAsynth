@@ -60,6 +60,7 @@ import sys
 from datetime import datetime
 
 from hipaasynth.core.config import ENGINE_VERSION, SCHEMA_VERSION, DEFAULT_SYNTHETIC_DISCLAIMER
+from hipaasynth.core.dependence import draw_chf_comorbidities
 MODULE_NAME    = "chf_readmission"
 # Canonical synthetic-data disclaimer, shared across all generators (issue #31).
 DISCLAIMER     = DEFAULT_SYNTHETIC_DISCLAIMER
@@ -146,6 +147,14 @@ ETIOLOGY = {
 }
 
 # ── Comorbidities (hospitalized HF population) ────────────────────────────────
+# NOTE (v1.2.1 — conditional dependence): comorbidities are no longer drawn as
+# independent Bernoulli trials against these flat marginals. They are drawn
+# CONDITIONAL ON NYHA CLASS by hipaasynth.core.dependence, which tilts each
+# marginal across NYHA I-IV with a literature-shaped, marginal-preserving
+# gradient (the class-weighted mean of each conditional rate still equals the
+# marginal below). This dict is retained as the documented national marginal
+# reference; the canonical conditional model lives in
+# core.dependence.CHF_COMORBIDITY_MODEL (same values, same key order).
 # Source: Dharmarajan K et al. JAMA 2013;309(4):355-363.
 #         Rich MW et al. J Am Geriatr Soc 2013;61(6):917-925.
 COMORBIDITY_RATES = {
@@ -425,10 +434,16 @@ def generate_chf_cohort(seed: int, n: int, label: str = "us_chf_national") -> tu
         # Weight gain (fluid retention)
         weight_gain_kg = round(rng_labs.uniform(0.5, 8.0) if nyha_class in ("III","IV") else rng_labs.uniform(0, 3.0), 1)
 
-        # ── Comorbidities ─────────────────────────────────────────────────────
-        comorbidities = {}
-        for cond, rate in COMORBIDITY_RATES.items():
-            comorbidities[cond] = rng_comor.random() < rate
+        # ── Comorbidities (CONDITIONAL ON NYHA CLASS) ─────────────────────────
+        # Replaces the former independent Bernoulli loop. core.dependence tilts
+        # each national marginal across NYHA I-IV with a literature-shaped,
+        # marginal-preserving gradient (e.g. CKD climbs ~0.26 -> ~0.60 NYHA I ->
+        # NYHA IV while its overall prevalence stays 0.48). One rng.random() per
+        # comorbidity in a fixed order, so the anchor-rooted RNG stream structure
+        # is unchanged. hf_stage / hf_pheno passed for forward compatibility.
+        comorbidities = draw_chf_comorbidities(
+            rng_comor, nyha_class, hf_stage=hf_stage, hf_phenotype=hf_pheno
+        )
 
         # Ensure ischemic patients have CAD
         if hf_etiology == "ischemic_cardiomyopathy":
