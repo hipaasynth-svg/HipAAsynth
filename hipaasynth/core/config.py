@@ -26,7 +26,7 @@ from datetime import date
 from typing import Optional
 
 # Version constants — single source of truth for the entire codebase.
-ENGINE_VERSION      = "1.2.0"
+ENGINE_VERSION      = "1.2.1"
 SCHEMA_VERSION      = "1.1.0"
 ADVERSARIAL_VERSION = "1.0.0"
 

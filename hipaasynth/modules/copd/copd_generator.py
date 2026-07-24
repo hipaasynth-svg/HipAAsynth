@@ -45,6 +45,7 @@ from datetime import datetime
 
 # ── Engine constants ──────────────────────────────────────────────────────────
 from hipaasynth.core.config import ENGINE_VERSION, SCHEMA_VERSION, DEFAULT_SYNTHETIC_DISCLAIMER
+from hipaasynth.core.dependence import draw_copd_comorbidities
 MODULE_NAME     = "copd"
 # Canonical synthetic-data disclaimer, shared across all generators (issue #31).
 DISCLAIMER      = DEFAULT_SYNTHETIC_DISCLAIMER
@@ -136,6 +137,14 @@ PACK_YEARS = {
 }
 
 # ── Comorbidity prevalence in COPD patients ───────────────────────────────────
+# NOTE (v1.2.1 — conditional dependence): comorbidities are no longer drawn as
+# independent Bernoulli trials against these flat marginals. They are drawn
+# CONDITIONAL ON GOLD STAGE by hipaasynth.core.dependence, which tilts each
+# marginal across GOLD 1-4 with a literature-shaped, marginal-preserving
+# gradient (the stage-weighted mean of each conditional rate still equals the
+# marginal below). This dict is retained as the documented national marginal
+# reference; the canonical conditional model lives in
+# core.dependence.COPD_COMORBIDITY_MODEL (same values, same key order).
 # Sources:
 #   Cardiovascular/hypertension: Chen W et al. Lancet Respir Med 2015;3(8):631-639
 #     (systematic review + meta-analysis of CV comorbidity in COPD).
@@ -368,13 +377,14 @@ def generate_copd_cohort(seed: int, n: int, label: str = "us_copd_national") -> 
         py_min, py_max = PACK_YEARS[smoking_status]
         pack_years     = round(rng_smoke.uniform(py_min, py_max), 1)
 
-        # ── Comorbidities ─────────────────────────────────────────────────────
-        comorbidities = {}
-        for cond, rate in COMORBIDITY_RATES.items():
-            # GOLD 3-4 have higher comorbidity burden
-            adjusted_rate = rate * (1.3 if gold_stage in ("GOLD_3","GOLD_4") else 1.0)
-            adjusted_rate = min(adjusted_rate, 0.95)
-            comorbidities[cond] = rng_comor.random() < adjusted_rate
+        # ── Comorbidities (CONDITIONAL ON GOLD STAGE) ─────────────────────────
+        # Replaces the former independent Bernoulli loop + blanket 1.3x for
+        # GOLD 3-4. core.dependence tilts each national marginal across GOLD 1-4
+        # with a literature-shaped, marginal-preserving gradient (e.g. pulmonary
+        # hypertension climbs ~0.08 -> ~0.33 GOLD_1 -> GOLD_4 while its overall
+        # prevalence stays 0.18). One rng.random() per comorbidity in a fixed
+        # order, so the anchor-rooted RNG stream structure is unchanged.
+        comorbidities = draw_copd_comorbidities(rng_comor, gold_stage)
 
         condition_list = ["copd"] + [c for c, v in comorbidities.items() if v]
 
