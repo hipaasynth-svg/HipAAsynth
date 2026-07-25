@@ -133,7 +133,7 @@ def test_condition_lookup_is_case_insensitive():
     a = lookup_condition("congestive_heart_failure")
     b = lookup_condition("CONGESTIVE_HEART_FAILURE")
     assert a is not None and b is not None
-    assert a.omop_concept_id == b.omop_concept_id == 316139
+    assert a.omop_concept_id == b.omop_concept_id == 319835
     assert a.snomed_code == "42343007"
 
 
@@ -145,7 +145,7 @@ def test_measurement_lookup_carries_loinc():
 
 
 def test_visit_lookup_maps_to_omop_concept():
-    assert lookup_visit("telehealth").omop_concept_id == 5083
+    assert lookup_visit("telehealth").omop_concept_id == 722455
     assert lookup_visit("outpatient").omop_concept_id == 9202
 
 

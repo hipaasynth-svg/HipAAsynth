@@ -111,17 +111,17 @@ def test_full_map_validates_against_correct_table(tmp_path):
 
 
 def test_detects_missing_concept(tmp_path):
-    rows = [r for r in _full_valid_table() if int(r["concept_id"]) != 316139]
+    rows = [r for r in _full_valid_table() if int(r["concept_id"]) != 319835]
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
     findings = validate_map(load_concept_table(path))
-    assert any("not found" in f.problem and f.concept_id == 316139 for f in findings)
+    assert any("not found" in f.problem and f.concept_id == 319835 for f in findings)
 
 
 def test_detects_non_standard_concept(tmp_path):
     rows = _full_valid_table()
     for r in rows:
-        if int(r["concept_id"]) == 316139:
+        if int(r["concept_id"]) == 319835:
             r["standard_concept"] = ""  # non-standard
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
@@ -132,7 +132,7 @@ def test_detects_non_standard_concept(tmp_path):
 def test_detects_domain_mismatch(tmp_path):
     rows = _full_valid_table()
     for r in rows:
-        if int(r["concept_id"]) == 316139:
+        if int(r["concept_id"]) == 319835:
             r["domain_id"] = "Measurement"  # wrong domain for a condition
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
@@ -143,7 +143,7 @@ def test_detects_domain_mismatch(tmp_path):
 def test_detects_code_mismatch(tmp_path):
     rows = _full_valid_table()
     for r in rows:
-        if int(r["concept_id"]) == 316139:
+        if int(r["concept_id"]) == 319835:
             r["concept_code"] = "99999999"  # wrong SNOMED code
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
@@ -224,7 +224,7 @@ def test_cli_returns_zero_on_success(tmp_path, capsys):
 
 
 def test_cli_returns_one_on_failure(tmp_path):
-    rows = [r for r in _full_valid_table() if int(r["concept_id"]) != 316139]
+    rows = [r for r in _full_valid_table() if int(r["concept_id"]) != 319835]
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
     assert main(["--concept-csv", str(path)]) == 1
