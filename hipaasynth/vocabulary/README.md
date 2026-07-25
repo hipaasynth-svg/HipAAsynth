@@ -76,16 +76,25 @@ Lookups are case-insensitive and return `None` for unmapped terms (callers
 decide whether that is fatal; the exporters degrade gracefully to text-only /
 `concept_id = 0`).
 
-## ⚠️ Validation status: `curated-pending-athena`
+## Validation status: `athena-verified-partial`
 
-The **terminology codes** (SNOMED / ICD-10-CM / LOINC) are stable identifiers.
-The **OMOP `concept_id` values are release-versioned** and are curated
-best-effort — the map metadata carries `"validation_status":
-"curated-pending-athena"` and `"vocabulary_release": "UNVALIDATED"`.
+The map has been reconciled against a pinned [ATHENA](https://athena.ohdsi.org/)
+download (2026-07). **Conditions, visits, and all medications are verified**:
+condition/visit `concept_id`s were realigned to the standard concept that carries
+the recorded terminology code, and several single-agent RxNorm ingredient codes
+were corrected where the curated code resolved to the *wrong drug* (e.g.
+ivabradine had been pointing at riociguat) or was absent — errors the existence
+check in `validate.py` cannot catch, surfaced by the by-name reconciliation in
+`tools/concept_diagnose.py` / `tools/concept_resolve.py`.
 
-**Before using OMOP output in production tooling**, validate the `concept_id`
-values against a pinned [ATHENA](https://athena.ohdsi.org/) vocabulary download.
-This is automated — you do not check it by hand:
+**Measurements remain canonical OMOP LOINC `concept_id`s.** Only LDL could be
+row-confirmed against that particular bundle: its LOINC subset omitted the common
+lab observables (Glucose `2345-7`, Sodium `2951-2`, BNP `30934-4`, …), so those 9
+could not be positively confirmed against it. Pin a **complete** LOINC and re-run
+the validator to row-validate them before production OMOP use.
+
+**To (re-)validate against your own pinned download**, this is automated — you do
+not check it by hand:
 
 1. Download the vocabulary bundle from ATHENA (SNOMED, LOINC, RxNorm, ICD-10-CM
    at minimum) and note the release date — this becomes the pinned

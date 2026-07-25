@@ -8,12 +8,12 @@
         "items": [
           {
             "concept": {
-              "CONCEPT_ID": 316139,
-              "CONCEPT_NAME": "Heart failure",
+              "CONCEPT_ID": 319835,
+              "CONCEPT_NAME": "Congestive heart failure",
               "DOMAIN_ID": "Condition",
               "VOCABULARY_ID": "SNOMED",
               "STANDARD_CONCEPT": "S",
-              "CONCEPT_CODE": "84114007"
+              "CONCEPT_CODE": "42343007"
             },
             "includeDescendants": true
           }

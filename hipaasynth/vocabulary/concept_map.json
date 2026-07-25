@@ -1,18 +1,19 @@
 {
   "metadata": {
     "description": "HipAAsynth internal-term to OHDSI/OMOP standard-concept map. Maps the finite, controlled vocabulary emitted by HipAAsynth generators to standard clinical terminologies (SNOMED CT, ICD-10-CM, LOINC, RxNorm, ATC) and OMOP standard concept_ids.",
-    "map_version": "0.3.0",
+    "map_version": "0.4.0",
     "omop_cdm_version": "5.4",
-    "vocabulary_release": "UNVALIDATED",
-    "validation_status": "curated-pending-athena",
+    "vocabulary_release": "ATHENA 2026-07 (SNOMED, RxNorm, ATC, Visit verified; LOINC extract incomplete)",
+    "validation_status": "athena-verified-partial",
     "notes": [
-      "concept_id values for conditions/measurements/visits are curated best-effort and MUST be validated against a pinned ATHENA vocabulary download before use in production OMOP tooling. See hipaasynth/vocabulary/README.md.",
+      "Conditions, visits, and medications were verified against a pinned ATHENA download (2026-07): condition/visit concept_ids realigned to the standard concept carrying the recorded terminology code, and single-agent RxNorm ingredient codes corrected where the curated code resolved to the wrong drug (ivabradine/roflumilast/nusinersen) or was absent (risdiplam/onasemnogene). See hipaasynth/vocabulary/README.md and tools/concept_diagnose.py.",
+      "Measurements are canonical OMOP LOINC concept_ids. Only LDL (13457-7 -> 3028288) could be row-confirmed against this bundle: the common lab observables (Glucose 2345-7, Sodium 2951-2, BNP 30934-4, etc.) were absent from this download's LOINC subset, so pin a complete LOINC to row-validate the remaining 9 before production use.",
       "Terminology codes (SNOMED/ICD-10-CM/LOINC/RxNorm/ATC) are stable identifiers; OMOP concept_ids are release-versioned and are the field most likely to drift between vocabulary versions.",
       "Medication concept_ids are intentionally null: they are resolved from the ship-with RxNorm/ATC codes during ATHENA validation (validate.py --write-status), never fabricated. Drug classes map to ATC classification concepts, single agents to RxNorm ingredients."
     ]
   },
   "conditions": {
-    "congestive_heart_failure": {"snomed_code": "42343007", "snomed_name": "Congestive heart failure", "icd10cm": "I50.9", "omop_concept_id": 316139, "omop_concept_name": "Heart failure", "domain": "Condition"},
+    "congestive_heart_failure": {"snomed_code": "42343007", "snomed_name": "Congestive heart failure", "icd10cm": "I50.9", "omop_concept_id": 319835, "omop_concept_name": "Congestive heart failure", "domain": "Condition"},
     "hypertension": {"snomed_code": "38341003", "snomed_name": "Hypertensive disorder, systemic arterial", "icd10cm": "I10", "omop_concept_id": 316866, "omop_concept_name": "Hypertensive disorder", "domain": "Condition"},
     "type2_diabetes": {"snomed_code": "44054006", "snomed_name": "Diabetes mellitus type 2", "icd10cm": "E11.9", "omop_concept_id": 201826, "omop_concept_name": "Type 2 diabetes mellitus", "domain": "Condition"},
     "chronic_kidney_disease": {"snomed_code": "709044004", "snomed_name": "Chronic kidney disease", "icd10cm": "N18.9", "omop_concept_id": 46271022, "omop_concept_name": "Chronic kidney disease", "domain": "Condition"},
@@ -27,10 +28,10 @@
     "hyperlipidemia": {"snomed_code": "55822004", "snomed_name": "Hyperlipidemia", "icd10cm": "E78.5", "omop_concept_id": 432867, "omop_concept_name": "Hyperlipidemia", "domain": "Condition"},
     "prior_mi": {"snomed_code": "22298006", "snomed_name": "Myocardial infarction", "icd10cm": "I21.9", "omop_concept_id": 4329847, "omop_concept_name": "Myocardial infarction", "domain": "Condition"},
     "anemia": {"snomed_code": "271737000", "snomed_name": "Anemia", "icd10cm": "D64.9", "omop_concept_id": 439777, "omop_concept_name": "Anemia", "domain": "Condition"},
-    "sleep_apnea": {"snomed_code": "73430006", "snomed_name": "Sleep apnea", "icd10cm": "G47.30", "omop_concept_id": 442588, "omop_concept_name": "Sleep apnea", "domain": "Condition"},
+    "sleep_apnea": {"snomed_code": "73430006", "snomed_name": "Sleep apnea", "icd10cm": "G47.30", "omop_concept_id": 313459, "omop_concept_name": "Sleep apnea", "domain": "Condition"},
     "peripheral_vascular_disease": {"snomed_code": "400047006", "snomed_name": "Peripheral vascular disease", "icd10cm": "I73.9", "omop_concept_id": 321052, "omop_concept_name": "Peripheral vascular disease", "domain": "Condition"},
-    "stroke_tia_history": {"snomed_code": "230690007", "snomed_name": "Cerebrovascular accident", "icd10cm": "I63.9", "omop_concept_id": 381591, "omop_concept_name": "Cerebrovascular accident", "domain": "Condition"},
-    "liver_disease": {"snomed_code": "235856003", "snomed_name": "Disorder of liver", "icd10cm": "K76.9", "omop_concept_id": 4212540, "omop_concept_name": "Disorder of liver", "domain": "Condition"},
+    "stroke_tia_history": {"snomed_code": "230690007", "snomed_name": "Cerebrovascular accident", "icd10cm": "I63.9", "omop_concept_id": 381316, "omop_concept_name": "Cerebrovascular accident", "domain": "Condition"},
+    "liver_disease": {"snomed_code": "235856003", "snomed_name": "Disorder of liver", "icd10cm": "K76.9", "omop_concept_id": 194984, "omop_concept_name": "Disease of liver", "domain": "Condition"},
     "sepsis": {"snomed_code": "91302008", "snomed_name": "Sepsis", "icd10cm": "A41.9", "omop_concept_id": 132797, "omop_concept_name": "Sepsis", "domain": "Condition"}
   },
   "measurements": {
@@ -50,7 +51,7 @@
     "outpatient": {"omop_concept_id": 9202, "omop_concept_name": "Outpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
     "routine_check": {"omop_concept_id": 9202, "omop_concept_name": "Outpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
     "urgent_care": {"omop_concept_id": 9203, "omop_concept_name": "Emergency Room Visit", "visit_source": "OMOP Visit", "domain": "Visit"},
-    "telehealth": {"omop_concept_id": 5083, "omop_concept_name": "Telehealth", "visit_source": "OMOP Visit", "domain": "Visit"},
+    "telehealth": {"omop_concept_id": 722455, "omop_concept_name": "Telehealth", "visit_source": "OMOP Visit", "domain": "Visit"},
     "inpatient": {"omop_concept_id": 9201, "omop_concept_name": "Inpatient Visit", "visit_source": "OMOP Visit", "domain": "Visit"}
   },
   "medications": {
@@ -62,7 +63,7 @@
     "anticoagulant": {"concept_type": "atc_class", "atc": "B01A", "atc_name": "Antithrombotic agents", "omop_concept_id": null, "domain": "Drug"},
     "acei_arb_arni": {"concept_type": "atc_class", "atc": "C09", "atc_name": "Agents acting on the renin-angiotensin system", "omop_concept_id": null, "domain": "Drug", "note": "Composite generator term spanning ACE inhibitors (C09A), ARBs (C09C), and ARNI (C09DX04); mapped to the shared C09 parent."},
     "digoxin": {"concept_type": "rxnorm_ingredient", "rxnorm": "3407", "rxnorm_name": "digoxin", "omop_concept_id": null, "domain": "Drug"},
-    "ivabradine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1439816", "rxnorm_name": "ivabradine", "omop_concept_id": null, "domain": "Drug"},
+    "ivabradine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1649480", "rxnorm_name": "ivabradine", "omop_concept_id": null, "domain": "Drug", "note": "RxCUI verified against ATHENA CONCEPT (ingredient concept_id 46234437); prior code 1439816 was riociguat."},
     "aspirin": {"concept_type": "rxnorm_ingredient", "rxnorm": "1191", "rxnorm_name": "aspirin", "omop_concept_id": null, "domain": "Drug"},
     "hydralazine_nitrate": {"concept_type": "combination", "omop_concept_id": null, "domain": "Drug", "components": [{"rxnorm": "5470", "rxnorm_name": "hydralazine"}, {"rxnorm": "6058", "rxnorm_name": "isosorbide dinitrate"}], "note": "Fixed-dose combination (hydralazine + isosorbide dinitrate); no single standard ingredient concept, represented by its components."},
 
@@ -72,7 +73,7 @@
     "ics_laba": {"concept_type": "atc_class", "atc": "R03AK", "atc_name": "Adrenergics in combination with corticosteroids or other drugs, excl. anticholinergics", "omop_concept_id": null, "domain": "Drug", "note": "Inhaled corticosteroid + LABA combination inhaler."},
     "triple_therapy": {"concept_type": "atc_class", "atc": "R03AL", "atc_name": "Adrenergics in combination with anticholinergics incl. triple combinations with corticosteroids", "omop_concept_id": null, "domain": "Drug", "note": "ICS + LABA + LAMA triple-therapy inhaler."},
     "oral_corticosteroid": {"concept_type": "atc_class", "atc": "H02AB", "atc_name": "Glucocorticoids", "omop_concept_id": null, "domain": "Drug"},
-    "roflumilast": {"concept_type": "rxnorm_ingredient", "rxnorm": "1091652", "rxnorm_name": "roflumilast", "omop_concept_id": null, "domain": "Drug"},
+    "roflumilast": {"concept_type": "rxnorm_ingredient", "rxnorm": "1091836", "rxnorm_name": "roflumilast", "omop_concept_id": null, "domain": "Drug", "note": "RxCUI verified against ATHENA CONCEPT (ingredient concept_id 40236897); prior code 1091652 was azilsartan medoxomil."},
 
     "buprenorphine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1819", "rxnorm_name": "buprenorphine", "omop_concept_id": null, "domain": "Drug", "note": "MOUD (medication for opioid use disorder)."},
     "methadone_otp": {"concept_type": "rxnorm_ingredient", "rxnorm": "6813", "rxnorm_name": "methadone", "omop_concept_id": null, "domain": "Drug", "note": "MOUD; methadone dispensed via an Opioid Treatment Program."},
@@ -91,8 +92,8 @@
     "arb": {"concept_type": "atc_class", "atc": "C09C", "atc_name": "Angiotensin II receptor blockers (ARBs), plain", "omop_concept_id": null, "domain": "Drug"},
     "ccb": {"concept_type": "atc_class", "atc": "C08", "atc_name": "Calcium channel blockers", "omop_concept_id": null, "domain": "Drug"},
 
-    "nusinersen": {"concept_type": "rxnorm_ingredient", "rxnorm": "1922512", "rxnorm_name": "nusinersen", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Spinraza). RxCUI curated best-effort; verify at ATHENA validation."},
-    "risdiplam": {"concept_type": "rxnorm_ingredient", "rxnorm": "2472695", "rxnorm_name": "risdiplam", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Evrysdi). RxCUI curated best-effort; verify at ATHENA validation."},
-    "onasemnogene": {"concept_type": "rxnorm_ingredient", "rxnorm": "2358846", "rxnorm_name": "onasemnogene abeparvovec", "omop_concept_id": null, "domain": "Drug", "note": "SMA gene therapy (Zolgensma). RxCUI curated best-effort; verify at ATHENA validation."}
+    "nusinersen": {"concept_type": "rxnorm_ingredient", "rxnorm": "1863556", "rxnorm_name": "nusinersen", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Spinraza). RxCUI verified against ATHENA CONCEPT (ingredient concept_id 1593031); prior code 1922512 was trastuzumab."},
+    "risdiplam": {"concept_type": "rxnorm_ingredient", "rxnorm": "2390935", "rxnorm_name": "risdiplam", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Evrysdi). RxCUI verified against ATHENA CONCEPT (ingredient concept_id 37002532); prior code 2472695 was absent."},
+    "onasemnogene": {"concept_type": "rxnorm_ingredient", "rxnorm": "2170226", "rxnorm_name": "onasemnogene abeparvovec", "omop_concept_id": null, "domain": "Drug", "note": "SMA gene therapy (Zolgensma). RxCUI verified against ATHENA CONCEPT (standard ingredient concept_id 1396458); prior code 2358846 was absent."}
   }
 }
