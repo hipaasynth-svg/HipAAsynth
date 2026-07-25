@@ -57,7 +57,9 @@ def load_concept(path: Path):
     by_id: dict[int, dict] = {}
     by_code: dict[tuple, dict] = {}
     visit_names: list[tuple] = []
-    with open(path, encoding="utf-8", newline="") as f:
+    # utf-8-sig strips a leading BOM if present (common in ATHENA exports that
+    # have passed through Excel/Windows tooling); a no-op otherwise.
+    with open(path, encoding="utf-8-sig", newline="") as f:
         delim = "\t" if f.readline().count("\t") >= 1 else ","
         f.seek(0)
         for row in csv.DictReader(f, delimiter=delim):

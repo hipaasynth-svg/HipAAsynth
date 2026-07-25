@@ -63,7 +63,9 @@ def main(argv=None) -> int:
     meas_fallback_hits = {lbl: [] for lbl in MEAS_FALLBACK}
     drug_hits = {d: [] for d in DRUG_NAMES}
 
-    with open(path, encoding="utf-8", newline="") as f:
+    # utf-8-sig strips a leading BOM if present (common in ATHENA exports that
+    # have passed through Excel/Windows tooling); a no-op otherwise.
+    with open(path, encoding="utf-8-sig", newline="") as f:
         delim = "\t" if f.readline().count("\t") >= 1 else ","
         f.seek(0)
         for row in csv.DictReader(f, delimiter=delim):
