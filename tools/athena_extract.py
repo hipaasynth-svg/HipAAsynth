@@ -40,8 +40,8 @@ WANTED_CODES = {
     ("ATC", "C03DA"), ("ATC", "C07"), ("ATC", "C08"), ("ATC", "C09"),
     ("ATC", "C09A"), ("ATC", "C09C"), ("ATC", "C10AA"), ("ATC", "H02AB"),
     ("ATC", "R03AC"), ("ATC", "R03AK"), ("ATC", "R03AL"), ("ATC", "R03BB"),
-    ("RxNorm", "1091652"), ("RxNorm", "1191"), ("RxNorm", "1649480"),
-    ("RxNorm", "1819"), ("RxNorm", "1863556"), ("RxNorm", "2358846"),
+    ("RxNorm", "1091836"), ("RxNorm", "1191"), ("RxNorm", "1649480"),
+    ("RxNorm", "1819"), ("RxNorm", "1863556"), ("RxNorm", "2170226"),
     ("RxNorm", "2390935"), ("RxNorm", "3407"), ("RxNorm", "5470"),
     ("RxNorm", "6058"), ("RxNorm", "6809"), ("RxNorm", "6813"), ("RxNorm", "7243"),
 }

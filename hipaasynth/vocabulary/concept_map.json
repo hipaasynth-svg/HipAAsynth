@@ -1,12 +1,13 @@
 {
   "metadata": {
     "description": "HipAAsynth internal-term to OHDSI/OMOP standard-concept map. Maps the finite, controlled vocabulary emitted by HipAAsynth generators to standard clinical terminologies (SNOMED CT, ICD-10-CM, LOINC, RxNorm, ATC) and OMOP standard concept_ids.",
-    "map_version": "0.3.0",
+    "map_version": "0.4.0",
     "omop_cdm_version": "5.4",
-    "vocabulary_release": "UNVALIDATED",
-    "validation_status": "curated-pending-athena",
+    "vocabulary_release": "ATHENA 2026-07 (SNOMED, RxNorm, ATC, Visit verified; LOINC extract incomplete)",
+    "validation_status": "athena-verified-partial",
     "notes": [
-      "concept_id values for conditions/measurements/visits are curated best-effort and MUST be validated against a pinned ATHENA vocabulary download before use in production OMOP tooling. See hipaasynth/vocabulary/README.md.",
+      "Conditions, visits, and medications were verified against a pinned ATHENA download (2026-07): condition/visit concept_ids realigned to the standard concept carrying the recorded terminology code, and single-agent RxNorm ingredient codes corrected where the curated code resolved to the wrong drug (ivabradine/roflumilast/nusinersen) or was absent (risdiplam/onasemnogene). See hipaasynth/vocabulary/README.md and tools/concept_diagnose.py.",
+      "Measurements are canonical OMOP LOINC concept_ids. Only LDL (13457-7 -> 3028288) could be row-confirmed against this bundle: the common lab observables (Glucose 2345-7, Sodium 2951-2, BNP 30934-4, etc.) were absent from this download's LOINC subset, so pin a complete LOINC to row-validate the remaining 9 before production use.",
       "Terminology codes (SNOMED/ICD-10-CM/LOINC/RxNorm/ATC) are stable identifiers; OMOP concept_ids are release-versioned and are the field most likely to drift between vocabulary versions.",
       "Medication concept_ids are intentionally null: they are resolved from the ship-with RxNorm/ATC codes during ATHENA validation (validate.py --write-status), never fabricated. Drug classes map to ATC classification concepts, single agents to RxNorm ingredients."
     ]
@@ -72,7 +73,7 @@
     "ics_laba": {"concept_type": "atc_class", "atc": "R03AK", "atc_name": "Adrenergics in combination with corticosteroids or other drugs, excl. anticholinergics", "omop_concept_id": null, "domain": "Drug", "note": "Inhaled corticosteroid + LABA combination inhaler."},
     "triple_therapy": {"concept_type": "atc_class", "atc": "R03AL", "atc_name": "Adrenergics in combination with anticholinergics incl. triple combinations with corticosteroids", "omop_concept_id": null, "domain": "Drug", "note": "ICS + LABA + LAMA triple-therapy inhaler."},
     "oral_corticosteroid": {"concept_type": "atc_class", "atc": "H02AB", "atc_name": "Glucocorticoids", "omop_concept_id": null, "domain": "Drug"},
-    "roflumilast": {"concept_type": "rxnorm_ingredient", "rxnorm": "1091652", "rxnorm_name": "roflumilast", "omop_concept_id": null, "domain": "Drug"},
+    "roflumilast": {"concept_type": "rxnorm_ingredient", "rxnorm": "1091836", "rxnorm_name": "roflumilast", "omop_concept_id": null, "domain": "Drug", "note": "RxCUI verified against ATHENA CONCEPT (ingredient concept_id 40236897); prior code 1091652 was azilsartan medoxomil."},
 
     "buprenorphine": {"concept_type": "rxnorm_ingredient", "rxnorm": "1819", "rxnorm_name": "buprenorphine", "omop_concept_id": null, "domain": "Drug", "note": "MOUD (medication for opioid use disorder)."},
     "methadone_otp": {"concept_type": "rxnorm_ingredient", "rxnorm": "6813", "rxnorm_name": "methadone", "omop_concept_id": null, "domain": "Drug", "note": "MOUD; methadone dispensed via an Opioid Treatment Program."},
@@ -93,6 +94,6 @@
 
     "nusinersen": {"concept_type": "rxnorm_ingredient", "rxnorm": "1863556", "rxnorm_name": "nusinersen", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Spinraza). RxCUI verified against ATHENA CONCEPT (ingredient concept_id 1593031); prior code 1922512 was trastuzumab."},
     "risdiplam": {"concept_type": "rxnorm_ingredient", "rxnorm": "2390935", "rxnorm_name": "risdiplam", "omop_concept_id": null, "domain": "Drug", "note": "SMA disease-modifying therapy (Evrysdi). RxCUI verified against ATHENA CONCEPT (ingredient concept_id 37002532); prior code 2472695 was absent."},
-    "onasemnogene": {"concept_type": "rxnorm_ingredient", "rxnorm": "2358846", "rxnorm_name": "onasemnogene abeparvovec", "omop_concept_id": null, "domain": "Drug", "note": "SMA gene therapy (Zolgensma). RxCUI curated best-effort; verify at ATHENA validation."}
+    "onasemnogene": {"concept_type": "rxnorm_ingredient", "rxnorm": "2170226", "rxnorm_name": "onasemnogene abeparvovec", "omop_concept_id": null, "domain": "Drug", "note": "SMA gene therapy (Zolgensma). RxCUI verified against ATHENA CONCEPT (standard ingredient concept_id 1396458); prior code 2358846 was absent."}
   }
 }
