@@ -83,7 +83,9 @@ def main(argv=None) -> int:
                         meas_fallback_hits[lbl].append((row.get("concept_id"), name, row.get("concept_code")))
             if dom == "Drug" and vocab == "RxNorm":
                 for d in DRUG_NAMES:
-                    if d in low and len(drug_hits[d]) < 8:
+                    # always keep ingredient-level rows; cap only the drug-product noise
+                    is_ingr = cclass in ("Ingredient", "Precise Ingredient")
+                    if d in low and (is_ingr or len(drug_hits[d]) < 12):
                         drug_hits[d].append((row.get("concept_id"), name, cclass, std, row.get("concept_code")))
 
     print(f"\nCONCEPT.csv : {path}")
@@ -100,7 +102,7 @@ def main(argv=None) -> int:
     print("\n===== SINGLE-AGENT DRUGS by ingredient name =====")
     for d in DRUG_NAMES:
         print(f"\n [{d}]:")
-        ingr = [h for h in drug_hits[d] if h[2] == "Ingredient"]
+        ingr = [h for h in drug_hits[d] if h[2] in ("Ingredient", "Precise Ingredient")]
         show = ingr if ingr else drug_hits[d]
         for cid, nm, cclass, std, code in show[:8]:
             print(f"    id={cid} code={code} class={cclass} std={std!r} {nm!r}")
