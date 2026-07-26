@@ -53,7 +53,9 @@ def _sniff_delimiter(sample: str) -> str:
 
 def extract(concept_csv: Path, out_csv: Path) -> tuple[int, int]:
     """Write matching rows to out_csv. Returns (rows_written, rows_scanned)."""
-    with open(concept_csv, encoding="utf-8", newline="") as f:
+    # utf-8-sig strips a leading BOM if present (common in ATHENA exports that
+    # have passed through Excel/Windows tooling); a no-op otherwise.
+    with open(concept_csv, encoding="utf-8-sig", newline="") as f:
         first = f.readline()
         delim = _sniff_delimiter(first)
         f.seek(0)

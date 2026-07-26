@@ -100,7 +100,10 @@ class ConceptTable:
 
 def load_concept_table(concept_csv: Path) -> ConceptTable:
     """Load CONCEPT.csv into a :class:`ConceptTable`, keeping needed columns."""
-    with open(concept_csv, encoding="utf-8", newline="") as f:
+    # utf-8-sig strips a leading BOM if present (common in ATHENA exports that
+    # have passed through Excel/Windows tooling) without affecting plain UTF-8
+    # files, so the header's first column always reads as "concept_id".
+    with open(concept_csv, encoding="utf-8-sig", newline="") as f:
         first_line = f.readline()
         delim = _sniff_delimiter(first_line)
         f.seek(0)
