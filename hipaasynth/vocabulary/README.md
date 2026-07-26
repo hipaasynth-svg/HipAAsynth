@@ -87,11 +87,17 @@ ivabradine had been pointing at riociguat) or was absent — errors the existenc
 check in `validate.py` cannot catch, surfaced by the by-name reconciliation in
 `tools/concept_diagnose.py` / `tools/concept_resolve.py`.
 
-**Measurements remain canonical OMOP LOINC `concept_id`s.** Only LDL could be
-row-confirmed against that particular bundle: its LOINC subset omitted the common
-lab observables (Glucose `2345-7`, Sodium `2951-2`, BNP `30934-4`, …), so those 9
-could not be positively confirmed against it. Pin a **complete** LOINC and re-run
-the validator to row-validate them before production OMOP use.
+**Measurements are canonical OMOP LOINC `concept_id`s, now row-confirmed against
+a complete LOINC subset** (ATHENA 2026-07 V1). Every measurement's `concept_id`
+exists, is standard, is `Measurement`-domain, and carries the recorded LOINC
+code. Three that had drifted onto the wrong LOINC concept were corrected in the
+process: `ntprobnp` (`3016407` was actually Fibrinogen → `3029187`),
+`troponin_i_hs` (`42529224` was NT-proBNP-by-immunoassay → `36306105`), and
+`egfr`, whose curated code `33914-3` is a deprecated/non-standard LOINC, realigned
+to its standard successor `77147-7` → `46236952`. These were errors the existence
+check alone could not catch — the earlier bundle's LOINC subset omitted the
+common lab observables (Glucose `2345-7`, Sodium `2951-2`, BNP `30934-4`, …), so
+they could not be positively confirmed until a complete LOINC was pinned.
 
 **To (re-)validate against your own pinned download**, this is automated — you do
 not check it by hand:

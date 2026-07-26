@@ -107,7 +107,16 @@ def load_concept_table(concept_csv: Path) -> ConceptTable:
         first_line = f.readline()
         delim = _sniff_delimiter(first_line)
         f.seek(0)
-        reader = csv.DictReader(f, delimiter=delim)
+        # ATHENA's tab-delimited CONCEPT.csv is unquoted, but concept_name values
+        # contain bare double-quotes (e.g. inch marks in "6\" ..."). With default
+        # quoting csv treats those as field openers and swallows rows until the
+        # next quote, eventually overflowing the field-size limit. For tab files we
+        # therefore disable quote handling and split purely on the delimiter (no
+        # field legitimately contains a tab). Comma-delimited files, by contrast,
+        # are RFC-4180-quoted (a concept_name may contain a comma), so keep normal
+        # quote handling there.
+        quoting = csv.QUOTE_NONE if delim == "\t" else csv.QUOTE_MINIMAL
+        reader = csv.DictReader(f, delimiter=delim, quoting=quoting)
         header = set(reader.fieldnames or [])
         missing = _REQUIRED_COLUMNS - header
         if missing:
