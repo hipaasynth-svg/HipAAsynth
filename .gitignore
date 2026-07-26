@@ -24,3 +24,16 @@ results_*/
 runs/
 *.log
 *.zip
+
+# Claude Code
+.claude/settings.local.json
+.claude/conversations/
+.claude/sessions/
+.claude/worktrees/
+.claude/skills/.cache/
+.claude/skills/**/state/
+.claude/skills/**/tmp/
+.claude/skills/generated/
+
+# GitNexus
+.gitnexus/
