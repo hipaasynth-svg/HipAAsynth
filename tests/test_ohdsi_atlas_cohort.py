@@ -41,7 +41,7 @@ def cohort_data():
 # ── reverse vocabulary lookup ────────────────────────────────────────────────
 
 def test_terms_for_concept_id_resolves_condition():
-    terms = terms_for_concept_id(316139)
+    terms = terms_for_concept_id(319835)
     assert ("conditions", "congestive_heart_failure") in terms
 
 

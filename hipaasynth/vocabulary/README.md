@@ -76,16 +76,31 @@ Lookups are case-insensitive and return `None` for unmapped terms (callers
 decide whether that is fatal; the exporters degrade gracefully to text-only /
 `concept_id = 0`).
 
-## ⚠️ Validation status: `curated-pending-athena`
+## Validation status: `athena-verified-partial`
 
-The **terminology codes** (SNOMED / ICD-10-CM / LOINC) are stable identifiers.
-The **OMOP `concept_id` values are release-versioned** and are curated
-best-effort — the map metadata carries `"validation_status":
-"curated-pending-athena"` and `"vocabulary_release": "UNVALIDATED"`.
+The map has been reconciled against a pinned [ATHENA](https://athena.ohdsi.org/)
+download (2026-07). **Conditions, visits, and all medications are verified**:
+condition/visit `concept_id`s were realigned to the standard concept that carries
+the recorded terminology code, and several single-agent RxNorm ingredient codes
+were corrected where the curated code resolved to the *wrong drug* (e.g.
+ivabradine had been pointing at riociguat) or was absent — errors the existence
+check in `validate.py` cannot catch, surfaced by the by-name reconciliation in
+`tools/concept_diagnose.py` / `tools/concept_resolve.py`.
 
-**Before using OMOP output in production tooling**, validate the `concept_id`
-values against a pinned [ATHENA](https://athena.ohdsi.org/) vocabulary download.
-This is automated — you do not check it by hand:
+**Measurements are canonical OMOP LOINC `concept_id`s, now row-confirmed against
+a complete LOINC subset** (ATHENA 2026-07 V1). Every measurement's `concept_id`
+exists, is standard, is `Measurement`-domain, and carries the recorded LOINC
+code. Three that had drifted onto the wrong LOINC concept were corrected in the
+process: `ntprobnp` (`3016407` was actually Fibrinogen → `3029187`),
+`troponin_i_hs` (`42529224` was NT-proBNP-by-immunoassay → `36306105`), and
+`egfr`, whose curated code `33914-3` is a deprecated/non-standard LOINC, realigned
+to its standard successor `77147-7` → `46236952`. These were errors the existence
+check alone could not catch — the earlier bundle's LOINC subset omitted the
+common lab observables (Glucose `2345-7`, Sodium `2951-2`, BNP `30934-4`, …), so
+they could not be positively confirmed until a complete LOINC was pinned.
+
+**To (re-)validate against your own pinned download**, this is automated — you do
+not check it by hand:
 
 1. Download the vocabulary bundle from ATHENA (SNOMED, LOINC, RxNorm, ICD-10-CM
    at minimum) and note the release date — this becomes the pinned
