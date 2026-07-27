@@ -359,16 +359,31 @@ def _patient_to_fhir(patient):
             }
         )
     for i, med in enumerate(getattr(patient, "medications", ()) or ()):
+        med_concept = _codeable_concept(lookup_medication(med.name), med.name)
+        is_active = getattr(med, "active", True)
         med_uuid = _duuid(f"medication::{pid}::{med.name}::{i}")
         resources.append(
             {
                 "resourceType": "MedicationStatement",
                 "id": med_uuid,
-                "status": "recorded" if getattr(med, "active", True) else "entered-in-error",
+                "status": "recorded" if is_active else "entered-in-error",
                 "subject": {"reference": f"urn:uuid:{patient_uuid}"},
-                "medication": {
-                    "concept": _codeable_concept(lookup_medication(med.name), med.name)
-                },
+                "medication": {"concept": med_concept},
+            }
+        )
+        # MedicationRequest — the order/intent that stands behind the statement.
+        # US Core / USCDI consumers key the "Medications" data class off
+        # MedicationRequest, so it is emitted alongside MedicationStatement
+        # (additive; see docs/ROADMAP_CHANGELOG.md for the keep-both rationale).
+        medreq_uuid = _duuid(f"medicationrequest::{pid}::{med.name}::{i}")
+        resources.append(
+            {
+                "resourceType": "MedicationRequest",
+                "id": medreq_uuid,
+                "status": "active" if is_active else "stopped",
+                "intent": "order",
+                "subject": {"reference": f"urn:uuid:{patient_uuid}"},
+                "medication": {"concept": med_concept},
             }
         )
     for visit in patient.visits:
