@@ -10,6 +10,59 @@ explicitly below.
 
 ---
 
+## Step 3 — Structural FHIR validator
+
+**What.** New module `hipaasynth/exporters/fhir_validate.py` — an offline,
+pure-Python **structural** validator for the exporter's FHIR output:
+  - `validate_resource(resource) -> list[str]` — single-resource checks.
+  - `validate_resources(resources) -> FhirValidationReport` — batch + referential
+    integrity.
+  - `validate_bundle(bundle)` / `validate_ndjson_dir(dir)` — convenience wrappers
+    over the Bundle (step-1) and NDJSON (step-2) artifacts.
+  - `main()` CLI: `python -m hipaasynth.exporters.fhir_validate --bundle b.json`
+    or `--ndjson-dir dir/` (exit 0 = clean, 1 = errors).
+
+  Checks performed (against **FHIR R5** shapes):
+  1. `resourceType` present and one HipAAsynth emits;
+  2. required (1..1) fields present per type (e.g. Observation needs `status` +
+     `code`; MedicationRequest needs `status`/`intent`/`subject`/`medication`);
+  3. value-set membership for bound fields we can check offline (Patient.gender,
+     the four resource `status` sets, MedicationRequest.intent);
+  4. `CodeableConcept` fields carry a `coding[]` or `text`, and each coding has a
+     `system` + `code`;
+  5. **referential integrity** — every intra-bundle `urn:uuid:` reference resolves
+     to a resource `id` present in the set.
+
+**Why.** Roadmap step 3. Gives a fast, dependency-free pre-flight check that
+catches the structural mistakes an exporter is most likely to make, runnable in CI
+with no network.
+
+**⚠️ Explicit limitation — NOT a conformance validator.** This does not load
+StructureDefinitions, does not check terminology bindings against a terminology
+server, does not evaluate FHIRPath invariants, and does not verify US Core / any
+Implementation Guide profile. **No offline official IG validator is available in
+this sandbox** (no network to the HL7 registry / `validator_cli.jar`). Before any
+conformance claim, a human must run the official HL7 FHIR validator
+(https://validator.fhir.org) against the exported artifacts. The module docstring,
+the report's `disclaimer` field, and the CLI output all say this.
+
+**Validated / not validated (be precise):**
+  - *Checked by me:* the required-field, value-set, CodeableConcept, and
+    referential-integrity rules above; the whole generated cohort (with meds)
+    passes clean; the CLI validates both a real Bundle and a real NDJSON dir (37
+    resources, PASS).
+  - *NOT checked (needs the official validator / a live server):* profile
+    conformance, terminology binding correctness, invariant/FHIRPath rules, and
+    whether a real EHR will ingest the output.
+
+**How verified.** `tests/test_fhir_validate.py`: clean cohort passes; missing
+`code`, unknown resourceType, invalid gender, empty CodeableConcept, and a dangling
+reference are each flagged; an exported Bundle validates clean. Tests fail before
+the module exists (ModuleNotFoundError) and pass after. Full suite green (246
+passed).
+
+---
+
 ## Step 2 — Bulk / NDJSON FHIR export
 
 **What.** New `export_fhir_ndjson(patients, output_dir="fhir_ndjson")` in
