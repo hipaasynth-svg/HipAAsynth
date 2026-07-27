@@ -185,8 +185,8 @@ def test_fhir_export_attaches_codings(patients, tmp_path):
 def test_build_cdm_tables_structure(patients):
     tables = build_cdm_tables(patients)
     assert set(tables) == {
-        "person", "condition_occurrence", "visit_occurrence", "measurement",
-        "drug_exposure",
+        "person", "observation_period", "condition_occurrence",
+        "visit_occurrence", "measurement", "drug_exposure",
     }
     assert len(tables["person"]) == len(patients)
     # person_ids are unique sequential surrogate keys.

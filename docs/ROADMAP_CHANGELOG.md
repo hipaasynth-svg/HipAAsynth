@@ -10,6 +10,71 @@ explicitly below.
 
 ---
 
+## Step 4 — Complete OMOP CDM 5.4 export
+
+**Audit — what was missing (before this change).** `build_cdm_tables()` emitted the
+5 fact/dimension tables with only their required NOT-NULL columns plus a few source
+values. Measured against the CDM 5.4 spec, the gaps were:
+
+| Table | Gap found |
+|---|---|
+| *(whole CDM)* | **`OBSERVATION_PERIOD` table entirely absent** — OHDSI cohort tooling (ATLAS/ACHILLES) effectively requires it; cohorts are defined relative to observation periods. |
+| `DRUG_EXPOSURE` | **`drug_exposure_end_date` missing** — it is NOT NULL in CDM 5.4. Real conformance gap. |
+| `PERSON` | `demographics.ethnicity` was **dropped** (race/ethnicity concept_ids 0 and no source value preserved). Plus missing `*_source_concept_id`, `month/day_of_birth`, etc. |
+| `CONDITION_OCCURRENCE` | no `visit_occurrence_id` link; missing `condition_end_date`, `condition_status_concept_id`, `*_datetime`. |
+| `MEASUREMENT` | no `visit_occurrence_id` link; `range_low`/`range_high` not populated (the lab reference range was discarded); missing `unit_concept_id`, `value_as_concept_id`, `operator_concept_id`. |
+| `VISIT_OCCURRENCE` | missing `visit_source_concept_id`, `*_datetime`, `admitted_from`/`discharged_to`, `preceding_visit_occurrence_id`. |
+
+**What was changed.** `hipaasynth/exporters/omop.py`:
+  - **Added `OBSERVATION_PERIOD`** — one row per person spanning `min`→`max` visit
+    date, `period_type_concept_id = 32817` (EHR). Written as `observation_period.csv`.
+  - **Filled every table to the full CDM 5.4 column set** (required + high-value
+    optional). Columns HipAAsynth does not model are emitted **empty** rather than
+    omitted, so the CSVs load directly against the standard OHDSI CDM DDL without
+    column-mismatch errors — the concrete "usable dataset" win.
+  - **`drug_exposure_end_date`** now populated (NOT NULL fix). Duration is not
+    modeled, so `end == start` (a single-day exposure) — an honest default, not a
+    fabricated span.
+  - **Visit linkage** — `condition_occurrence`, `drug_exposure`, and `measurement`
+    now carry `visit_occurrence_id` (measurements to their own visit; conditions/
+    drugs to the person's first visit, matching the existing start-date logic).
+  - **Reference range preserved** — `measurement.range_low`/`range_high` parsed
+    from the lab's reference range for plain numeric `low-high` strings (e.g.
+    `70-99`); non-numeric ranges like `<100` are left empty rather than guessed.
+  - **Race/ethnicity source preserved** — HipAAsynth's single demographic category
+    (`demographics.ethnicity`, which is race-like) is written to
+    `race_source_value` so it is no longer dropped. Standard race/ethnicity
+    concept mapping stays `0` (unmapped/unvalidated), unchanged.
+
+**Concept-id drift cross-check (roadmap requirement).** A new test asserts that
+**every non-zero standard `*_concept_id` the exporter emits exists in
+`concept_map.json`** (via the vocabulary reverse index), so the OMOP export cannot
+silently drift from the vocabulary work validated in PRs #75–#79. No new
+concept_ids were invented — all values still come from `hipaasynth.vocabulary`
+lookups; `concept_map.json` metadata confirms `omop_cdm_version: 5.4`.
+
+**How verified.** `tests/test_omop_cdm54.py` (new, 9 tests) — observation_period
+present/one-per-person/dates-ordered/valid FK; all CDM 5.4 required columns present
+in every table; drug end date populated and equal to start; measurement→visit link
++ parsed numeric range; condition→visit link; race source preserved; **no
+concept_id drift**; export writes `observation_period.csv`. The pre-existing
+`test_vocabulary.py` structure assertion was updated to include the new
+`observation_period` table (intentional addition). All fail before the change and
+pass after; full suite green (255 passed). The existing ACHILLES/DQD-style audit
+(`hipaasynth/ohdsi/cdm_audit.py`) still passes clean over the expanded tables.
+
+**Known limitations.**
+  - The bundled DQD-style adapter (`cdm_audit.py`) audits the 5 core fact/dimension
+    tables; it does **not yet** run checks over the new `OBSERVATION_PERIOD` table.
+    The table is written and structurally correct, but not covered by that adapter's
+    battery (a reasonable follow-up).
+  - concept_ids remain **UNVALIDATED / athena-verified-partial** per the vocabulary
+    map metadata — validate against a pinned ATHENA release before production use.
+  - Optional columns HipAAsynth does not model (provider/care_site links, datetimes,
+    days_supply, etc.) are intentionally empty.
+
+---
+
 ## Step 3 — Structural FHIR validator
 
 **What.** New module `hipaasynth/exporters/fhir_validate.py` — an offline,
