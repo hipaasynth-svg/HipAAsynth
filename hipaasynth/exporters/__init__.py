@@ -15,7 +15,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from hipaasynth.exporters.exporters import (
-    export_csv, export_csv_stream, export_fhir, export_json,
+    export_csv, export_csv_stream, export_fhir, export_fhir_ndjson, export_json,
     print_profile_fit, print_summary, profile_fit_stats,
     summary_stats,
 )

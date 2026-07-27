@@ -10,6 +10,42 @@ explicitly below.
 
 ---
 
+## Step 2 — Bulk / NDJSON FHIR export
+
+**What.** New `export_fhir_ndjson(patients, output_dir="fhir_ndjson")` in
+`hipaasynth/exporters/exporters.py` (also re-exported from
+`hipaasynth.exporters`). It groups every resource from `_patient_to_fhir()` by
+`resourceType` and writes one `{ResourceType}.ndjson` file per type (e.g.
+`Patient.ndjson`, `Condition.ndjson`, `MedicationRequest.ndjson`), one resource
+per line. Returns `{resourceType: count}`. Fails loud (`RuntimeError`) on any I/O
+error, consistent with the other exporters.
+
+**Why.** Roadmap step 2 — the FHIR Bulk Data Access (`$export`) convention. Bulk
+ingestion pipelines (SMART Bulk Data, many EHR import tools) expect
+newline-delimited resource files grouped by type, not a single Bundle.
+
+**Additive.** The existing single-Bundle `export_fhir()` is untouched; both modes
+are available and (verified) cover the same resource set.
+
+**How verified.** `tests/test_fhir_interop.py`:
+  - `test_ndjson_export_one_file_per_resource_type` — every declared type has a
+    file; each line is standalone JSON of the correct `resourceType`; line count
+    matches returned count.
+  - `test_ndjson_one_patient_line_per_patient` — `Patient.ndjson` has exactly one
+    line per patient.
+  - `test_ndjson_matches_bundle_resource_set` — per-type counts equal the
+    single-Bundle export's counts (no resource dropped or duplicated).
+  - `test_ndjson_fails_loud_on_io_error` — surfaces I/O errors.
+
+  All fail before the function exists (ImportError) and pass after. Full suite
+  green (239 passed).
+
+**Known limitations.** Writes plain `.ndjson` files only; it does not implement the
+`$export` *kickoff/polling REST protocol* or emit a Bulk Data `manifest`/
+`OperationOutcome`. The files are the on-disk artifact that protocol would serve.
+
+---
+
 ## Step 1 — Complete the FHIR resource set
 
 ### 1a. Add `MedicationRequest` alongside `MedicationStatement`

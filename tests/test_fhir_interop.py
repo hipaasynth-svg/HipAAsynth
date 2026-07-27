@@ -26,7 +26,11 @@ import pytest
 
 from hipaasynth.core.config import GenerationConfig
 from hipaasynth.core.schema import Medication
-from hipaasynth.exporters.exporters import _patient_to_fhir, export_fhir
+from hipaasynth.exporters.exporters import (
+    _patient_to_fhir,
+    export_fhir,
+    export_fhir_ndjson,
+)
 from hipaasynth.pipelines.population_pipeline import generate_patients
 
 
@@ -83,3 +87,50 @@ def test_medication_request_id_is_deterministic(patients):
     first = next(r for r in _patient_to_fhir(p) if r["resourceType"] == "MedicationRequest")
     second = next(r for r in _patient_to_fhir(p) if r["resourceType"] == "MedicationRequest")
     assert first["id"] == second["id"]
+
+
+# ── NDJSON bulk export (roadmap step 2) ──────────────────────────────────────
+
+def test_ndjson_export_one_file_per_resource_type(patients, tmp_path):
+    """$export convention: one {ResourceType}.ndjson file per resource type."""
+    out = tmp_path / "bulk"
+    counts = export_fhir_ndjson(patients, str(out))
+    # Core resource types the cohort always produces.
+    assert (out / "Patient.ndjson").exists()
+    assert (out / "Condition.ndjson").exists()
+    for resource_type, count in counts.items():
+        path = out / f"{resource_type}.ndjson"
+        assert path.exists()
+        lines = [ln for ln in path.read_text().splitlines() if ln.strip()]
+        # One resource per line; every line is a standalone JSON object of the
+        # correct resourceType.
+        assert len(lines) == count
+        for ln in lines:
+            obj = json.loads(ln)
+            assert obj["resourceType"] == resource_type
+
+
+def test_ndjson_one_patient_line_per_patient(patients, tmp_path):
+    out = tmp_path / "bulk"
+    export_fhir_ndjson(patients, str(out))
+    lines = [ln for ln in (out / "Patient.ndjson").read_text().splitlines() if ln.strip()]
+    assert len(lines) == len(patients)
+
+
+def test_ndjson_matches_bundle_resource_set(patients, tmp_path):
+    """NDJSON export and single-Bundle export cover the same resources."""
+    out = tmp_path / "bulk"
+    counts = export_fhir_ndjson(patients, str(out))
+    bundle_path = tmp_path / "bundle.json"
+    export_fhir(patients, str(bundle_path))
+    bundle = json.loads(bundle_path.read_text())
+    from collections import Counter
+    bundle_counts = Counter(e["resource"]["resourceType"] for e in bundle["entry"])
+    assert dict(counts) == dict(bundle_counts)
+
+
+def test_ndjson_fails_loud_on_io_error(patients, tmp_path):
+    occupied = tmp_path / "occupied"
+    occupied.write_text("x")  # a file where a dir is needed
+    with pytest.raises((RuntimeError, OSError, NotADirectoryError, FileExistsError)):
+        export_fhir_ndjson(patients, str(occupied / "sub"))

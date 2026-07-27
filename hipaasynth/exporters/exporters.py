@@ -456,3 +456,43 @@ def export_fhir(patients, filename="fhir_bundle.json"):
     except OSError as exc:
         raise RuntimeError(f"Failed to write FHIR bundle: {filename}") from exc
     print(f"FHIR bundle written to {filename} ({len(bundle['entry'])} resources)")
+
+
+def export_fhir_ndjson(patients, output_dir="fhir_ndjson"):
+    """Export FHIR resources as newline-delimited JSON, one file per type.
+
+    Implements the FHIR Bulk Data Access ("$export") layout: resources are
+    grouped by ``resourceType`` and written to ``{output_dir}/{ResourceType}.ndjson``,
+    one resource per line. This is the shape bulk-ingestion consumers expect, and
+    it is **additive** — the single-Bundle :func:`export_fhir` is unchanged and
+    both cover the same resource set.
+
+    The output directory is trusted operator input (not sandboxed — see
+    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error rather than
+    leaving partial files. Records are synthetic (no PHI).
+
+    Returns:
+        dict mapping resourceType -> number of resources written.
+    """
+    grouped: dict[str, list] = {}
+    for patient in patients:
+        for resource in _patient_to_fhir(patient):
+            grouped.setdefault(resource["resourceType"], []).append(resource)
+
+    out = Path(output_dir)
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        counts = {}
+        for resource_type, resources in grouped.items():
+            path = out / f"{resource_type}.ndjson"
+            with open(path, "w", encoding="utf-8") as f:
+                for resource in resources:
+                    f.write(json.dumps(resource, ensure_ascii=False))
+                    f.write("\n")
+            counts[resource_type] = len(resources)
+    except OSError as exc:
+        raise RuntimeError(f"Failed to write FHIR NDJSON export: {output_dir}") from exc
+
+    total = sum(counts.values())
+    print(f"FHIR NDJSON written to {out}/ ({total} resources across {len(counts)} files)")
+    return counts
