@@ -68,7 +68,11 @@ def main(argv=None) -> int:
     with open(path, encoding="utf-8-sig", newline="") as f:
         delim = "\t" if f.readline().count("\t") >= 1 else ","
         f.seek(0)
-        for row in csv.DictReader(f, delimiter=delim):
+        # Tab-delimited ATHENA CONCEPT.csv is unquoted but concept_name values
+        # carry bare double-quotes; default quoting turns those into runaway
+        # fields that swallow subsequent rows (see validate.py for the same fix).
+        quoting = csv.QUOTE_NONE if delim == "\t" else csv.QUOTE_MINIMAL
+        for row in csv.DictReader(f, delimiter=delim, quoting=quoting):
             name = (row.get("concept_name") or "")
             low = name.lower()
             dom = (row.get("domain_id") or "").strip()
