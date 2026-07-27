@@ -55,6 +55,13 @@ add a hard dependency:
   the shared helper is covered by the unchanged existing CSV tests (still green).
   Full suite green (258 passed).
 
+**CI note.** The Tests workflow has a "Check zero external dependencies" step that
+AST-walks `hipaasynth/` and fails on any non-stdlib import (`ast.walk` sees
+function-level imports too, so the lazy `import pyarrow` is caught). The check
+already pre-declares the `fhir` optional extra in its allowlist; `pyarrow` was
+added the same way (`.github/workflows/test.yml`). The core remains free of any
+*required* runtime dependency — this only permits the declared optional extra.
+
 **Known limitations.** Parquet mirrors the flat *patient-level* table (like
 `export_csv`), not the OMOP CDM tables or the FHIR resources. Per-column type is
 inferred by pyarrow, with a string fallback for any heterogeneously-typed
