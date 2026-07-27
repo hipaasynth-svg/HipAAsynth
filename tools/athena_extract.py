@@ -59,7 +59,14 @@ def extract(concept_csv: Path, out_csv: Path) -> tuple[int, int]:
         first = f.readline()
         delim = _sniff_delimiter(first)
         f.seek(0)
-        reader = csv.DictReader(f, delimiter=delim)
+        # ATHENA's tab-delimited CONCEPT.csv is unquoted, but concept_name values
+        # carry bare double-quotes (e.g. inch marks). With default quoting, csv
+        # treats a leading quote as a field opener and swallows rows until the
+        # next quote, corrupting or crashing on the very file this tool scans in
+        # full. Disable quote handling for tab-delimited input only; comma files
+        # stay RFC-4180 (see hipaasynth/vocabulary/validate.py for the same fix).
+        quoting = csv.QUOTE_NONE if delim == "\t" else csv.QUOTE_MINIMAL
+        reader = csv.DictReader(f, delimiter=delim, quoting=quoting)
         fields = reader.fieldnames or []
         for required in ("concept_id", "vocabulary_id", "concept_code"):
             if required not in fields:
@@ -69,7 +76,8 @@ def extract(concept_csv: Path, out_csv: Path) -> tuple[int, int]:
 
         written = scanned = 0
         with open(out_csv, "w", encoding="utf-8", newline="") as out:
-            writer = csv.DictWriter(out, fieldnames=fields, delimiter="\t")
+            writer = csv.DictWriter(out, fieldnames=fields, delimiter="\t",
+                                    quoting=csv.QUOTE_NONE)
             writer.writeheader()
             for row in reader:
                 scanned += 1
