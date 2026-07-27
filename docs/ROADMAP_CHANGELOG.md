@@ -10,6 +10,58 @@ explicitly below.
 
 ---
 
+## Step 5 — Parquet export
+
+**What.** New `export_parquet(patients, filename="output.parquet")` in
+`hipaasynth/exporters/exporters.py` (re-exported from `hipaasynth.exporters`). It
+writes the same flat patient table as `export_csv` — the row/column builder was
+extracted into a shared `_flat_patient_rows()` helper so the two exporters can
+**never drift** — but in columnar Apache Parquet, suited to analytics engines
+(DuckDB, Spark, pandas, the Seismometer adapter).
+
+**Why.** Roadmap step 5. CSV existed; Parquet did not.
+
+**Dependency decision — flagged for the user to sanity-check.** The PR template
+checklist states *"No external dependencies added (the engine is pure Python
+standard library)."* Parquet inherently needs a columnar writer, so I did **not**
+add a hard dependency:
+  - The engine **core stays stdlib-only.** `pyarrow` is imported **lazily inside
+    `export_parquet`** — importing `hipaasynth` or any core module pulls in nothing
+    new.
+  - `pyarrow` is exposed as a new **optional extra**: `pip install
+    'hipaasynth[parquet]'` (added to `pyproject.toml`). `pyarrow` was already a
+    dependency of the existing `seismometer` extra, so it introduces no new
+    project-level supply-chain surface.
+  - Calling `export_parquet` without pyarrow installed raises a clear
+    `RuntimeError` naming the extra — no `ImportError` leaking from an optional path.
+
+  **This is the one place Tier 1 touches the "no external dependencies" value.** It
+  is confined to an opt-in extra and an opt-in function; please confirm this is the
+  trade-off you want (vs. e.g. a hand-rolled minimal Parquet writer, which would be
+  far more code and risk for less correctness).
+
+**How verified.** `tests/test_parquet_export.py`:
+  - `test_parquet_roundtrip_matches_csv_columns` — writes, reads back with pyarrow,
+    row count and base columns match.
+  - `test_parquet_values_match_csv` — `patient_id` column agrees row-for-row with
+    the CSV exporter.
+  - `test_parquet_missing_dependency_is_graceful` — monkeypatches the import to
+    simulate pyarrow absent; asserts a `RuntimeError` mentioning `pyarrow` and the
+    `parquet` extra. (This one runs with or without pyarrow installed.)
+
+  The round-trip tests `pytest.importorskip("pyarrow")`. pyarrow **was installed in
+  this sandbox** to exercise them for real (they pass, 25.0.0); in a stdlib-only CI
+  they skip while the missing-dependency test still runs. `export_csv`'s refactor to
+  the shared helper is covered by the unchanged existing CSV tests (still green).
+  Full suite green (258 passed).
+
+**Known limitations.** Parquet mirrors the flat *patient-level* table (like
+`export_csv`), not the OMOP CDM tables or the FHIR resources. Per-column type is
+inferred by pyarrow, with a string fallback for any heterogeneously-typed
+observation column.
+
+---
+
 ## Step 4 — Complete OMOP CDM 5.4 export
 
 **Audit — what was missing (before this change).** `build_cdm_tables()` emitted the

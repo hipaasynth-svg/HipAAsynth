@@ -122,20 +122,15 @@ def export_json(patients, filename="output.json"):
         raise RuntimeError(f"Failed to write JSON: {filename}") from exc
 
 
-def export_csv(patients, filename="output.csv"):
+def _flat_patient_rows(patients):
+    """Build the flat patient table shared by the CSV and Parquet exporters.
+
+    Returns ``(fieldnames, rows)`` where ``rows`` is a list of dicts keyed by
+    ``fieldnames``. Observation columns are discovered dynamically (the union
+    across patients) so condition-specific fields (sepsis, stroke, etc.) are not
+    silently dropped. Keeping this in one place guarantees the CSV and Parquet
+    exporters emit identical columns and values.
     """
-    Export patients to CSV including all observation fields.
-
-    Observation columns are discovered dynamically so that condition-specific
-    fields (sepsis, stroke, etc.) are not silently dropped.
-
-    Output path is trusted operator input (not sandboxed — see
-    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error rather
-    than leaving a partial file. Records are synthetic (no PHI).
-    """
-    _ensure_parent_dir(filename)
-    patients = list(patients)
-
     base_fields = [
         "patient_id",
         "seed",
@@ -157,33 +152,101 @@ def export_csv(patients, filename="output.csv"):
     observation_fields = _collect_observation_keys(patients)
     fieldnames = [*base_fields, *observation_fields]
 
+    rows = []
+    for p in patients:
+        row = {
+            "patient_id": p.demographics.patient_id,
+            "seed": p.demographics.seed,
+            "age": p.demographics.age,
+            "sex": p.demographics.sex,
+            "ethnicity": p.demographics.ethnicity,
+            "height_cm": p.anthropometrics.height_cm,
+            "weight_kg": p.anthropometrics.weight_kg,
+            "bmi": p.anthropometrics.bmi,
+            "bmi_category": p.anthropometrics.bmi_category,
+            "conditions": ";".join(c.name for c in p.conditions),
+            "num_visits": len(p.visits),
+            "num_labs": sum(len(v.labs) for v in p.visits),
+            "engine_version": p.engine_version,
+            "schema_version": p.schema_version,
+            "synthetic": p.synthetic,
+            "disclaimer": p.disclaimer,
+        }
+        row.update(getattr(p, "observations", {}) or {})
+        rows.append(row)
+    return fieldnames, rows
+
+
+def export_csv(patients, filename="output.csv"):
+    """
+    Export patients to CSV including all observation fields.
+
+    Observation columns are discovered dynamically so that condition-specific
+    fields (sepsis, stroke, etc.) are not silently dropped.
+
+    Output path is trusted operator input (not sandboxed — see
+    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error rather
+    than leaving a partial file. Records are synthetic (no PHI).
+    """
+    _ensure_parent_dir(filename)
+    patients = list(patients)
+    fieldnames, rows = _flat_patient_rows(patients)
+
     try:
         with open(filename, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
-            for p in patients:
-                row = {
-                    "patient_id": p.demographics.patient_id,
-                    "seed": p.demographics.seed,
-                    "age": p.demographics.age,
-                    "sex": p.demographics.sex,
-                    "ethnicity": p.demographics.ethnicity,
-                    "height_cm": p.anthropometrics.height_cm,
-                    "weight_kg": p.anthropometrics.weight_kg,
-                    "bmi": p.anthropometrics.bmi,
-                    "bmi_category": p.anthropometrics.bmi_category,
-                    "conditions": ";".join(c.name for c in p.conditions),
-                    "num_visits": len(p.visits),
-                    "num_labs": sum(len(v.labs) for v in p.visits),
-                    "engine_version": p.engine_version,
-                    "schema_version": p.schema_version,
-                    "synthetic": p.synthetic,
-                    "disclaimer": p.disclaimer,
-                }
-                row.update(getattr(p, "observations", {}) or {})
+            for row in rows:
                 writer.writerow(row)
     except OSError as exc:
         raise RuntimeError(f"Failed to write CSV: {filename}") from exc
+
+
+def export_parquet(patients, filename="output.parquet"):
+    """Export the flat patient table to Apache Parquet (columnar).
+
+    Mirrors :func:`export_csv`'s columns and values exactly (both go through
+    ``_flat_patient_rows``), but writes a columnar Parquet file suited to
+    analytics engines (DuckDB, Spark, pandas, the Seismometer adapter).
+
+    Parquet is an **optional** feature: the engine core is pure-Python/standard
+    library, so ``pyarrow`` is imported lazily and only when this function is
+    called. If it is not installed, a clear ``RuntimeError`` explains how to get
+    it (``pip install 'hipaasynth[parquet]'``). See docs/ROADMAP_CHANGELOG.md.
+
+    Output path is trusted operator input (not sandboxed — see
+    docs/DEPLOYMENT.md); fails loud with RuntimeError on any I/O error. Records
+    are synthetic (no PHI).
+    """
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet export requires the optional 'pyarrow' dependency, which is "
+            "not installed. Install it with: pip install 'hipaasynth[parquet]'"
+        ) from exc
+
+    _ensure_parent_dir(filename)
+    patients = list(patients)
+    fieldnames, rows = _flat_patient_rows(patients)
+
+    columns = {}
+    for name in fieldnames:
+        values = [row.get(name) for row in rows]
+        try:
+            columns[name] = pa.array(values)
+        except (pa.ArrowInvalid, pa.ArrowTypeError):
+            # Heterogeneously-typed observation column — fall back to strings so
+            # the export never fails on a mixed column.
+            columns[name] = pa.array([None if v is None else str(v) for v in values])
+    table = pa.table(columns)
+
+    try:
+        pq.write_table(table, filename)
+    except OSError as exc:
+        raise RuntimeError(f"Failed to write Parquet: {filename}") from exc
+    print(f"Parquet written to {filename} ({table.num_rows} rows, {table.num_columns} cols)")
 
 
 def summary_stats(patients):
