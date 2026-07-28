@@ -46,6 +46,7 @@ jobs:
           # posix-normalized relative to the repo root.
           EXEMPT = {
               'hipaasynth/exporters/exporters.py': {'pyarrow', 'fhir'},
+              'hipaasynth/connectors/duckdb.py': {'duckdb'},
           }
           ALWAYS_OK = {'__future__'}
           external = []

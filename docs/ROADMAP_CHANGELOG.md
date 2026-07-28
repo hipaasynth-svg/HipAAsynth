@@ -1,17 +1,70 @@
 # Interoperability Roadmap — Change Log
 
-Running log of the FHIR + OMOP interoperability work (Tier 1 + Tier 2). One entry
-per change: **what** was added/changed, **why** (which roadmap gap it closes),
-**how** it was verified, and **known limitations**. Newest entries first.
+Running log of the FHIR + OMOP interoperability work (Tier 1 + Tier 2 + Tier 3).
+One entry per change: **what** was added/changed, **why** (which roadmap gap it
+closes), **how** it was verified, and **known limitations**. Newest entries first.
 
 The engine core stays pure-Python / standard-library. Optional interoperability
-extras (e.g. Parquet) are gated behind `pip install hipaasynth[...]` and flagged
-explicitly below.
+extras (e.g. Parquet, DuckDB) are gated behind `pip install hipaasynth[...]` and
+flagged explicitly below.
 
 > **Base branch note (Tier 2).** Tier 1 (PR #81) was still an *open draft* — not
 > merged into `main` — when Tier 2 began, so the Tier-2 branch is stacked directly
 > on the Tier-1 branch. Until #81 merges, the Tier-2 PR diff includes the Tier-1
 > commits; it targets `main` and collapses to Tier-2-only once #81 lands.
+>
+> **Base branch note (Tier 3).** By the time Tier 3 began, both #81 (Tier 1) and
+> #83 (Tier 2) had **merged into `main`**, so Tier 3 is built directly on `main`
+> (no stacking) on a branch restarted from the latest `main`.
+
+---
+
+# Tier 3 — warehouse connectors + container packaging
+
+Getting a generated cohort *into* the systems people actually analyze it in: a
+real embedded warehouse (DuckDB), a cloud-warehouse schema/load-SQL generator
+(BigQuery), and a container image for the REST API. Each change is additive and
+gated on a fails-before / passes-after test.
+
+## Step 9 — DuckDB connector (`hipaasynth/connectors/duckdb.py`)
+
+**What.** A connector that loads a cohort into a **real local DuckDB database
+file**. `load(cohort, database, *, mode="omop"|"flat", if_exists="replace"|"append")
+-> {table: row_count}`:
+  - `mode="omop"` (default) creates the six OMOP CDM 5.4 tables with **typed**
+    columns and inserts `build_cdm_tables()` rows (empty CSV values → real SQL
+    NULLs).
+  - `mode="flat"` loads the single flat patient table (base fields typed;
+    observation columns typed `DOUBLE` when all-numeric, else `VARCHAR`).
+  - Accepts a `Cohort` or a plain list of patients; `create_table_ddl(table)`
+    exposes the DDL text.
+  - Column→SQL types come from a new shared `hipaasynth/connectors/omop_schema.py`,
+    which derives its **column sets from `omop._TABLE_COLUMNS`** (the same lists the
+    CSV exporter writes) — so a connector's schema can never drift from the export.
+
+**Why.** Roadmap Tier 3 step 1: there was no way to get a cohort into a warehouse.
+DuckDB is embedded (no server/account/network), so it is the connector that can be
+**fully integration-tested here**, and the reference for connector shape.
+
+**Dependency decision (flagged, pyarrow-style).** `duckdb` is a new **optional
+extra** (`pip install 'hipaasynth[duckdb]'`), imported **lazily** inside
+`load()` — importing `hipaasynth`, `hipaasynth.connectors`, or `omop_schema` pulls
+in nothing new. The engine core stays stdlib-only; the CI zero-dep check's per-file
+allowlist was extended to exempt exactly `connectors/duckdb.py` (nothing else).
+
+**How verified — ran against a REAL local DuckDB file (not a mock).**
+`tests/test_connector_duckdb.py` (11 tests, skipped when `duckdb` is absent):
+row-count summary equals `build_cdm_tables`; data is queryable after reopening the
+`.duckdb` file (incl. a real CDM join); columns are correctly typed
+(`person_id`→BIGINT, `condition_start_date`→DATE, `value_as_number`→DOUBLE,
+`person_source_value`→VARCHAR); empty OMOP values load as `NULL`;
+`condition_status_concept_id` survives as a non-zero int; flat mode; replace-vs-
+append; plain-list input; and a missing-`duckdb` path that raises a clear
+`RuntimeError` with the install hint. Verified locally against `duckdb 1.5.5`.
+
+**Known limitations.** Loads via parameterized `executemany` (fine for the cohort
+sizes this generates; not a bulk-COPY path for millions of rows). `mode="flat"`
+infers observation-column types from the data, not a fixed schema.
 
 ---
 
