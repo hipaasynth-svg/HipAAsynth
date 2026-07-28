@@ -35,6 +35,9 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 
+[project.scripts]
+hipaasynth = "hipaasynth.run.main:main"
+
 [project.optional-dependencies]
 fhir = ["fhir.resources>=7.0"]
 # Optional Parquet export (hipaasynth.exporters.export_parquet). The engine core

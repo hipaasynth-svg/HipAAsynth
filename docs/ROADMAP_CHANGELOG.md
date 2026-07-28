@@ -15,6 +15,55 @@ explicitly below.
 
 ---
 
+# Tier 2 — new capabilities (CLI, REST API, SDK)
+
+New network- and developer-facing surfaces built on the Tier 1 exporters. Each
+change is additive and gated on a fails-before / passes-after test.
+
+## Step 6 — CLI polish + real `hipaasynth` entry point
+
+**What.**
+  - `pyproject.toml` now declares `[project.scripts] hipaasynth =
+    "hipaasynth.run.main:main"`, so `pip install -e .` yields a real `hipaasynth`
+    console command (there was **no** installable entry point before).
+  - `hipaasynth/run/main.py` gains two additive flags:
+    - `--format {json,csv,fhir-bundle,ndjson,parquet,omop}` (one or more) — exposes
+      every Tier 1 export format from the CLI. Written to deterministic paths under
+      `--out` (`cohort.json`, `cohort.csv`, `cohort_fhir.json`,
+      `cohort_fhir_ndjson/`, `cohort.parquet`, `omop_cdm/`).
+    - `--validate` — runs the Step-3 structural FHIR validator over the generated
+      cohort (the written bundle/NDJSON if one was exported, else in-memory FHIR
+      resources) and exits non-zero on structural failure.
+  - `main()` is now `main(argv=None)` and returns an int exit code, so it is both
+    the console-script target and directly testable.
+
+**Backwards compatibility (explicit).** Every pre-Tier-2 flag
+(`--demo --count --seed --out --profile`) is unchanged, and **with no `--format`**
+the CLI writes the exact same JSON + CSV + FHIR-bundle triple to the exact same
+filenames as before — verified by `test_default_run_writes_legacy_triple` and
+`test_legacy_default_flags_still_parse`.
+
+**Why.** Roadmap Tier 2 step 1: there was no installable command, and the Tier 1
+formats (NDJSON/Parquet/OMOP/validator) were unreachable from the CLI.
+
+**Dependency decision.** None added — `--format parquet` reuses the existing lazy
+`pyarrow` import inside `export_parquet` (the `[parquet]` optional extra); the CLI
+itself is stdlib-only (`argparse`).
+
+**How verified.** `tests/test_cli.py` (11 tests): entry-point declaration (fails on
+the pre-Tier-2 `pyproject.toml`), legacy-triple default, each new format writes its
+artifact, multi-format, `--validate` PASS on a clean cohort (both written-artifact
+and in-memory paths), bad-format rejection. Beyond the unit tests, the **real
+installed command** was run: `pip install -e .` then
+`hipaasynth --count 3 --format json ndjson --validate` → exit 0, artifacts written,
+`FHIR validation (written NDJSON export): 41 resources — PASS`. Full suite green
+(281 passed, 1 skipped — the pre-existing pandas-dtype seismometer skip).
+
+**Known limitations.** `--format` writes to fixed filenames under `--out` (no
+per-format path override); the validator remains structural-only (see Step 3).
+
+---
+
 # Tier 2 — review fixes to the Tier 1 FHIR/OMOP work
 
 Six defects found in review of the Tier 1 exporters, each fixed with a
