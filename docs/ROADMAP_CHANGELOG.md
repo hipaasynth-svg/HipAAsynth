@@ -20,6 +20,66 @@ explicitly below.
 New network- and developer-facing surfaces built on the Tier 1 exporters. Each
 change is additive and gated on a fails-before / passes-after test.
 
+## Step 7 — REST API for on-demand generation (`hipaasynth/api.py`)
+
+**What.** A new `hipaasynth/api.py` — the project's first network-facing surface —
+serving on-demand cohort generation:
+  - `GET /health` → liveness + engine version.
+  - `GET /formats` → supported formats, decision modules, bundled profile names,
+    and the server's `max_count`.
+  - `GET|POST /generate` → generate a cohort and return it in an existing export
+    format. Params (query string or JSON body): `count`, `seed`, `module`
+    (`sepsis|stroke|dka|fabry`), `profile` (a **bundled** profile name), `format`
+    (`json|csv|fhir-bundle|ndjson|omop|parquet`).
+  - `make_server(host, port, max_count)` (bind `port=0` for an ephemeral test
+    port) and `main()` (`python -m hipaasynth.api --host --port --max-count`).
+
+**Framework decision — flagged (the Tier-1-style dependency callout).** Built on
+the **standard library** `http.server` (`ThreadingHTTPServer`) — **zero new
+dependencies** — to preserve the "stdlib-only core" value. A microframework
+(Flask/FastAPI) would give nicer routing/validation but adds a hard runtime
+dependency for a small, well-scoped API. If the surface grows, add a microframework
+as an **optional extra** (the pyarrow pattern), not a core dep. *(The `[parquet]`
+extra is the only optional dependency reachable here, via `format=parquet`, and it
+is delegated to `export_parquet` — `api.py` itself imports nothing outside the
+stdlib, verified by the CI zero-dep check, which in fact caught an accidental
+`import pyarrow` in an early draft of this file.)*
+
+**Input validation / error responses (this is a network surface, so it doesn't get
+skipped).** `parse_generate_request()` rejects: non-integer or out-of-range
+`count` (1..`max_count`, default cap 10 000) and `seed` (0..2³²−1); unknown
+`format`, `module`, or `profile`. Unknown routes → `404`; wrong method → `405` with
+an `Allow` header; malformed JSON body → `400`. Every error is a JSON
+`{"error", "status"}` body. `profile` is restricted to **bundled** names — a
+network client cannot supply an arbitrary filesystem path.
+
+**Streaming.** `format=ndjson` is streamed with HTTP **chunked** transfer
+(`_stream_ndjson`), so a large cohort's FHIR resources are written to the socket as
+they are produced rather than buffered whole. Per the roadmap's step-4 guidance,
+this is the one place streaming was genuinely warranted; no speculative
+webhook/streaming machinery was added.
+
+**Why.** Roadmap Tier 2 step 2: there was no REST API / on-demand generation — the
+only way to produce a cohort was the CLI or importing the package.
+
+**How verified — no live external deployment in this sandbox, stated plainly.**
+`tests/test_api.py` (26 tests) starts the **real** server in a background thread on
+an ephemeral port and drives it over an **actual localhost socket** with `urllib`:
+health/discovery, every format (JSON/CSV/FHIR-bundle/OMOP/NDJSON/Parquet),
+determinism (same seed → byte-identical), module + bundled-profile selection, POST
+JSON body, and the full validation matrix (400/404/405). Additionally smoke-tested
+by hand: `python -m hipaasynth.api --port 8765` then `curl /health`,
+`curl '/generate?count=2&format=fhir-bundle'`, and 400s for `count=abc` /
+`count=99999`. **Not done here:** deploying behind a real WSGI/ASGI server, TLS,
+auth, and load — see "needs a live environment" in the Tier 2 report.
+
+**Known limitations.** Single-process dev server (`ThreadingHTTPServer`); no
+auth/rate-limiting/TLS (deploy behind a reverse proxy for anything real); `omop` is
+returned as a JSON object of tables (not a multi-file CSV bundle); `count` is capped
+to protect the process.
+
+---
+
 ## Step 6 — CLI polish + real `hipaasynth` entry point
 
 **What.**
