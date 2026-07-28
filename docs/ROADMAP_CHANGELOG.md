@@ -21,6 +21,26 @@ Six defects found in review of the Tier 1 exporters, each fixed with a
 fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
 note above).
 
+## Tier 2 review fix 5 — FHIR `Encounter.actualPeriod` now carries `end`
+
+**What.** `_patient_to_fhir()` in `hipaasynth/exporters/exporters.py` now emits
+`actualPeriod: {"start": visit.visit_date, "end": visit.visit_date}` for each
+Encounter (previously only `start`).
+
+**Why.** The OMOP exporter already sets `visit_end_date = visit_start_date` under
+an explicit same-day-visit assumption; the FHIR Encounter dropped the end entirely,
+so the two exporters disagreed on the same modeled fact.
+
+**How verified.** `tests/test_fhir_interop.py::test_encounter_actual_period_has_end_equal_to_start`
+asserts every Encounter's `actualPeriod["end"] == actualPeriod["start"]`. Fails
+before (`actualPeriod is missing 'end'`, verified by stashing the source), passes
+after. Full suite green.
+
+**Known limitations.** Same-day is a modeling assumption HipAAsynth makes across
+both exporters, not a claim visits are truly zero-length; documented inline.
+
+---
+
 ## Tier 2 review fix 4 — validator API re-exported from `hipaasynth.exporters`
 
 **What.** `hipaasynth/exporters/__init__.py` now re-exports `validate_resource`,

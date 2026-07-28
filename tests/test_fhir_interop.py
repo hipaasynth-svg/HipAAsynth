@@ -134,3 +134,21 @@ def test_ndjson_fails_loud_on_io_error(patients, tmp_path):
     occupied.write_text("x")  # a file where a dir is needed
     with pytest.raises((RuntimeError, OSError, NotADirectoryError, FileExistsError)):
         export_fhir_ndjson(patients, str(occupied / "sub"))
+
+
+# ── Encounter.actualPeriod (Tier 2 review fix 5) ─────────────────────────────
+
+def test_encounter_actual_period_has_end_equal_to_start(patients):
+    """Encounter.actualPeriod carries an `end`, equal to `start`, matching the
+    OMOP exporter's documented same-day-visit convention (visit_end_date =
+    visit_start_date). Previously only `start` was emitted.
+    """
+    encounters = [
+        r for p in patients for r in _patient_to_fhir(p)
+        if r["resourceType"] == "Encounter"
+    ]
+    assert encounters  # the fixture cohort has visits
+    for enc in encounters:
+        period = enc["actualPeriod"]
+        assert "end" in period, "actualPeriod is missing 'end'"
+        assert period["end"] == period["start"]
