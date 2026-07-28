@@ -26,6 +26,50 @@ real embedded warehouse (DuckDB), a cloud-warehouse schema/load-SQL generator
 (BigQuery), and a container image for the REST API. Each change is additive and
 gated on a fails-before / passes-after test.
 
+## Step 10 — BigQuery connector, schema/query text only (`hipaasynth/connectors/bigquery.py`)
+
+**What.** A **schema/query-level** BigQuery connector that generates, from the
+shared OMOP CDM 5.4 column sets, the text you would run against BigQuery:
+  - `table_ddl(table, dataset, project=, if_not_exists=)` and
+    `schema_ddl(dataset, project=)` — GoogleSQL `CREATE TABLE` DDL with BigQuery
+    scalar types (`INT64`/`FLOAT64`/`DATE`/`DATETIME`/`STRING`).
+  - `table_schema_json(table)` — the `[{"name","type","mode"}]` load-schema JSON
+    that `bq load --schema` and the BigQuery client accept.
+  - `load_data_sql(table, uris, …, overwrite=)` — GoogleSQL `LOAD DATA
+    INTO|OVERWRITE … FROM FILES(...)`; `bq_load_command(...)` — the equivalent
+    `bq load` CLI string; `load_all_sql(dataset, gcs_prefix)` — a statement per
+    OMOP table expecting `{prefix}/{table}.csv` (matching `export_omop`'s layout).
+  - Identifier validation rejects anything that could smuggle a backtick / SQL into
+    the generated text.
+
+**Why.** Roadmap Tier 3 step 2 — a second connector at the level that is honestly
+testable without a live account. **BigQuery chosen** (over Snowflake/Redshift/
+Databricks) because its GoogleSQL DDL, `LOAD DATA … FROM FILES` DML, `bq load` CLI,
+and JSON load-schema are the most stable, well-documented text to generate and
+assert offline.
+
+**Dependency decision.** **None** — the connector is pure standard library. It
+deliberately does **not** import `google-cloud-bigquery` and opens no connection,
+so it needs no optional extra and no CI zero-dep exemption. (A client-based loader
+is **deferred**, not built, because it cannot be tested against a real account
+here.)
+
+**How verified — generated SQL/DDL TEXT ONLY; a live BigQuery warehouse was NEVER
+contacted (no account in this sandbox).** `tests/test_connector_bigquery.py`
+(13 tests) asserts on the generated strings: qualified names with/without project,
+every BigQuery type mapping (INT64/FLOAT64/DATE/DATETIME/STRING), `IF NOT EXISTS`,
+full-schema DDL covering all six tables, load-schema JSON column/type/mode, `LOAD
+DATA INTO` vs `OVERWRITE`, multi-URI, the `bq load` CLI string, per-table load map,
+unknown-table `ValueError`, identifier-injection rejection, and that the BigQuery
+column set matches the DuckDB one (same `omop_schema` source, no drift).
+
+**Known limitations (stated plainly).** Text generation only — **not executed**
+against BigQuery; no dataset creation, no partitioning/clustering, and no
+client-based load path (deferred until testable). Types are the OMOP-faithful
+scalar choices; a team may prefer `NUMERIC` over `FLOAT64` for exact decimals.
+
+---
+
 ## Step 9 — DuckDB connector (`hipaasynth/connectors/duckdb.py`)
 
 **What.** A connector that loads a cohort into a **real local DuckDB database
