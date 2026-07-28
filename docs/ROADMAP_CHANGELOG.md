@@ -20,6 +20,12 @@ explicitly below.
 New network- and developer-facing surfaces built on the Tier 1 exporters. Each
 change is additive and gated on a fails-before / passes-after test.
 
+**Deferred (roadmap step 4): webhooks / push streaming.** Not built — flagged for a
+later tier rather than speculatively added. The one place streaming was genuinely
+warranted, large-cohort responses, is covered by the REST API's chunked NDJSON
+endpoint (Step 7); a webhook/callback or server-push (SSE/WebSocket) delivery model
+has no consumer yet, so it is deliberately left out.
+
 ## Step 8 — Python SDK facade (`hipaasynth/sdk.py`) + notebook example
 
 **What.** A new high-level facade for notebooks/scripts (no naming collision —
