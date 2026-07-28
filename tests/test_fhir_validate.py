@@ -195,3 +195,27 @@ def test_cli_main_ndjson_dir(patients, tmp_path):
     out_dir = tmp_path / "ndjson"
     export_fhir_ndjson(patients, str(out_dir))
     assert fhir_validate_main(["--ndjson-dir", str(out_dir)]) == 0
+
+
+def test_validator_functions_reexported_from_package(patients):
+    """The validator's public API is reachable via `from hipaasynth.exporters
+    import ...`, consistent with every other exporter (export_csv, export_fhir,
+    build_cdm_tables, ...)."""
+    from hipaasynth.exporters import (
+        FhirValidationReport,
+        validate_bundle,
+        validate_ndjson_dir,
+        validate_resource,
+        validate_resources,
+    )
+    # And they are the same objects as the submodule's (not shadow copies).
+    from hipaasynth.exporters import fhir_validate as _mod
+    assert validate_resource is _mod.validate_resource
+    assert validate_bundle is _mod.validate_bundle
+    # Smoke: the re-exported function actually works.
+    resources = []
+    for pt in patients:
+        resources.extend(_patient_to_fhir(pt))
+    report = validate_resources(resources)
+    assert isinstance(report, FhirValidationReport)
+    assert report.ok, report.errors

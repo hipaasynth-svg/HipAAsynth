@@ -21,6 +21,27 @@ Six defects found in review of the Tier 1 exporters, each fixed with a
 fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
 note above).
 
+## Tier 2 review fix 4 — validator API re-exported from `hipaasynth.exporters`
+
+**What.** `hipaasynth/exporters/__init__.py` now re-exports `validate_resource`,
+`validate_resources`, `validate_bundle`, `validate_ndjson_dir`, and
+`FhirValidationReport` from `fhir_validate`, and gains an `__all__` covering the
+whole exporter surface.
+
+**Why.** Every other exporter (`export_csv`, `export_fhir`, `export_parquet`,
+`build_cdm_tables`, …) is reachable via `from hipaasynth.exporters import X`; the
+validator functions were only importable from the deep submodule path — an
+inconsistency for callers (and the upcoming SDK/CLI).
+
+**How verified.** `tests/test_fhir_validate.py::test_validator_functions_reexported_from_package`
+imports all five from the package root, asserts they are the *same objects* as the
+submodule's, and smoke-runs `validate_resources`. Fails before (`ImportError`,
+verified by stashing `__init__.py`), passes after. Full suite green.
+
+**Known limitations.** None — pure re-export, no behavior change.
+
+---
+
 ## Tier 2 review fix 3 — OMOP `condition_status_concept_id` driven by `Condition.active`
 
 **What.** `hipaasynth/exporters/omop.py`: new `_CONDITION_STATUS_CONCEPT` lookup
