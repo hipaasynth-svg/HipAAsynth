@@ -77,6 +77,59 @@ def test_codeable_concept_without_coding_or_text_is_flagged():
     assert any("code" in e.lower() for e in errors)
 
 
+def test_broken_condition_clinical_status_is_flagged():
+    """Condition.clinicalStatus is a CodeableConcept — an empty one is an error.
+
+    Previously unchecked: clinicalStatus was not in _CODEABLE_CONCEPT_FIELDS, so
+    an empty {} sailed through.
+    """
+    bad = {"resourceType": "Condition", "id": "c",
+           "subject": {"reference": "urn:uuid:p"},
+           "code": {"text": "asthma"},
+           "clinicalStatus": {}}
+    errors = validate_resource(bad)
+    assert any("clinicalStatus" in e for e in errors), errors
+
+
+def test_broken_condition_verification_status_is_flagged():
+    """verificationStatus.coding missing a code must be flagged."""
+    bad = {"resourceType": "Condition", "id": "c",
+           "subject": {"reference": "urn:uuid:p"},
+           "code": {"text": "asthma"},
+           "verificationStatus": {"coding": [{"system": "http://x"}]}}  # no code
+    errors = validate_resource(bad)
+    assert any("verificationStatus" in e and "code" in e for e in errors), errors
+
+
+def test_broken_encounter_class_is_flagged():
+    """Encounter.class is a *list* of CodeableConcept — a coding missing its
+    code must be flagged (list-at-path handling)."""
+    bad = {"resourceType": "Encounter", "id": "e", "status": "completed",
+           "class": [{"coding": [{"system": "http://x"}]}],  # missing code
+           "type": [{"text": "ambulatory"}]}
+    errors = validate_resource(bad)
+    assert any("class" in e and "code" in e for e in errors), errors
+
+
+def test_broken_encounter_type_is_flagged():
+    """Encounter.type (list of CodeableConcept): an element with neither coding
+    nor text is an error."""
+    bad = {"resourceType": "Encounter", "id": "e", "status": "completed",
+           "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
+           "type": [{}]}  # neither coding nor text
+    errors = validate_resource(bad)
+    assert any("type" in e for e in errors), errors
+
+
+def test_valid_encounter_class_and_type_pass():
+    """A well-formed Encounter (class coding + text-only type) must not error —
+    guards against false positives from the new list handling."""
+    good = {"resourceType": "Encounter", "id": "e", "status": "completed",
+            "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
+            "type": [{"text": "ambulatory"}]}
+    assert validate_resource(good) == []
+
+
 def test_dangling_reference_is_flagged(patients):
     """Referential integrity: a reference to an absent resource is an error."""
     resources = []

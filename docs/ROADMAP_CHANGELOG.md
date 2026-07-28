@@ -1,12 +1,51 @@
 # Interoperability Roadmap — Change Log
 
-Running log of the FHIR + OMOP interoperability work (Tier 1). One entry per
-change: **what** was added/changed, **why** (which roadmap gap it closes), **how**
-it was verified, and **known limitations**. Newest entries first.
+Running log of the FHIR + OMOP interoperability work (Tier 1 + Tier 2). One entry
+per change: **what** was added/changed, **why** (which roadmap gap it closes),
+**how** it was verified, and **known limitations**. Newest entries first.
 
 The engine core stays pure-Python / standard-library. Optional interoperability
 extras (e.g. Parquet) are gated behind `pip install hipaasynth[...]` and flagged
 explicitly below.
+
+> **Base branch note (Tier 2).** Tier 1 (PR #81) was still an *open draft* — not
+> merged into `main` — when Tier 2 began, so the Tier-2 branch is stacked directly
+> on the Tier-1 branch. Until #81 merges, the Tier-2 PR diff includes the Tier-1
+> commits; it targets `main` and collapses to Tier-2-only once #81 lands.
+
+---
+
+# Tier 2 — review fixes to the Tier 1 FHIR/OMOP work
+
+Six defects found in review of the Tier 1 exporters, each fixed with a
+fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
+note above).
+
+## Tier 2 review fix 1 — validator now checks all emitted CodeableConcept fields
+
+**What.** `hipaasynth/exporters/fhir_validate.py`: `_CODEABLE_CONCEPT_FIELDS` now
+also registers `Condition.clinicalStatus`, `Condition.verificationStatus`,
+`Encounter.class`, and `Encounter.type`. Because `Encounter.class`/`.type` are
+0..* **lists** of CodeableConcept (not a single dict), `validate_resource` now
+detects a list at a path and checks each element (existing single-dict paths are
+unchanged). The module docstring and the Step-3 entry above were corrected to
+enumerate exactly which fields are checked.
+
+**Why.** `_patient_to_fhir()` emits those four as CodeableConcept-shaped data, but
+the Step-3 validator never looked at them: an empty `clinicalStatus: {}`, a
+`verificationStatus.coding` missing its `code`, or an `Encounter.class` coding
+missing its `code` all returned `[]` (no error) — false assurance.
+
+**How verified.** `tests/test_fhir_validate.py`: four new broken-input tests
+(`test_broken_condition_clinical_status_is_flagged`,
+`test_broken_condition_verification_status_is_flagged`,
+`test_broken_encounter_class_is_flagged`, `test_broken_encounter_type_is_flagged`)
+plus a false-positive guard (`test_valid_encounter_class_and_type_pass`). The four
+broken-input tests fail on the pre-fix validator (verified by stashing the source:
+all four `AssertionError: []`) and pass after. Full suite green.
+
+**Known limitations.** Still structural-only — unchanged from Step 3 (not a
+substitute for the official HL7 FHIR IG validator).
 
 ---
 
@@ -152,8 +191,17 @@ pure-Python **structural** validator for the exporter's FHIR output:
      `code`; MedicationRequest needs `status`/`intent`/`subject`/`medication`);
   3. value-set membership for bound fields we can check offline (Patient.gender,
      the four resource `status` sets, MedicationRequest.intent);
-  4. `CodeableConcept` fields carry a `coding[]` or `text`, and each coding has a
-     `system` + `code`;
+  4. the `CodeableConcept`-shaped fields the exporter actually emits carry a
+     `coding[]` or `text`, and each coding has a `system` + `code`. **The checked
+     set is explicit** (see `_CODEABLE_CONCEPT_FIELDS`): `Condition.code`,
+     `Condition.clinicalStatus`, `Condition.verificationStatus`, `Observation.code`,
+     `Encounter.class`, `Encounter.type` (the last two are 0..* lists), and
+     `{MedicationStatement,MedicationRequest}.medication.concept`. *(The
+     `clinicalStatus`/`verificationStatus`/`Encounter.class`/`Encounter.type`
+     entries — and list-at-path support — were added in Tier 2 review fix 1; the
+     original Step-3 validator only checked `Condition.code`, `Observation.code`,
+     and the two medication concepts, so the status/class/type fields were emitted
+     but never validated.)*
   5. **referential integrity** — every intra-bundle `urn:uuid:` reference resolves
      to a resource `id` present in the set.
 
