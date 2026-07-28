@@ -39,34 +39,45 @@ jobs:
         run: |
           python -c "
           import ast, os, sys
+          # Optional-extra imports are allowed ONLY in the specific files that
+          # lazily import them behind a [project.optional-dependencies] extra —
+          # NOT by bare module name anywhere in the tree. Adding e.g. 'import
+          # pyarrow' to any other core module must fail this check. Paths are
+          # posix-normalized relative to the repo root.
+          EXEMPT = {
+              'hipaasynth/exporters/exporters.py': {'pyarrow', 'fhir'},
+          }
+          ALWAYS_OK = {'__future__'}
           external = []
           stdlib = set(sys.stdlib_module_names)
+          def is_external(m):
+              return bool(m) and m not in stdlib and not m.startswith('hipaasynth') and m not in ALWAYS_OK
           for root, dirs, files in os.walk('hipaasynth'):
               dirs[:] = [d for d in dirs if d not in ['__pycache__']]
               for f in files:
                   if not f.endswith('.py'): continue
                   path = os.path.join(root, f)
+                  rel = os.path.relpath(path).replace(os.sep, '/')
+                  exempt_here = EXEMPT.get(rel, set())
                   try:
-                      with open(path, encoding='utf-8') as f:
-                          src = f.read()
-                      tree = ast.parse(src)
+                      with open(path, encoding='utf-8') as fh:
+                          tree = ast.parse(fh.read())
                   except Exception:
                       continue
                   for node in ast.walk(tree):
                       if isinstance(node, ast.ImportFrom):
                           if node.level and node.level > 0:
                               continue
-                          if node.module:
-                              m = node.module.split('.')[0]
-                              if m and m not in stdlib and not m.startswith('hipaasynth') and m not in ('__future__', 'fhir', 'pyarrow'):
-                                  external.append((path, m))
+                          mods = [node.module.split('.')[0]] if node.module else []
                       elif isinstance(node, ast.Import):
-                          for a in node.names:
-                              m = a.name.split('.')[0]
-                              if m and m not in stdlib and not m.startswith('hipaasynth') and m not in ('__future__', 'fhir', 'pyarrow'):
-                                  external.append((path, m))
+                          mods = [a.name.split('.')[0] for a in node.names]
+                      else:
+                          continue
+                      for m in mods:
+                          if is_external(m) and m not in exempt_here:
+                              external.append((rel, m))
           if external:
-              print('EXTERNAL DEPS FOUND:')
+              print('EXTERNAL DEPS FOUND (outside their allowed file):')
               for path, mod in external: print(f'  {path}: {mod}')
               exit(1)
           print('Zero external dependencies: PASS')

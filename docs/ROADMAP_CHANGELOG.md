@@ -21,6 +21,37 @@ Six defects found in review of the Tier 1 exporters, each fixed with a
 fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
 note above).
 
+## Tier 2 review fix 6 — CI zero-dep check scoped to the file that owns the extra
+
+**What.** `.github/workflows/test.yml` "Check zero external dependencies" no longer
+whitelists `pyarrow`/`fhir` by bare module name across the whole `hipaasynth/`
+tree. The exemption is now a per-file allowlist — `EXEMPT = {'hipaasynth/exporters/
+exporters.py': {'pyarrow', 'fhir'}}` — so those optional-extra imports are tolerated
+only in the file that lazily imports them behind a `[project.optional-dependencies]`
+extra. Any external import elsewhere (including an accidental `pyarrow`/`fhir`
+import in another core module) fails the check.
+
+**Why.** The tree-wide whitelist weakened the guardrail meant to keep the rest of
+the core stdlib-only: an accidental `import pyarrow` anywhere would have passed
+silently.
+
+**How verified (item-6 fake-import test, run locally and then removed):**
+  - Clean tree → `Zero external dependencies: PASS` (exit 0).
+  - Temporarily appended `import pyarrow` to `hipaasynth/core/config.py` (an
+    unrelated core file) → check now **FAILS**: `EXTERNAL DEPS FOUND (outside their
+    allowed file): hipaasynth/core/config.py: pyarrow` (exit 1). The **old**
+    tree-wide whitelist would have passed this.
+  - The same import inside the exempt `exporters.py` still PASSES (exemption
+    preserved for the file that owns the extra).
+  - Fake import removed; tree restored → PASS (exit 0); `git status` clean.
+
+**Known limitations.** The allowlist is keyed by exact repo-relative path, so if
+`export_parquet` is ever split into a new module the allowlist must be updated in
+lockstep (intentional — a new file importing an extra should be a conscious
+decision, not silent).
+
+---
+
 ## Tier 2 review fix 5 — FHIR `Encounter.actualPeriod` now carries `end`
 
 **What.** `_patient_to_fhir()` in `hipaasynth/exporters/exporters.py` now emits
