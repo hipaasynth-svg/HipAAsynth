@@ -26,6 +26,38 @@ warranted, large-cohort responses, is covered by the REST API's chunked NDJSON
 endpoint (Step 7); a webhook/callback or server-push (SSE/WebSocket) delivery model
 has no consumer yet, so it is deliberately left out.
 
+## Step 7 hardening — REST API bounds the POST body (forged `Content-Length` DoS)
+
+**What.** `hipaasynth/api.py`: `do_POST` no longer trusts the client's
+`Content-Length`. New `MAX_BODY_BYTES = 1_000_000` constant (a `/generate` JSON
+body — `{count, seed, module, profile, format}` — is well under a kilobyte, so
+1 MB is already absurdly generous). `do_POST` now rejects any `Content-Length`
+over `MAX_BODY_BYTES` with a **`413`** *before* reading or allocating toward it,
+and reads the body via a new `_read_body()` that pulls fixed 64 KiB chunks and
+stops at `min(Content-Length, MAX_BODY_BYTES)` — so neither a forged huge header
+nor a small header followed by a longer stream can push the server past the cap.
+
+**Why (real crash, not hypothetical).** The old line
+`raw = self.rfile.read(length)` handed the trusted header straight to a sized read.
+A `POST /generate` with `Content-Length: 999999999999` made CPython pre-allocate a
+~1 TB bytes buffer and killed the handler thread with **`MemoryError`** — while
+every *value* param (`count`/`seed`/`format`/`module`/`profile`) was already
+carefully validated. This closes that gap: the request framing is now bounded like
+everything else.
+
+**How verified — reproduced exactly as the bug was found (raw socket, not urllib,
+which always sends a truthful length).** `tests/test_api.py` adds three raw-socket
+tests: a forged `Content-Length: 999999999999` now returns a clean **413** (and a
+follow-up `GET /health` confirms the server is still alive — no downed thread); a
+`Content-Length` of `MAX_BODY_BYTES + 1` returns 413; and a legitimately-sized body
+still returns 200. Fails-before proof: with the fix surgically reverted, the forged
+test fails with `MemoryError` at `self.rfile.read(length)` in the server thread and
+no response — the exact reported crash. Full suite green (**325 passed, 1 skipped**).
+
+**Known limitations.** `MAX_BODY_BYTES` is a fixed constant (not operator-tunable
+like `--max-count`); the 1 MB ceiling is far above any legitimate `/generate` body,
+so this wasn't parameterized.
+
 ## Step 8 — Python SDK facade (`hipaasynth/sdk.py`) + notebook example
 
 **What.** A new high-level facade for notebooks/scripts (no naming collision —

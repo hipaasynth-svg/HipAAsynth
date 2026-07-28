@@ -24,13 +24,15 @@ how the network surface is verified (stated plainly, per the ground rules).
 import csv
 import io
 import json
+import socket
 import threading
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 import pytest
 
-from hipaasynth.api import make_server, parse_generate_request, ApiError
+from hipaasynth.api import MAX_BODY_BYTES, make_server, parse_generate_request, ApiError
 
 
 @pytest.fixture
@@ -247,6 +249,87 @@ def _expect_status_post(server, body, ctype):
             return resp.status
     except urllib.error.HTTPError as e:
         return e.code
+
+
+# ── forged / oversized Content-Length (Tier 2 review fix — raw socket) ────────
+
+def _raw_http(server, raw_bytes, read_timeout=10):
+    """Send raw HTTP bytes over a real socket and return the raw response bytes.
+
+    urllib always sends a truthful Content-Length, so a *forged* one can only be
+    reproduced at the socket level — exactly how the crash was found.
+    """
+    parsed = urlparse(server)
+    host, port = parsed.hostname, parsed.port
+    with socket.create_connection((host, port), timeout=read_timeout) as sock:
+        sock.sendall(raw_bytes)
+        sock.settimeout(read_timeout)
+        data = b""
+        try:
+            while b"\r\n\r\n" not in data and len(data) < 65_536:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+        except socket.timeout:
+            pass
+    return data
+
+
+def _status_line(raw_response):
+    return raw_response.split(b"\r\n", 1)[0] if raw_response else b""
+
+
+def test_forged_content_length_returns_413_not_crash(server):
+    """A forged huge Content-Length must yield a clean 413 — not MemoryError.
+
+    Before the fix, do_POST did `self.rfile.read(length)` on the trusted header,
+    so `Content-Length: 999999999999` tried to pre-allocate ~1 TB and killed the
+    handler thread with MemoryError (no response). Now the header is bounded first.
+    """
+    body = b'{"count": 3}'  # tiny real body; the header lies about its size
+    req = (
+        "POST /generate HTTP/1.1\r\n"
+        f"Host: {urlparse(server).netloc}\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: 999999999999\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode() + body
+    resp = _raw_http(server, req)
+    assert b" 413 " in _status_line(resp), _status_line(resp)
+    # And the server is still alive and serving afterwards (no thread took it down).
+    with urllib.request.urlopen(f"{server}/health", timeout=10) as r:
+        assert r.status == 200
+
+
+def test_content_length_just_over_limit_returns_413(server):
+    """Content-Length of exactly MAX_BODY_BYTES + 1 is rejected with 413."""
+    req = (
+        "POST /generate HTTP/1.1\r\n"
+        f"Host: {urlparse(server).netloc}\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {MAX_BODY_BYTES + 1}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode()
+    resp = _raw_http(server, req)
+    assert b" 413 " in _status_line(resp), _status_line(resp)
+
+
+def test_legitimately_sized_body_still_works(server):
+    """A normal, truthfully-sized POST body still returns 200 over a raw socket."""
+    body = b'{"count": 2, "format": "json"}'
+    req = (
+        "POST /generate HTTP/1.1\r\n"
+        f"Host: {urlparse(server).netloc}\r\n"
+        "Content-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode() + body
+    resp = _raw_http(server, req)
+    assert b" 200 " in _status_line(resp), _status_line(resp)
 
 
 # ── unit-level validation (no server) ────────────────────────────────────────

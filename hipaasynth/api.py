@@ -77,6 +77,12 @@ from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module ma
 API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
 # Network safety: cap on-demand cohort size unless the operator raises it.
 DEFAULT_MAX_COUNT = 10_000
+# Hard cap on a POST body. A legitimate /generate body is a tiny JSON object
+# ({count, seed, module, profile, format}) — well under a kilobyte — so 1 MB is
+# already absurdly generous. The point is to never trust a client's Content-Length
+# and allocate/read toward it: a forged huge value (e.g. 999999999999) would
+# otherwise MemoryError the handling thread.
+MAX_BODY_BYTES = 1_000_000
 _PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
 
 
@@ -267,6 +273,28 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     def _send_api_error(self, err: ApiError):
         self._send_json(err.status, {"error": err.message, "status": err.status})
 
+    def _read_body(self, declared_length: int) -> bytes:
+        """Read the request body in bounded chunks, never exceeding
+        ``MAX_BODY_BYTES``.
+
+        We do not hand the (client-controlled) ``declared_length`` straight to a
+        single ``rfile.read(n)``: we read in fixed-size chunks and stop at
+        ``min(declared_length, MAX_BODY_BYTES)``, so a lie in either direction — a
+        forged huge Content-Length, or a small one followed by a longer stream —
+        can never make us allocate or read past the cap. Callers must already have
+        rejected ``declared_length > MAX_BODY_BYTES`` with a 413.
+        """
+        remaining = min(max(declared_length, 0), MAX_BODY_BYTES)
+        chunk_size = 65_536
+        chunks = []
+        while remaining > 0:
+            chunk = self.rfile.read(min(chunk_size, remaining))
+            if not chunk:  # client closed / short body
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+
     def _route(self):
         parsed = urlparse(self.path)
         return (parsed.path.rstrip("/") or "/"), parsed
@@ -311,7 +339,17 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             return self._send_api_error(ApiError(400, "invalid Content-Length"))
-        raw = self.rfile.read(length) if length > 0 else b""
+        if length < 0:
+            return self._send_api_error(ApiError(400, "invalid Content-Length"))
+        # Reject an oversized (or forged) Content-Length BEFORE reading/allocating
+        # toward it — a huge value must not be trusted into self.rfile.read().
+        if length > MAX_BODY_BYTES:
+            return self._send_api_error(ApiError(
+                413,
+                f"request body too large: {length} bytes exceeds the "
+                f"{MAX_BODY_BYTES}-byte limit",
+            ))
+        raw = self._read_body(length)
         body_params: dict = {}
         if raw:
             ctype = self.headers.get("Content-Type", "")
