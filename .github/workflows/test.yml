@@ -58,12 +58,12 @@ jobs:
                               continue
                           if node.module:
                               m = node.module.split('.')[0]
-                              if m and m not in stdlib and not m.startswith('hipaasynth') and m not in ('__future__', 'fhir'):
+                              if m and m not in stdlib and not m.startswith('hipaasynth') and m not in ('__future__', 'fhir', 'pyarrow'):
                                   external.append((path, m))
                       elif isinstance(node, ast.Import):
                           for a in node.names:
                               m = a.name.split('.')[0]
-                              if m and m not in stdlib and not m.startswith('hipaasynth') and m not in ('__future__', 'fhir'):
+                              if m and m not in stdlib and not m.startswith('hipaasynth') and m not in ('__future__', 'fhir', 'pyarrow'):
                                   external.append((path, m))
           if external:
               print('EXTERNAL DEPS FOUND:')

@@ -37,6 +37,9 @@ classifiers = [
 
 [project.optional-dependencies]
 fhir = ["fhir.resources>=7.0"]
+# Optional Parquet export (hipaasynth.exporters.export_parquet). The engine core
+# stays pure-Python/standard-library; pyarrow is pulled in only for this feature.
+parquet = ["pyarrow>=14.0"]
 seismometer = [
     "seismometer>=0.5",
     "pandas>=2.0",
