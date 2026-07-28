@@ -26,6 +26,51 @@ real embedded warehouse (DuckDB), a cloud-warehouse schema/load-SQL generator
 (BigQuery), and a container image for the REST API. Each change is additive and
 gated on a fails-before / passes-after test.
 
+## Step 11 — Docker packaging for the REST API (`Dockerfile`, `docker-compose.yml`)
+
+**What.** A `Dockerfile` (and `.dockerignore` + a minimal `docker-compose.yml`)
+that installs the package and runs the REST API as the container entrypoint:
+  - `FROM python:3.11-slim`; copies `pyproject.toml`/`README.md`/`LICENSE.md` +
+    `hipaasynth/` and runs `pip install --no-cache-dir .` (hatchling build).
+  - Runs as a **non-root** user (`appuser`, uid 10001) — it's a network-facing
+    service — `EXPOSE 8000`, a stdlib-only `HEALTHCHECK` hitting `/health`, and
+    `ENTRYPOINT python -m hipaasynth.api` / `CMD --host 0.0.0.0 --port 8000`.
+  - `docker-compose.yml`: one `api` service, `build: .`, `8000:8000`, `restart:
+    unless-stopped`, and a tunable `--max-count` via `${HIPAASYNTH_MAX_COUNT}`.
+  - `.dockerignore` keeps the context/image small (drops `.git`, `tests/`,
+    `docs/`, caches, `*.duckdb`) while keeping the `README.md`/`LICENSE.md` the
+    build needs.
+
+**Why.** Roadmap Tier 3 step 3 — a deployable artifact for the REST API. Core-only
+install keeps the image lean and stdlib-true; the `format=parquet` path returns a
+clean 400 telling the caller to add the `[parquet]` extra (documented inline).
+
+**Dependency decision.** None — the image installs only the stdlib-only core; no
+optional extra is baked in by default.
+
+**How verified — Dockerfile written; `docker` daemon UNAVAILABLE in this sandbox,
+so NOT verified with a real `docker build`/`docker run`.** `docker build` here fails
+with `failed to connect to the docker API at unix:///var/run/docker.sock … daemon`
+(the CLI exists, the daemon does not). The Dockerfile's real logic was instead
+verified by a **shell dry-run that executes the same steps**: staged the exact COPY
+set, created a clean virtualenv (stand-in for `python:3.11-slim`), ran the
+Dockerfile's `pip install .` (→ `Successfully installed hipaasynth-1.3.0`, console
+script present), then ran the exact ENTRYPOINT+CMD (`python -m hipaasynth.api --host
+0.0.0.0 --port 8000`) and confirmed the **verbatim HEALTHCHECK command returns exit
+0**, `GET /health` → `{"status":"ok",…}`, and `GET /generate?...` → 200.
+Additionally, `tests/test_docker.py` (9 tests) statically guards the artifacts:
+base image, package-install step, EXPOSE/ENTRYPOINT/CMD, non-root ordering,
+healthcheck endpoint, `.dockerignore` rules, compose build/port/YAML validity, and
+port consistency across all three files.
+
+**Known limitations (stated plainly).** The image was **never actually built or
+run** (no Docker daemon here) — a human should run `docker build`/`docker run`
+before relying on it. No multi-stage slimming, no pinned base-image digest, no TLS/
+auth (deploy behind a reverse proxy). **Helm/Kubernetes is deferred** (Tier 3 step
+4): not built, as it can't be tested without a cluster.
+
+---
+
 ## Step 10 — BigQuery connector, schema/query text only (`hipaasynth/connectors/bigquery.py`)
 
 **What.** A **schema/query-level** BigQuery connector that generates, from the

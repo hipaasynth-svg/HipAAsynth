@@ -1,0 +1,23 @@
+# Keep the build context (and image) small and reproducible.
+.git
+.github
+tests
+examples
+docs
+*.md
+!README.md
+!LICENSE.md
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+coverage.xml
+*.duckdb
+build
+dist
+*.egg-info
+.venv
+venv
+.gitnexus
+.claude
