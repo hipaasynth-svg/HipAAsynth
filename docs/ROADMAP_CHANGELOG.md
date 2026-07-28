@@ -20,6 +20,53 @@ explicitly below.
 New network- and developer-facing surfaces built on the Tier 1 exporters. Each
 change is additive and gated on a fails-before / passes-after test.
 
+## Step 8 — Python SDK facade (`hipaasynth/sdk.py`) + notebook example
+
+**What.** A new high-level facade for notebooks/scripts (no naming collision —
+there was no `sdk.py`/`Cohort`/`generate` before):
+  - `hipaasynth.generate(count=, seed=, module=, profile=, ...) -> Cohort` — one
+    call, no argparse, no `GenerationConfig` assembly. `module` is one of
+    `sepsis|stroke|dka|fabry`; `profile` accepts a bundled name **or** a path
+    (the SDK is trusted local code).
+  - `Cohort` — iterable/indexable over its patients, with return-**or**-write
+    exporters: `to_json`, `to_csv`, `to_fhir_bundle`, `to_ndjson`, `to_omop`,
+    `to_parquet` (each returns the data when called with no path, or writes a file
+    and returns the path), plus `fhir_resources()`, `fhir_bundle()`, `summary()`,
+    and `validate()` (the structural FHIR validator).
+  - Re-exported at the package root: `import hipaasynth; hipaasynth.generate(...)`.
+  - `examples/sdk_quickstart.py` — a **jupytext "percent" notebook** (`# %%`
+    cells, Jupyter/VS Code/Colab-compatible) that also runs as a plain script,
+    walking generate → export (all formats) → validate.
+
+**Shared module map (no drift).** The canonical decision-module map lives in the
+SDK (`MODULES`); `hipaasynth/api.py` now imports it (`MODULE_TO_CONDITION` is
+`sdk.MODULES`), so the CLI-less SDK and the REST API can't disagree about which
+modules exist. Asserted by `test_api_uses_sdk_module_map`.
+
+**Why.** Roadmap Tier 2 step 3: before this, "use HipAAsynth from a notebook" meant
+hand-assembling a `GenerationConfig` and calling `generate_patients` +
+individual file-writing exporters. The SDK makes the common path a few lines.
+
+**Dependency decision.** None added — the SDK is stdlib-only and reuses the
+existing exporters; `to_parquet` inherits the lazy `[parquet]` optional extra.
+
+**How verified.** `tests/test_sdk.py` (15 tests): size/determinism, top-level
+re-export, module selection (valid + `ValueError` on unknown), every exporter in
+both return-data and write-file modes, `validate()` clean on a generated cohort,
+bundled-profile selection + unknown-profile `ValueError`, and a **runpy smoke test
+that executes `examples/sdk_quickstart.py` end-to-end**. The example was also run by
+hand: 25-patient stroke cohort → JSON/CSV/FHIR-bundle/NDJSON/OMOP/Parquet written →
+`FHIR structural validation: PASS (311 resources)`. Full suite green (322 passed,
+1 skipped). **Not done here:** running inside a real Jupyter/Colab kernel (no
+notebook runtime in this sandbox) — the script is import/exec-verified and
+jupytext-formatted; a human should open it in a live kernel to confirm the
+cell-by-cell UX.
+
+**Known limitations.** `profile` path support is intentionally SDK-only (the REST
+API restricts to bundled names); the example writes to a system temp dir.
+
+---
+
 ## Step 7 — REST API for on-demand generation (`hipaasynth/api.py`)
 
 **What.** A new `hipaasynth/api.py` — the project's first network-facing surface —

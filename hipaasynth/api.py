@@ -72,14 +72,7 @@ from hipaasynth.exporters.exporters import (
 )
 from hipaasynth.exporters.omop import build_cdm_tables
 from hipaasynth.pipelines.population_pipeline import generate_patients
-
-# Decision module -> GenerationConfig.required_condition (None == default sepsis).
-MODULE_TO_CONDITION = {
-    "sepsis": None,
-    "stroke": "stroke",
-    "dka": "dka",
-    "fabry": "fabry",
-}
+from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module map
 # Response formats the API can serialize to a single HTTP response.
 API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
 # Network safety: cap on-demand cohort size unless the operator raises it.
