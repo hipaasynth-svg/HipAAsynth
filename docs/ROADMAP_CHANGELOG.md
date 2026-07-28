@@ -21,6 +21,40 @@ Six defects found in review of the Tier 1 exporters, each fixed with a
 fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
 note above).
 
+## Tier 2 review fix 3 — OMOP `condition_status_concept_id` driven by `Condition.active`
+
+**What.** `hipaasynth/exporters/omop.py`: new `_CONDITION_STATUS_CONCEPT` lookup
+(keyed by `active: True/False`) and `_condition_status()` helper (mirrors
+`_gender_concept_id`). The condition row's `condition_status_concept_id` and
+`condition_status_source_value` are now populated from `cond.active` instead of
+being hardcoded to `0`/`""`.
+
+**Why.** `Condition.active` already drives the FHIR `clinicalStatus` coding, but
+the OMOP condition row threw the information away (`condition_status_concept_id`
+was always `_NO_CONCEPT`).
+
+**⚠️ Dependency/validation note — UNVALIDATED concept_ids (flagged, same as the
+rest of this map).** OMOP's dedicated *Condition Status* vocabulary encodes
+diagnosis **position** (primary/secondary/admission/discharge), **not**
+active/inactive — the active/inactive distinction is a SNOMED clinical-status
+concept. The two ids used (`4230911` active, `4033240` inactive) are **best-effort
+SNOMED clinical-status concepts** and are **not** confirmed against a pinned ATHENA
+release in this sandbox (no ATHENA network here — the whole OMOP map is
+`athena-verified-partial`). The active/inactive **text** is preserved in
+`condition_status_source_value` so a consumer can re-resolve the ids offline. These
+ids are metadata concepts, not clinical concepts, so they are deliberately outside
+the `concept_map.json` drift guard (like `gender_concept_id` and
+`condition_type_concept_id`, which are also standard OMOP concepts not in the map).
+
+**How verified.** `tests/test_omop_cdm54.py::test_condition_status_concept_id_reflects_active`:
+an active vs. inactive condition get **distinct, non-zero** ids and the matching
+`"active"`/`"inactive"` source_value. Fails before the change (`assert 0 != 0`,
+verified by stashing the source), passes after. Full suite green. *What is
+verified is the behavior (driven by `active`, distinct, non-zero, correct source
+text) — not the exact concept_ids, which need ATHENA confirmation.*
+
+---
+
 ## Tier 2 review fix 2 — CLI entry point `fhir_validate.main()` now under test
 
 **What.** `tests/test_fhir_validate.py` gains four tests that exercise the CLI

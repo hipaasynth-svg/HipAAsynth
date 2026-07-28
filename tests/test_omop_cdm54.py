@@ -26,7 +26,7 @@ import dataclasses
 import pytest
 
 from hipaasynth.core.config import GenerationConfig
-from hipaasynth.core.schema import Medication
+from hipaasynth.core.schema import Condition, Medication
 from hipaasynth.exporters.omop import build_cdm_tables, export_omop
 from hipaasynth.pipelines.population_pipeline import generate_patients
 from hipaasynth.vocabulary import terms_for_concept_id
@@ -129,6 +129,32 @@ def test_person_preserves_source_race_ethnicity(patients):
     src = {p.demographics.patient_id: p.demographics.ethnicity for p in patients}
     for row in tables["person"]:
         assert row["race_source_value"] == src[row["person_source_value"]]
+
+
+def test_condition_status_concept_id_reflects_active(patients):
+    """condition_status_concept_id must be driven by Condition.active, not a
+    hardcoded 0. An active vs. inactive condition get distinct, non-zero ids and
+    the corresponding source_value.
+    """
+    p = dataclasses.replace(
+        patients[0],
+        conditions=[
+            Condition(name="type_2_diabetes", onset_age=50, active=True),
+            Condition(name="type_2_diabetes", onset_age=50, active=False),
+        ],
+    )
+    tables = build_cdm_tables([p])
+    rows = tables["condition_occurrence"]
+    assert len(rows) == 2
+    active_row, inactive_row = rows[0], rows[1]
+    # Non-zero and distinct.
+    assert active_row["condition_status_concept_id"] != 0
+    assert inactive_row["condition_status_concept_id"] != 0
+    assert (active_row["condition_status_concept_id"]
+            != inactive_row["condition_status_concept_id"])
+    # Source values carry the human-readable status for offline re-resolution.
+    assert active_row["condition_status_source_value"] == "active"
+    assert inactive_row["condition_status_source_value"] == "inactive"
 
 
 def test_no_concept_id_drift_from_vocabulary(patients):
