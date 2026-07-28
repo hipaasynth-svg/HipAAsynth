@@ -21,6 +21,30 @@ Six defects found in review of the Tier 1 exporters, each fixed with a
 fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
 note above).
 
+## Tier 2 review fix 2 — CLI entry point `fhir_validate.main()` now under test
+
+**What.** `tests/test_fhir_validate.py` gains four tests that exercise the CLI
+entry point directly: `main(["--bundle", path])` on a clean cohort (exit 0), on a
+structurally broken Bundle (exit 1), with `--json report.json` (asserts the report
+file is written and carries the `total_resources`/`error_count`/`ok`/`errors`/
+`disclaimer` keys), and `main(["--ndjson-dir", dir])` on a real bulk-export
+directory (exit 0).
+
+**Why.** The Step-3 tests only called the library functions; `main()` — argument
+parsing, Bundle-vs-NDJSON dispatch, JSON-report writing, exit codes — had **zero**
+coverage, so a regression to the CLI would pass CI. This is added coverage, not a
+behavior change (the CLI already worked when run by hand).
+
+**How verified.** New tests pass; the broken-Bundle test asserts a non-zero exit,
+proving `main()` actually surfaces validation failures (not a vacuous exit-0). Full
+suite green.
+
+**Known limitations.** Exercises the in-process `main(argv)` path; does not spawn a
+subprocess, so it doesn't cover `__main__`/`SystemExit` shell wiring (that line is
+a one-liner `raise SystemExit(main())`).
+
+---
+
 ## Tier 2 review fix 1 — validator now checks all emitted CodeableConcept fields
 
 **What.** `hipaasynth/exporters/fhir_validate.py`: `_CODEABLE_CONCEPT_FIELDS` now
