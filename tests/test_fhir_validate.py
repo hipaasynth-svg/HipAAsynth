@@ -28,7 +28,9 @@ import pytest
 from hipaasynth.core.config import GenerationConfig
 from hipaasynth.core.schema import Medication
 from hipaasynth.exporters.exporters import _patient_to_fhir, export_fhir
+from hipaasynth.exporters.exporters import export_fhir_ndjson
 from hipaasynth.exporters.fhir_validate import (
+    main as fhir_validate_main,
     validate_bundle,
     validate_resource,
     validate_resources,
@@ -77,6 +79,59 @@ def test_codeable_concept_without_coding_or_text_is_flagged():
     assert any("code" in e.lower() for e in errors)
 
 
+def test_broken_condition_clinical_status_is_flagged():
+    """Condition.clinicalStatus is a CodeableConcept — an empty one is an error.
+
+    Previously unchecked: clinicalStatus was not in _CODEABLE_CONCEPT_FIELDS, so
+    an empty {} sailed through.
+    """
+    bad = {"resourceType": "Condition", "id": "c",
+           "subject": {"reference": "urn:uuid:p"},
+           "code": {"text": "asthma"},
+           "clinicalStatus": {}}
+    errors = validate_resource(bad)
+    assert any("clinicalStatus" in e for e in errors), errors
+
+
+def test_broken_condition_verification_status_is_flagged():
+    """verificationStatus.coding missing a code must be flagged."""
+    bad = {"resourceType": "Condition", "id": "c",
+           "subject": {"reference": "urn:uuid:p"},
+           "code": {"text": "asthma"},
+           "verificationStatus": {"coding": [{"system": "http://x"}]}}  # no code
+    errors = validate_resource(bad)
+    assert any("verificationStatus" in e and "code" in e for e in errors), errors
+
+
+def test_broken_encounter_class_is_flagged():
+    """Encounter.class is a *list* of CodeableConcept — a coding missing its
+    code must be flagged (list-at-path handling)."""
+    bad = {"resourceType": "Encounter", "id": "e", "status": "completed",
+           "class": [{"coding": [{"system": "http://x"}]}],  # missing code
+           "type": [{"text": "ambulatory"}]}
+    errors = validate_resource(bad)
+    assert any("class" in e and "code" in e for e in errors), errors
+
+
+def test_broken_encounter_type_is_flagged():
+    """Encounter.type (list of CodeableConcept): an element with neither coding
+    nor text is an error."""
+    bad = {"resourceType": "Encounter", "id": "e", "status": "completed",
+           "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
+           "type": [{}]}  # neither coding nor text
+    errors = validate_resource(bad)
+    assert any("type" in e for e in errors), errors
+
+
+def test_valid_encounter_class_and_type_pass():
+    """A well-formed Encounter (class coding + text-only type) must not error —
+    guards against false positives from the new list handling."""
+    good = {"resourceType": "Encounter", "id": "e", "status": "completed",
+            "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
+            "type": [{"text": "ambulatory"}]}
+    assert validate_resource(good) == []
+
+
 def test_dangling_reference_is_flagged(patients):
     """Referential integrity: a reference to an absent resource is an error."""
     resources = []
@@ -96,4 +151,71 @@ def test_validate_bundle_accepts_exported_bundle(patients, tmp_path):
     export_fhir(patients, str(path))
     bundle = json.loads(path.read_text())
     report = validate_bundle(bundle)
+    assert report.ok, report.errors
+
+
+def test_cli_main_bundle_returns_zero_for_clean_cohort(patients, tmp_path):
+    """The CLI entry point (main) exits 0 on a clean exported Bundle."""
+    path = tmp_path / "bundle.json"
+    export_fhir(patients, str(path))
+    assert fhir_validate_main(["--bundle", str(path)]) == 0
+
+
+def test_cli_main_bundle_returns_one_for_broken_bundle(tmp_path):
+    """main() exits 1 when the Bundle has a structural error."""
+    import json
+    bad_bundle = {
+        "resourceType": "Bundle", "id": "b", "type": "collection",
+        "entry": [{"resource": {"resourceType": "Observation", "id": "o",
+                                 "status": "final"}}],  # missing required 'code'
+    }
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps(bad_bundle))
+    assert fhir_validate_main(["--bundle", str(path)]) == 1
+
+
+def test_cli_main_writes_json_report(patients, tmp_path):
+    """main(--json ...) writes a JSON report file with the expected keys."""
+    import json
+    path = tmp_path / "bundle.json"
+    export_fhir(patients, str(path))
+    report_path = tmp_path / "report.json"
+    rc = fhir_validate_main(["--bundle", str(path), "--json", str(report_path)])
+    assert rc == 0
+    assert report_path.exists()
+    report = json.loads(report_path.read_text())
+    for key in ("total_resources", "error_count", "ok", "errors", "disclaimer"):
+        assert key in report
+    assert report["ok"] is True
+    assert report["error_count"] == 0
+
+
+def test_cli_main_ndjson_dir(patients, tmp_path):
+    """main(--ndjson-dir ...) validates a bulk-export directory and exits 0."""
+    out_dir = tmp_path / "ndjson"
+    export_fhir_ndjson(patients, str(out_dir))
+    assert fhir_validate_main(["--ndjson-dir", str(out_dir)]) == 0
+
+
+def test_validator_functions_reexported_from_package(patients):
+    """The validator's public API is reachable via `from hipaasynth.exporters
+    import ...`, consistent with every other exporter (export_csv, export_fhir,
+    build_cdm_tables, ...)."""
+    from hipaasynth.exporters import (
+        FhirValidationReport,
+        validate_bundle,
+        validate_ndjson_dir,
+        validate_resource,
+        validate_resources,
+    )
+    # And they are the same objects as the submodule's (not shadow copies).
+    from hipaasynth.exporters import fhir_validate as _mod
+    assert validate_resource is _mod.validate_resource
+    assert validate_bundle is _mod.validate_bundle
+    # Smoke: the re-exported function actually works.
+    resources = []
+    for pt in patients:
+        resources.extend(_patient_to_fhir(pt))
+    report = validate_resources(resources)
+    assert isinstance(report, FhirValidationReport)
     assert report.ok, report.errors

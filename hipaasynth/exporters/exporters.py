@@ -468,7 +468,9 @@ def _patient_to_fhir(patient):
                 }
             ],
             "subject": {"reference": f"urn:uuid:{patient_uuid}"},
-            "actualPeriod": {"start": visit.visit_date},
+            # Same-day-visit assumption: end == start, mirroring the OMOP exporter,
+            # which sets visit_end_date = visit_start_date for the same reason.
+            "actualPeriod": {"start": visit.visit_date, "end": visit.visit_date},
             "type": [{"text": str(visit.visit_type)}],
         }
         if visit.primary_diagnosis:

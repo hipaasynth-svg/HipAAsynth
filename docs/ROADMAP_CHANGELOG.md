@@ -1,12 +1,375 @@
 # Interoperability Roadmap — Change Log
 
-Running log of the FHIR + OMOP interoperability work (Tier 1). One entry per
-change: **what** was added/changed, **why** (which roadmap gap it closes), **how**
-it was verified, and **known limitations**. Newest entries first.
+Running log of the FHIR + OMOP interoperability work (Tier 1 + Tier 2). One entry
+per change: **what** was added/changed, **why** (which roadmap gap it closes),
+**how** it was verified, and **known limitations**. Newest entries first.
 
 The engine core stays pure-Python / standard-library. Optional interoperability
 extras (e.g. Parquet) are gated behind `pip install hipaasynth[...]` and flagged
 explicitly below.
+
+> **Base branch note (Tier 2).** Tier 1 (PR #81) was still an *open draft* — not
+> merged into `main` — when Tier 2 began, so the Tier-2 branch is stacked directly
+> on the Tier-1 branch. Until #81 merges, the Tier-2 PR diff includes the Tier-1
+> commits; it targets `main` and collapses to Tier-2-only once #81 lands.
+
+---
+
+# Tier 2 — new capabilities (CLI, REST API, SDK)
+
+New network- and developer-facing surfaces built on the Tier 1 exporters. Each
+change is additive and gated on a fails-before / passes-after test.
+
+**Deferred (roadmap step 4): webhooks / push streaming.** Not built — flagged for a
+later tier rather than speculatively added. The one place streaming was genuinely
+warranted, large-cohort responses, is covered by the REST API's chunked NDJSON
+endpoint (Step 7); a webhook/callback or server-push (SSE/WebSocket) delivery model
+has no consumer yet, so it is deliberately left out.
+
+## Step 7 hardening — REST API bounds the POST body (forged `Content-Length` DoS)
+
+**What.** `hipaasynth/api.py`: `do_POST` no longer trusts the client's
+`Content-Length`. New `MAX_BODY_BYTES = 1_000_000` constant (a `/generate` JSON
+body — `{count, seed, module, profile, format}` — is well under a kilobyte, so
+1 MB is already absurdly generous). `do_POST` now rejects any `Content-Length`
+over `MAX_BODY_BYTES` with a **`413`** *before* reading or allocating toward it,
+and reads the body via a new `_read_body()` that pulls fixed 64 KiB chunks and
+stops at `min(Content-Length, MAX_BODY_BYTES)` — so neither a forged huge header
+nor a small header followed by a longer stream can push the server past the cap.
+
+**Why (real crash, not hypothetical).** The old line
+`raw = self.rfile.read(length)` handed the trusted header straight to a sized read.
+A `POST /generate` with `Content-Length: 999999999999` made CPython pre-allocate a
+~1 TB bytes buffer and killed the handler thread with **`MemoryError`** — while
+every *value* param (`count`/`seed`/`format`/`module`/`profile`) was already
+carefully validated. This closes that gap: the request framing is now bounded like
+everything else.
+
+**How verified — reproduced exactly as the bug was found (raw socket, not urllib,
+which always sends a truthful length).** `tests/test_api.py` adds three raw-socket
+tests: a forged `Content-Length: 999999999999` now returns a clean **413** (and a
+follow-up `GET /health` confirms the server is still alive — no downed thread); a
+`Content-Length` of `MAX_BODY_BYTES + 1` returns 413; and a legitimately-sized body
+still returns 200. Fails-before proof: with the fix surgically reverted, the forged
+test fails with `MemoryError` at `self.rfile.read(length)` in the server thread and
+no response — the exact reported crash. Full suite green (**325 passed, 1 skipped**).
+
+**Known limitations.** `MAX_BODY_BYTES` is a fixed constant (not operator-tunable
+like `--max-count`); the 1 MB ceiling is far above any legitimate `/generate` body,
+so this wasn't parameterized.
+
+## Step 8 — Python SDK facade (`hipaasynth/sdk.py`) + notebook example
+
+**What.** A new high-level facade for notebooks/scripts (no naming collision —
+there was no `sdk.py`/`Cohort`/`generate` before):
+  - `hipaasynth.generate(count=, seed=, module=, profile=, ...) -> Cohort` — one
+    call, no argparse, no `GenerationConfig` assembly. `module` is one of
+    `sepsis|stroke|dka|fabry`; `profile` accepts a bundled name **or** a path
+    (the SDK is trusted local code).
+  - `Cohort` — iterable/indexable over its patients, with return-**or**-write
+    exporters: `to_json`, `to_csv`, `to_fhir_bundle`, `to_ndjson`, `to_omop`,
+    `to_parquet` (each returns the data when called with no path, or writes a file
+    and returns the path), plus `fhir_resources()`, `fhir_bundle()`, `summary()`,
+    and `validate()` (the structural FHIR validator).
+  - Re-exported at the package root: `import hipaasynth; hipaasynth.generate(...)`.
+  - `examples/sdk_quickstart.py` — a **jupytext "percent" notebook** (`# %%`
+    cells, Jupyter/VS Code/Colab-compatible) that also runs as a plain script,
+    walking generate → export (all formats) → validate.
+
+**Shared module map (no drift).** The canonical decision-module map lives in the
+SDK (`MODULES`); `hipaasynth/api.py` now imports it (`MODULE_TO_CONDITION` is
+`sdk.MODULES`), so the CLI-less SDK and the REST API can't disagree about which
+modules exist. Asserted by `test_api_uses_sdk_module_map`.
+
+**Why.** Roadmap Tier 2 step 3: before this, "use HipAAsynth from a notebook" meant
+hand-assembling a `GenerationConfig` and calling `generate_patients` +
+individual file-writing exporters. The SDK makes the common path a few lines.
+
+**Dependency decision.** None added — the SDK is stdlib-only and reuses the
+existing exporters; `to_parquet` inherits the lazy `[parquet]` optional extra.
+
+**How verified.** `tests/test_sdk.py` (15 tests): size/determinism, top-level
+re-export, module selection (valid + `ValueError` on unknown), every exporter in
+both return-data and write-file modes, `validate()` clean on a generated cohort,
+bundled-profile selection + unknown-profile `ValueError`, and a **runpy smoke test
+that executes `examples/sdk_quickstart.py` end-to-end**. The example was also run by
+hand: 25-patient stroke cohort → JSON/CSV/FHIR-bundle/NDJSON/OMOP/Parquet written →
+`FHIR structural validation: PASS (311 resources)`. Full suite green (322 passed,
+1 skipped). **Not done here:** running inside a real Jupyter/Colab kernel (no
+notebook runtime in this sandbox) — the script is import/exec-verified and
+jupytext-formatted; a human should open it in a live kernel to confirm the
+cell-by-cell UX.
+
+**Known limitations.** `profile` path support is intentionally SDK-only (the REST
+API restricts to bundled names); the example writes to a system temp dir.
+
+---
+
+## Step 7 — REST API for on-demand generation (`hipaasynth/api.py`)
+
+**What.** A new `hipaasynth/api.py` — the project's first network-facing surface —
+serving on-demand cohort generation:
+  - `GET /health` → liveness + engine version.
+  - `GET /formats` → supported formats, decision modules, bundled profile names,
+    and the server's `max_count`.
+  - `GET|POST /generate` → generate a cohort and return it in an existing export
+    format. Params (query string or JSON body): `count`, `seed`, `module`
+    (`sepsis|stroke|dka|fabry`), `profile` (a **bundled** profile name), `format`
+    (`json|csv|fhir-bundle|ndjson|omop|parquet`).
+  - `make_server(host, port, max_count)` (bind `port=0` for an ephemeral test
+    port) and `main()` (`python -m hipaasynth.api --host --port --max-count`).
+
+**Framework decision — flagged (the Tier-1-style dependency callout).** Built on
+the **standard library** `http.server` (`ThreadingHTTPServer`) — **zero new
+dependencies** — to preserve the "stdlib-only core" value. A microframework
+(Flask/FastAPI) would give nicer routing/validation but adds a hard runtime
+dependency for a small, well-scoped API. If the surface grows, add a microframework
+as an **optional extra** (the pyarrow pattern), not a core dep. *(The `[parquet]`
+extra is the only optional dependency reachable here, via `format=parquet`, and it
+is delegated to `export_parquet` — `api.py` itself imports nothing outside the
+stdlib, verified by the CI zero-dep check, which in fact caught an accidental
+`import pyarrow` in an early draft of this file.)*
+
+**Input validation / error responses (this is a network surface, so it doesn't get
+skipped).** `parse_generate_request()` rejects: non-integer or out-of-range
+`count` (1..`max_count`, default cap 10 000) and `seed` (0..2³²−1); unknown
+`format`, `module`, or `profile`. Unknown routes → `404`; wrong method → `405` with
+an `Allow` header; malformed JSON body → `400`. Every error is a JSON
+`{"error", "status"}` body. `profile` is restricted to **bundled** names — a
+network client cannot supply an arbitrary filesystem path.
+
+**Streaming.** `format=ndjson` is streamed with HTTP **chunked** transfer
+(`_stream_ndjson`), so a large cohort's FHIR resources are written to the socket as
+they are produced rather than buffered whole. Per the roadmap's step-4 guidance,
+this is the one place streaming was genuinely warranted; no speculative
+webhook/streaming machinery was added.
+
+**Why.** Roadmap Tier 2 step 2: there was no REST API / on-demand generation — the
+only way to produce a cohort was the CLI or importing the package.
+
+**How verified — no live external deployment in this sandbox, stated plainly.**
+`tests/test_api.py` (26 tests) starts the **real** server in a background thread on
+an ephemeral port and drives it over an **actual localhost socket** with `urllib`:
+health/discovery, every format (JSON/CSV/FHIR-bundle/OMOP/NDJSON/Parquet),
+determinism (same seed → byte-identical), module + bundled-profile selection, POST
+JSON body, and the full validation matrix (400/404/405). Additionally smoke-tested
+by hand: `python -m hipaasynth.api --port 8765` then `curl /health`,
+`curl '/generate?count=2&format=fhir-bundle'`, and 400s for `count=abc` /
+`count=99999`. **Not done here:** deploying behind a real WSGI/ASGI server, TLS,
+auth, and load — see "needs a live environment" in the Tier 2 report.
+
+**Known limitations.** Single-process dev server (`ThreadingHTTPServer`); no
+auth/rate-limiting/TLS (deploy behind a reverse proxy for anything real); `omop` is
+returned as a JSON object of tables (not a multi-file CSV bundle); `count` is capped
+to protect the process.
+
+---
+
+## Step 6 — CLI polish + real `hipaasynth` entry point
+
+**What.**
+  - `pyproject.toml` now declares `[project.scripts] hipaasynth =
+    "hipaasynth.run.main:main"`, so `pip install -e .` yields a real `hipaasynth`
+    console command (there was **no** installable entry point before).
+  - `hipaasynth/run/main.py` gains two additive flags:
+    - `--format {json,csv,fhir-bundle,ndjson,parquet,omop}` (one or more) — exposes
+      every Tier 1 export format from the CLI. Written to deterministic paths under
+      `--out` (`cohort.json`, `cohort.csv`, `cohort_fhir.json`,
+      `cohort_fhir_ndjson/`, `cohort.parquet`, `omop_cdm/`).
+    - `--validate` — runs the Step-3 structural FHIR validator over the generated
+      cohort (the written bundle/NDJSON if one was exported, else in-memory FHIR
+      resources) and exits non-zero on structural failure.
+  - `main()` is now `main(argv=None)` and returns an int exit code, so it is both
+    the console-script target and directly testable.
+
+**Backwards compatibility (explicit).** Every pre-Tier-2 flag
+(`--demo --count --seed --out --profile`) is unchanged, and **with no `--format`**
+the CLI writes the exact same JSON + CSV + FHIR-bundle triple to the exact same
+filenames as before — verified by `test_default_run_writes_legacy_triple` and
+`test_legacy_default_flags_still_parse`.
+
+**Why.** Roadmap Tier 2 step 1: there was no installable command, and the Tier 1
+formats (NDJSON/Parquet/OMOP/validator) were unreachable from the CLI.
+
+**Dependency decision.** None added — `--format parquet` reuses the existing lazy
+`pyarrow` import inside `export_parquet` (the `[parquet]` optional extra); the CLI
+itself is stdlib-only (`argparse`).
+
+**How verified.** `tests/test_cli.py` (11 tests): entry-point declaration (fails on
+the pre-Tier-2 `pyproject.toml`), legacy-triple default, each new format writes its
+artifact, multi-format, `--validate` PASS on a clean cohort (both written-artifact
+and in-memory paths), bad-format rejection. Beyond the unit tests, the **real
+installed command** was run: `pip install -e .` then
+`hipaasynth --count 3 --format json ndjson --validate` → exit 0, artifacts written,
+`FHIR validation (written NDJSON export): 41 resources — PASS`. Full suite green
+(281 passed, 1 skipped — the pre-existing pandas-dtype seismometer skip).
+
+**Known limitations.** `--format` writes to fixed filenames under `--out` (no
+per-format path override); the validator remains structural-only (see Step 3).
+
+---
+
+# Tier 2 — review fixes to the Tier 1 FHIR/OMOP work
+
+Six defects found in review of the Tier 1 exporters, each fixed with a
+fails-before / passes-after test. Applied on the Tier-2 branch (see base-branch
+note above).
+
+## Tier 2 review fix 6 — CI zero-dep check scoped to the file that owns the extra
+
+**What.** `.github/workflows/test.yml` "Check zero external dependencies" no longer
+whitelists `pyarrow`/`fhir` by bare module name across the whole `hipaasynth/`
+tree. The exemption is now a per-file allowlist — `EXEMPT = {'hipaasynth/exporters/
+exporters.py': {'pyarrow', 'fhir'}}` — so those optional-extra imports are tolerated
+only in the file that lazily imports them behind a `[project.optional-dependencies]`
+extra. Any external import elsewhere (including an accidental `pyarrow`/`fhir`
+import in another core module) fails the check.
+
+**Why.** The tree-wide whitelist weakened the guardrail meant to keep the rest of
+the core stdlib-only: an accidental `import pyarrow` anywhere would have passed
+silently.
+
+**How verified (item-6 fake-import test, run locally and then removed):**
+  - Clean tree → `Zero external dependencies: PASS` (exit 0).
+  - Temporarily appended `import pyarrow` to `hipaasynth/core/config.py` (an
+    unrelated core file) → check now **FAILS**: `EXTERNAL DEPS FOUND (outside their
+    allowed file): hipaasynth/core/config.py: pyarrow` (exit 1). The **old**
+    tree-wide whitelist would have passed this.
+  - The same import inside the exempt `exporters.py` still PASSES (exemption
+    preserved for the file that owns the extra).
+  - Fake import removed; tree restored → PASS (exit 0); `git status` clean.
+
+**Known limitations.** The allowlist is keyed by exact repo-relative path, so if
+`export_parquet` is ever split into a new module the allowlist must be updated in
+lockstep (intentional — a new file importing an extra should be a conscious
+decision, not silent).
+
+---
+
+## Tier 2 review fix 5 — FHIR `Encounter.actualPeriod` now carries `end`
+
+**What.** `_patient_to_fhir()` in `hipaasynth/exporters/exporters.py` now emits
+`actualPeriod: {"start": visit.visit_date, "end": visit.visit_date}` for each
+Encounter (previously only `start`).
+
+**Why.** The OMOP exporter already sets `visit_end_date = visit_start_date` under
+an explicit same-day-visit assumption; the FHIR Encounter dropped the end entirely,
+so the two exporters disagreed on the same modeled fact.
+
+**How verified.** `tests/test_fhir_interop.py::test_encounter_actual_period_has_end_equal_to_start`
+asserts every Encounter's `actualPeriod["end"] == actualPeriod["start"]`. Fails
+before (`actualPeriod is missing 'end'`, verified by stashing the source), passes
+after. Full suite green.
+
+**Known limitations.** Same-day is a modeling assumption HipAAsynth makes across
+both exporters, not a claim visits are truly zero-length; documented inline.
+
+---
+
+## Tier 2 review fix 4 — validator API re-exported from `hipaasynth.exporters`
+
+**What.** `hipaasynth/exporters/__init__.py` now re-exports `validate_resource`,
+`validate_resources`, `validate_bundle`, `validate_ndjson_dir`, and
+`FhirValidationReport` from `fhir_validate`, and gains an `__all__` covering the
+whole exporter surface.
+
+**Why.** Every other exporter (`export_csv`, `export_fhir`, `export_parquet`,
+`build_cdm_tables`, …) is reachable via `from hipaasynth.exporters import X`; the
+validator functions were only importable from the deep submodule path — an
+inconsistency for callers (and the upcoming SDK/CLI).
+
+**How verified.** `tests/test_fhir_validate.py::test_validator_functions_reexported_from_package`
+imports all five from the package root, asserts they are the *same objects* as the
+submodule's, and smoke-runs `validate_resources`. Fails before (`ImportError`,
+verified by stashing `__init__.py`), passes after. Full suite green.
+
+**Known limitations.** None — pure re-export, no behavior change.
+
+---
+
+## Tier 2 review fix 3 — OMOP `condition_status_concept_id` driven by `Condition.active`
+
+**What.** `hipaasynth/exporters/omop.py`: new `_CONDITION_STATUS_CONCEPT` lookup
+(keyed by `active: True/False`) and `_condition_status()` helper (mirrors
+`_gender_concept_id`). The condition row's `condition_status_concept_id` and
+`condition_status_source_value` are now populated from `cond.active` instead of
+being hardcoded to `0`/`""`.
+
+**Why.** `Condition.active` already drives the FHIR `clinicalStatus` coding, but
+the OMOP condition row threw the information away (`condition_status_concept_id`
+was always `_NO_CONCEPT`).
+
+**⚠️ Dependency/validation note — UNVALIDATED concept_ids (flagged, same as the
+rest of this map).** OMOP's dedicated *Condition Status* vocabulary encodes
+diagnosis **position** (primary/secondary/admission/discharge), **not**
+active/inactive — the active/inactive distinction is a SNOMED clinical-status
+concept. The two ids used (`4230911` active, `4033240` inactive) are **best-effort
+SNOMED clinical-status concepts** and are **not** confirmed against a pinned ATHENA
+release in this sandbox (no ATHENA network here — the whole OMOP map is
+`athena-verified-partial`). The active/inactive **text** is preserved in
+`condition_status_source_value` so a consumer can re-resolve the ids offline. These
+ids are metadata concepts, not clinical concepts, so they are deliberately outside
+the `concept_map.json` drift guard (like `gender_concept_id` and
+`condition_type_concept_id`, which are also standard OMOP concepts not in the map).
+
+**How verified.** `tests/test_omop_cdm54.py::test_condition_status_concept_id_reflects_active`:
+an active vs. inactive condition get **distinct, non-zero** ids and the matching
+`"active"`/`"inactive"` source_value. Fails before the change (`assert 0 != 0`,
+verified by stashing the source), passes after. Full suite green. *What is
+verified is the behavior (driven by `active`, distinct, non-zero, correct source
+text) — not the exact concept_ids, which need ATHENA confirmation.*
+
+---
+
+## Tier 2 review fix 2 — CLI entry point `fhir_validate.main()` now under test
+
+**What.** `tests/test_fhir_validate.py` gains four tests that exercise the CLI
+entry point directly: `main(["--bundle", path])` on a clean cohort (exit 0), on a
+structurally broken Bundle (exit 1), with `--json report.json` (asserts the report
+file is written and carries the `total_resources`/`error_count`/`ok`/`errors`/
+`disclaimer` keys), and `main(["--ndjson-dir", dir])` on a real bulk-export
+directory (exit 0).
+
+**Why.** The Step-3 tests only called the library functions; `main()` — argument
+parsing, Bundle-vs-NDJSON dispatch, JSON-report writing, exit codes — had **zero**
+coverage, so a regression to the CLI would pass CI. This is added coverage, not a
+behavior change (the CLI already worked when run by hand).
+
+**How verified.** New tests pass; the broken-Bundle test asserts a non-zero exit,
+proving `main()` actually surfaces validation failures (not a vacuous exit-0). Full
+suite green.
+
+**Known limitations.** Exercises the in-process `main(argv)` path; does not spawn a
+subprocess, so it doesn't cover `__main__`/`SystemExit` shell wiring (that line is
+a one-liner `raise SystemExit(main())`).
+
+---
+
+## Tier 2 review fix 1 — validator now checks all emitted CodeableConcept fields
+
+**What.** `hipaasynth/exporters/fhir_validate.py`: `_CODEABLE_CONCEPT_FIELDS` now
+also registers `Condition.clinicalStatus`, `Condition.verificationStatus`,
+`Encounter.class`, and `Encounter.type`. Because `Encounter.class`/`.type` are
+0..* **lists** of CodeableConcept (not a single dict), `validate_resource` now
+detects a list at a path and checks each element (existing single-dict paths are
+unchanged). The module docstring and the Step-3 entry above were corrected to
+enumerate exactly which fields are checked.
+
+**Why.** `_patient_to_fhir()` emits those four as CodeableConcept-shaped data, but
+the Step-3 validator never looked at them: an empty `clinicalStatus: {}`, a
+`verificationStatus.coding` missing its `code`, or an `Encounter.class` coding
+missing its `code` all returned `[]` (no error) — false assurance.
+
+**How verified.** `tests/test_fhir_validate.py`: four new broken-input tests
+(`test_broken_condition_clinical_status_is_flagged`,
+`test_broken_condition_verification_status_is_flagged`,
+`test_broken_encounter_class_is_flagged`, `test_broken_encounter_type_is_flagged`)
+plus a false-positive guard (`test_valid_encounter_class_and_type_pass`). The four
+broken-input tests fail on the pre-fix validator (verified by stashing the source:
+all four `AssertionError: []`) and pass after. Full suite green.
+
+**Known limitations.** Still structural-only — unchanged from Step 3 (not a
+substitute for the official HL7 FHIR IG validator).
 
 ---
 
@@ -152,8 +515,17 @@ pure-Python **structural** validator for the exporter's FHIR output:
      `code`; MedicationRequest needs `status`/`intent`/`subject`/`medication`);
   3. value-set membership for bound fields we can check offline (Patient.gender,
      the four resource `status` sets, MedicationRequest.intent);
-  4. `CodeableConcept` fields carry a `coding[]` or `text`, and each coding has a
-     `system` + `code`;
+  4. the `CodeableConcept`-shaped fields the exporter actually emits carry a
+     `coding[]` or `text`, and each coding has a `system` + `code`. **The checked
+     set is explicit** (see `_CODEABLE_CONCEPT_FIELDS`): `Condition.code`,
+     `Condition.clinicalStatus`, `Condition.verificationStatus`, `Observation.code`,
+     `Encounter.class`, `Encounter.type` (the last two are 0..* lists), and
+     `{MedicationStatement,MedicationRequest}.medication.concept`. *(The
+     `clinicalStatus`/`verificationStatus`/`Encounter.class`/`Encounter.type`
+     entries — and list-at-path support — were added in Tier 2 review fix 1; the
+     original Step-3 validator only checked `Condition.code`, `Observation.code`,
+     and the two medication concepts, so the status/class/type fields were emitted
+     but never validated.)*
   5. **referential integrity** — every intra-bundle `urn:uuid:` reference resolves
      to a resource `id` present in the set.
 

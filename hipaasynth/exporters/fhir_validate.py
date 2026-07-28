@@ -26,8 +26,12 @@ It checks, against **FHIR R5** shapes (the dialect the exporter emits):
   * a few value-set-bound fields carry a valid code (Patient.gender,
     Observation.status, Encounter.status, MedicationStatement.status,
     MedicationRequest.status/intent);
-  * ``CodeableConcept`` fields carry at least a ``coding`` or a ``text``, and each
-    ``coding`` carries a ``system`` and ``code``;
+  * the ``CodeableConcept``-shaped fields the exporter emits — ``Condition.code``,
+    ``Condition.clinicalStatus``, ``Condition.verificationStatus``,
+    ``Observation.code``, ``Encounter.class`` and ``Encounter.type`` (each 0..*),
+    and ``{MedicationStatement,MedicationRequest}.medication.concept`` — carry at
+    least a ``coding`` or a ``text``, and each ``coding`` carries a ``system`` and
+    ``code``;
   * **referential integrity**: every intra-bundle ``urn:uuid:`` reference resolves
     to a resource present in the same set.
 
@@ -95,10 +99,13 @@ _MEDREQUEST_INTENT = {
 }
 
 # CodeableConcept-typed fields to check per resource type. Nested paths use a
-# tuple of keys (e.g. medication.concept).
+# tuple of keys (e.g. medication.concept). A path may resolve to a single
+# CodeableConcept dict *or* to a list of them (e.g. Encounter.class / .type are
+# 0..* in FHIR R5); :func:`validate_resource` handles both shapes.
 _CODEABLE_CONCEPT_FIELDS = {
-    "Condition": (("code",),),
+    "Condition": (("code",), ("clinicalStatus",), ("verificationStatus",)),
     "Observation": (("code",),),
+    "Encounter": (("class",), ("type",)),
     "MedicationStatement": (("medication", "concept"),),
     "MedicationRequest": (("medication", "concept"),),
 }
@@ -216,8 +223,15 @@ def validate_resource(resource: dict) -> list[str]:
 
     for path in _CODEABLE_CONCEPT_FIELDS.get(rtype, ()):  # CodeableConcept shape
         cc = _get_path(resource, path)
-        if cc is not None:
-            errors.extend(_check_codeable_concept(cc, ".".join(path)))
+        if cc is None:
+            continue
+        label = ".".join(path)
+        if isinstance(cc, list):
+            # 0..* CodeableConcept (e.g. Encounter.class / .type): check each.
+            for idx, element in enumerate(cc):
+                errors.extend(_check_codeable_concept(element, f"{label}[{idx}]"))
+        else:
+            errors.extend(_check_codeable_concept(cc, label))
 
     errors.extend(_check_value_sets(resource, rtype))
     return errors

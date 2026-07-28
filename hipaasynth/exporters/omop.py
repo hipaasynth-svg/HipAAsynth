@@ -66,6 +66,33 @@ _GENDER_CONCEPT = {
 }
 # OMOP "no matching concept".
 _NO_CONCEPT = 0
+
+# OMOP condition status, driven by HipAAsynth's Condition.active (bool) — the same
+# field the FHIR exporter turns into a clinicalStatus coding (active/inactive).
+# Each entry is (condition_status_concept_id, condition_status_source_value).
+#
+# ⚠️ UNVALIDATED — same convention as the rest of this map (see module docstring):
+# these standard concept_ids are **best-effort SNOMED clinical-status concepts**
+# and MUST be confirmed against a pinned ATHENA release before production use. The
+# active/inactive text is preserved in condition_status_source_value so a consumer
+# can re-resolve them offline. Note: OMOP's dedicated "Condition Status" vocabulary
+# encodes diagnosis *position* (primary/secondary/admission/discharge), NOT
+# active/inactive; the active/inactive distinction lives in SNOMED clinical-status,
+# which is what is used here.
+_CONDITION_STATUS_CONCEPT = {
+    True: (4230911, "active"),    # SNOMED clinical-status "Active" (best-effort)
+    False: (4033240, "inactive"),  # SNOMED clinical-status "Inactive" (best-effort)
+}
+
+
+def _condition_status(active) -> tuple:
+    """Return (condition_status_concept_id, source_value) for a Condition.active.
+
+    Mirrors :func:`_gender_concept_id`: a small closed lookup from a modeled field
+    to a standard OMOP concept. Falls back to (0, "") for an unknown/None value.
+    """
+    return _CONDITION_STATUS_CONCEPT.get(bool(active), (_NO_CONCEPT, "")) \
+        if active is not None else (_NO_CONCEPT, "")
 # Type concept: "EHR" (32817) — records the provenance of the row. Synthetic
 # data stands in for EHR-sourced records for tooling purposes. Also used as the
 # OBSERVATION_PERIOD period_type_concept_id ("Period covering healthcare
@@ -271,6 +298,9 @@ def build_cdm_tables(patients):
         for cond in patient.conditions:
             condition_seq += 1
             mapping = lookup_condition(cond.name)
+            status_concept_id, status_source_value = _condition_status(
+                getattr(cond, "active", None)
+            )
             condition_rows.append({
                 "condition_occurrence_id": condition_seq,
                 "person_id": person_id,
@@ -280,14 +310,14 @@ def build_cdm_tables(patients):
                 "condition_end_date": "",
                 "condition_end_datetime": "",
                 "condition_type_concept_id": _TYPE_CONCEPT_EHR,
-                "condition_status_concept_id": _NO_CONCEPT,
+                "condition_status_concept_id": status_concept_id,
                 "stop_reason": "",
                 "provider_id": "",
                 "visit_occurrence_id": first_visit_id,
                 "visit_detail_id": "",
                 "condition_source_value": cond.name,
                 "condition_source_concept_id": _NO_CONCEPT,
-                "condition_status_source_value": "",
+                "condition_status_source_value": status_source_value,
             })
 
         # DRUG_EXPOSURE. Medications live on the Patient (schema 1.1.0+); older
