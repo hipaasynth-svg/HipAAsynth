@@ -116,6 +116,32 @@ def test_ui_generates_cohort_in_browser(server, browser):
     page.close()
 
 
+def test_ui_scenario_dropdown_drives_generation(server, browser):
+    page = browser.new_page()
+    generate_calls: list[str] = []
+    page.on("request", lambda req: generate_calls.append(req.url)
+            if "/generate" in req.url else None)
+    page.goto(server, wait_until="networkidle")
+    page.wait_for_selector("#status.ok", timeout=10_000)
+
+    # The scenario <select> is populated from the real /scenarios endpoint.
+    assert page.locator("#scenario option").count() >= 5  # blank + blueprints
+    page.select_option("#scenario", "tribal_stroke")
+    # Picking a scenario reflects + locks its module/profile.
+    assert page.input_value("#module") == "stroke"
+    assert page.input_value("#profile") == "nd_tribal_region_a"
+    assert page.locator("#module").is_disabled()
+    desc = page.inner_text("#scenarioDesc")
+    assert desc.strip()  # a human-readable description is shown
+
+    page.fill("#count", "6")
+    page.click("#genBtn")
+    page.wait_for_selector("#patientCount", timeout=15_000)
+    assert page.inner_text("#patientCount") == "6"
+    assert any("scenario=tribal_stroke" in u for u in generate_calls), generate_calls
+    page.close()
+
+
 def test_ui_download_triggers_download(server, browser):
     page = browser.new_page()
     page.goto(server, wait_until="networkidle")

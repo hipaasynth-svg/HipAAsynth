@@ -30,7 +30,8 @@ Endpoints
 ---------
 ``GET  /``            → the static web UI (a dependency-free HTML/JS client)
 ``GET  /health``      → ``{"status": "ok", "engine_version": ...}``
-``GET  /formats``     → supported formats, modules, and bundled profile names
+``GET  /formats``     → supported formats, modules, profile + scenario names
+``GET  /scenarios``   → named scenario blueprints (module+profile shortcuts)
 ``GET  /generate``    → generate a cohort using query-string params
 ``POST /generate``    → generate a cohort using a JSON (or form-encoded) body
 
@@ -39,11 +40,13 @@ Python string — so it stays editable, lintable and Playwright-testable) served
 from this same server, so it shares the API's origin and needs no CORS handling.
 
 `/generate` params (all optional; validated):
-  * ``count``   — patients to generate (int, 1..``max_count``; default 100)
-  * ``seed``    — RNG seed (int, 0..2**32-1; default 42)
-  * ``module``  — decision module: ``sepsis`` (default) | ``stroke`` | ``dka`` | ``fabry``
-  * ``profile`` — a **bundled** population-profile name (see ``/formats``); a
+  * ``count``    — patients to generate (int, 1..``max_count``; default 100)
+  * ``seed``     — RNG seed (int, 0..2**32-1; default 42)
+  * ``module``   — decision module: ``sepsis`` (default) | ``stroke`` | ``dka`` | ``fabry``
+  * ``profile``  — a **bundled** population-profile name (see ``/formats``); a
     network client may not supply an arbitrary filesystem path
+  * ``scenario`` — a named blueprint (see ``/scenarios``) supplying a default
+    ``module``+``profile``; an explicit ``module``/``profile`` still overrides it
   * ``format``  — ``json`` (default) | ``csv`` | ``fhir-bundle`` | ``ndjson`` |
     ``omop`` | ``parquet``. ``ndjson`` is streamed (chunked); ``parquet`` needs the
     optional ``pyarrow`` extra.
@@ -77,6 +80,12 @@ from hipaasynth.exporters.exporters import (
 )
 from hipaasynth.exporters.omop import build_cdm_tables
 from hipaasynth.pipelines.population_pipeline import generate_patients
+from hipaasynth.scenarios import (
+    ScenarioError,
+    available_scenarios,
+    resolve_scenario,
+    scenario_summaries,
+)
 from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module map
 # Response formats the API can serialize to a single HTTP response.
 API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
@@ -132,13 +141,31 @@ def parse_generate_request(params: dict, *, max_count: int = DEFAULT_MAX_COUNT) 
     if fmt not in API_FORMATS:
         raise ApiError(400, f"unknown format {fmt!r}; supported: {', '.join(API_FORMATS)}")
 
-    module = str(params.get("module", "sepsis"))
+    # A scenario blueprint is a shortcut: it supplies default module + profile,
+    # which an explicit ``module``/``profile`` param may still override (purely
+    # additive — it never changes what module/profile do on their own).
+    scenario_name = params.get("scenario")
+    scenario_module = scenario_profile = None
+    if scenario_name not in (None, ""):
+        scenario_name = str(scenario_name)
+        try:
+            resolved = resolve_scenario(scenario_name)
+        except ScenarioError as err:
+            raise ApiError(400, str(err)) from err
+        scenario_module = resolved["module"]
+        scenario_profile = resolved["profile"]
+    else:
+        scenario_name = None
+
+    module = str(params.get("module") or scenario_module or "sepsis")
     if module not in MODULE_TO_CONDITION:
         raise ApiError(
             400, f"unknown module {module!r}; supported: {', '.join(MODULE_TO_CONDITION)}"
         )
 
     profile_name = params.get("profile")
+    if profile_name in (None, "") and scenario_profile is not None:
+        profile_name = scenario_profile
     profile_path = None
     if profile_name not in (None, ""):
         profile_name = str(profile_name)
@@ -159,6 +186,7 @@ def parse_generate_request(params: dict, *, max_count: int = DEFAULT_MAX_COUNT) 
         "module": module,
         "profile": profile_name,
         "profile_path": profile_path,
+        "scenario": scenario_name,
     }
 
 
@@ -258,6 +286,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         "/": {"GET"},
         "/health": {"GET"},
         "/formats": {"GET"},
+        "/scenarios": {"GET"},
         "/generate": {"GET", "POST"},
     }
 
@@ -343,8 +372,11 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
                 "formats": list(API_FORMATS),
                 "modules": list(MODULE_TO_CONDITION),
                 "profiles": available_profiles(),
+                "scenarios": available_scenarios(),
                 "max_count": self.max_count,
             })
+        if route == "/scenarios":
+            return self._send_json(200, {"scenarios": scenario_summaries()})
         if route == "/generate":
             params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             return self._handle_generate(params)
@@ -450,7 +482,7 @@ def main(argv=None) -> int:
     host, port = server.server_address[0], server.server_address[1]
     print(f"HipAAsynth API listening on http://{host}:{port}  (Ctrl-C to stop)")
     print(f"  Web UI: http://{host}:{port}/")
-    print("  GET / | GET /health | GET /formats | GET|POST /generate")
+    print("  GET / | GET /health | GET /formats | GET /scenarios | GET|POST /generate")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

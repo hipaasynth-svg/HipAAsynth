@@ -83,6 +83,62 @@ public deployment is the operator's responsibility (the API's `max_count` still
 bounds cohort size). The `scenario` dropdown and the population-distribution SVG
 degrade gracefully to empty until Steps 2–3 add `/scenarios` and `/viz/*`.
 
+## Step 2 — Named scenario blueprints (`hipaasynth/scenarios.json` + `hipaasynth/scenarios.py`)
+
+**What.** A small set of named **scenario blueprints**, each pairing an existing
+decision module with an existing bundled population profile plus a human-readable
+description (e.g. `tribal_sepsis` = `sepsis` module + `nd_tribal_region_a`
+profile; `karachi_dka` = `dka` + `karachi_pakistan`). Blueprints live in
+`scenarios.json`; `scenarios.py` loads them into validated `Scenario` objects and
+exposes `resolve_scenario(name) → {module, profile}`. Wired additively into all
+three surfaces:
+  - **API:** new `GET /scenarios` (rich list) and a `scenario` param on
+    `/generate` that supplies a default `module`+`profile`; `/formats` also lists
+    the scenario names.
+  - **CLI:** `--scenario NAME` (choices validated from the blueprints), mutually
+    exclusive with `--module`/`--profile`. *(This step also adds the previously
+    missing `--module` flag to the CLI, so a scenario has a concrete module to
+    resolve into — additive; omitting it keeps the legacy no-required-condition
+    behavior.)*
+  - **UI:** a scenario dropdown that, on selection, reflects and locks the
+    module/profile selects and shows the description.
+
+**Design decision — real modules/profiles only, validated at load.** The roadmap
+suggested condition names like CHF or "sepsis-by-payer" that are **not** real
+engine modules. Rather than invent fake modules, every blueprint uses one of the
+four real modules (`sepsis`/`stroke`/`dka`/`fabry`) and one of the nine bundled
+profiles, and `scenarios.py` **validates each entry against
+`hipaasynth.sdk.MODULES` and the bundled profile names at load time** — a typo or
+an invented module/profile fails loudly rather than shipping a broken shortcut.
+The blueprints are JSON (same pattern as `profiles/`) so they are editable without
+touching Python.
+
+**Additive by construction.** A scenario only *resolves to* module+profile; it
+never changes what `--module`/`--profile` (CLI) or `module`/`profile` (API) do on
+their own. On the API an explicit `module`/`profile` still overrides the
+scenario's value; on the CLI the two are mutually exclusive (a usage error rather
+than a silent override, which is clearer for a one-shot command).
+
+**Why.** Roadmap Tier 5 step 2: give non-experts a one-click, meaningfully-named
+starting point ("Tribal ICU · Sepsis") instead of having to know which
+module/profile combination is interesting.
+
+**How verified.** New `tests/test_scenarios.py` (13 tests): every blueprint
+resolves to a real module + real bundled profile (guards against invented
+conditions); `resolve_scenario` returns the right pair; unknown scenario raises;
+API `/scenarios` + `/formats` list them; `/generate?scenario=…` works over real
+HTTP; CLI `--scenario` generates and conflicts with `--module`. Plus a real
+headless-Chromium test (`test_ui_scenario_dropdown_drives_generation`) that picks
+a scenario in the browser, asserts the module/profile lock to the blueprint's
+values, and confirms a `/generate?scenario=…` request fires. Fail-before/
+pass-after confirmed by removing the scenarios module (import error).
+Full suite green (416 passed / 7 skipped).
+
+**Limitations.** Blueprints are curated demonstrations of interesting
+module×profile pairings, not epidemiological claims about those populations; the
+pairing forces a condition via the module, it does not model region-specific
+prevalence beyond what each profile already encodes.
+
 ---
 
 # Tier 4 — validation, fidelity, and reporting
