@@ -20,6 +20,68 @@ flagged explicitly below.
 > **Base branch note (Tier 4).** By the time Tier 4 began, Tier 3 (PR #84) had
 > **merged into `main`**, so Tier 4 is built directly on the latest `main`
 > (no stacking).
+>
+> **Base branch note (Tier 5).** By the time Tier 5 began, Tier 4 (PR #85) had
+> **merged into `main`**, so Tier 5 is built directly on the latest `main`
+> (no stacking); the branch was restarted from `main`.
+
+---
+
+# Tier 5 — a UI for non-Python users (web UI, scenarios, visualization)
+
+Making the whole engine reachable by someone who is not writing Python: a static,
+dependency-free web page against the existing REST API, named scenario shortcuts
+that pair a profile with a decision module, and hand-rolled SVG visualizations of
+population distribution and polymorphic fairness. Stdlib-only core preserved — the
+web client adds **zero** Python dependencies (it is HTML/CSS/vanilla-JS served by
+the existing `http.server`).
+
+> **Real-browser verification (new this tier).** Unlike every prior tier ("no live
+> browser to test against"), this sandbox ships Chromium + Playwright, so the UI is
+> driven for real in headless Chromium — form interaction, an actual `/generate`
+> request observed on the wire, and asserted DOM content — not merely by reading
+> the HTML. Browser tests `skip` cleanly where Playwright/Chromium is absent.
+
+## Step 1 — Static web UI (`hipaasynth/ui/index.html`, `GET /` on `hipaasynth/api.py`)
+
+**What.** A single static `ui/index.html` (HTML + CSS + vanilla JS, no framework,
+no build step, no CDN) served by the existing stdlib API server at a new `GET /`
+route. It is a thin client: it reads capabilities from `/formats` and generates /
+downloads cohorts through `/generate`. The form lets a non-Python user pick a
+decision module, a bundled population profile, a cohort size and seed, preview the
+result (patient count + a real sample record), and download it in any supported
+export format (`json|csv|fhir-bundle|ndjson|omop|parquet`).
+
+**Design decision — a real file, served from the existing server.** The page is a
+standalone file (not a Python string literal) so it stays editable, lintable and
+Playwright-testable; it is served from the same `http.server` so it shares the
+API's origin and needs no CORS handling and no second process/port. A separate
+static-file webserver or a server-side templating framework would add moving parts
+(and, for templating, a dependency) for no benefit — the page is fully static and
+the API already speaks JSON.
+
+**Why.** Roadmap Tier 5 step 1: the engine had a CLI, REST API and SDK, but no way
+for a non-programmer to drive it. The web UI closes that gap without touching the
+stdlib-only core.
+
+**How verified.** New `tests/test_web_ui.py`:
+  - `test_root_serves_html` — `GET /` returns `200 text/html` carrying the client
+    (plain urllib; no browser).
+  - `test_ui_generates_cohort_in_browser` — **real headless Chromium**: loads `/`,
+    waits for capabilities to populate the selects from `/formats`, selects the
+    `stroke` module, sets count=7, clicks Generate, then asserts (a) a network
+    request to `/generate?…count=7…` actually fired, (b) `#patientCount` renders
+    `7`, and (c) the sample pane shows a real engine record (`demographics`).
+  - `test_ui_download_triggers_download` — real headless Chromium: selects CSV,
+    clicks Download, asserts the browser download fires with filename `cohort.csv`.
+  Fail-before/pass-after confirmed by removing the `GET /` route (the HTTP test
+  404s and the browser test times out waiting for the page to load). Full suite
+  green (402 passed / 7 skipped).
+
+**Limitations.** The UI talks to whatever server serves it; running it against a
+public deployment is the operator's responsibility (the API's `max_count` still
+bounds cohort size). The `scenario` dropdown and the population-distribution SVG
+degrade gracefully to empty until Steps 2–3 add `/scenarios` and `/viz/*`.
 
 ---
 

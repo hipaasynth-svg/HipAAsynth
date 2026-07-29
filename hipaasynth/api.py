@@ -28,10 +28,15 @@ pattern Tier 1 used for `pyarrow`), not a core dependency.
 
 Endpoints
 ---------
+``GET  /``            → the static web UI (a dependency-free HTML/JS client)
 ``GET  /health``      → ``{"status": "ok", "engine_version": ...}``
 ``GET  /formats``     → supported formats, modules, and bundled profile names
 ``GET  /generate``    → generate a cohort using query-string params
 ``POST /generate``    → generate a cohort using a JSON (or form-encoded) body
+
+The web UI is a single static ``ui/index.html`` (kept as a real file — not a
+Python string — so it stays editable, lintable and Playwright-testable) served
+from this same server, so it shares the API's origin and needs no CORS handling.
 
 `/generate` params (all optional; validated):
   * ``count``   — patients to generate (int, 1..``max_count``; default 100)
@@ -84,6 +89,7 @@ DEFAULT_MAX_COUNT = 10_000
 # otherwise MemoryError the handling thread.
 MAX_BODY_BYTES = 1_000_000
 _PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
+_UI_DIR = Path(__file__).resolve().parent / "ui"
 
 
 class ApiError(Exception):
@@ -249,6 +255,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     max_count = DEFAULT_MAX_COUNT
     # Known routes and the methods they accept (for correct 404 vs 405).
     _ROUTES = {
+        "/": {"GET"},
         "/health": {"GET"},
         "/formats": {"GET"},
         "/generate": {"GET", "POST"},
@@ -272,6 +279,16 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
 
     def _send_api_error(self, err: ApiError):
         self._send_json(err.status, {"error": err.message, "status": err.status})
+
+    def _send_ui(self):
+        """Serve the bundled static web UI (``ui/index.html``)."""
+        index = _UI_DIR / "index.html"
+        try:
+            body = index.read_bytes()
+        except OSError:  # pragma: no cover - the file ships with the package
+            return self._send_json(
+                500, {"error": "web UI asset missing", "status": 500})
+        self._send_bytes(200, "text/html; charset=utf-8", body)
 
     def _read_body(self, declared_length: int) -> bytes:
         """Read the request body in bounded chunks, never exceeding
@@ -317,6 +334,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         route, parsed = self._route()
         if self._method_guard(route, "GET"):
             return
+        if route == "/":
+            return self._send_ui()
         if route == "/health":
             return self._send_json(200, {"status": "ok", "engine_version": ENGINE_VERSION})
         if route == "/formats":
@@ -430,7 +449,8 @@ def main(argv=None) -> int:
     server = make_server(args.host, args.port, args.max_count)
     host, port = server.server_address[0], server.server_address[1]
     print(f"HipAAsynth API listening on http://{host}:{port}  (Ctrl-C to stop)")
-    print("  GET /health | GET /formats | GET|POST /generate")
+    print(f"  Web UI: http://{host}:{port}/")
+    print("  GET / | GET /health | GET /formats | GET|POST /generate")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
