@@ -191,6 +191,55 @@ so that coupling is covered *statistically* by step 1's
 `linked_lab_correlations`, not as a per-patient hard rule. Medication *timeline*
 ordering remains unmodeled (see above).
 
+## Step 3 — Downstream-utility probe (`hipaasynth/validation/utility_probe.py`)
+
+**What.** A "train on synthetic" probe: it trains a minimal baseline classifier
+on a generated cohort to predict a ground-truth condition (default
+`type2_diabetes`) from patient features `[age, bmi, mean Glucose, mean
+Creatinine, mean LDL, mean WBC]`, and reports test-set **accuracy**, **ROC-AUC**,
+and **lift over the majority-class baseline**. `downstream_utility_probe` returns
+a serializable `UtilityProbeResult`.
+
+**Pure-Python, no new dependency (chosen deliberately).** The learner is a
+hand-rolled logistic regression (full-batch gradient descent on z-scored
+features) with a tie-aware rank-sum (Mann–Whitney) ROC-AUC. The task allowed a
+new optional dependency (sklearn) but preferred a hand-rolled minimal
+implementation where honestly adequate — for a *signal-existence* probe (the goal
+is "can a baseline learner recover the label at all?", not model quality) it is,
+and keeping the validation core stdlib-only is worth more than a marginally
+better classifier. This is stated in the module docstring.
+
+**Why.** Tiers 1–3 proved the data was exportable and (step 1) statistically
+faithful; nothing proved it was *learnable*. If the engine's feature→label
+couplings didn't survive round-tripping through the exported table, a model
+trained on the synthetic cohort would do no better than guessing — this probe is
+the first check that the signal is recoverable end-to-end.
+
+**How verified (incl. ground rule 5).** `tests/test_utility_probe.py` (12 tests).
+The probe's two moving parts are each verified against **constructed reference
+cases** before the probe is trusted:
+  - `roc_auc` → `1.0` on perfectly-separated scores, `0.0` on inverted, exactly
+    `0.5` on all-tied scores (average-rank handling), `None` on a single class.
+  - the logistic learner → recovers a linearly-separable toy dataset perfectly,
+    and on **pure noise** (random features, random labels) produces AUC within
+    0.15 of 0.5 — i.e. it does *not* manufacture signal, so a high AUC on the
+    real cohort is meaningful.
+Then, end-to-end on a 400-patient seed-21 cohort (diabetes prevalence ≈13.5%):
+test ROC-AUC ≈ **0.99**, accuracy ≈ **0.97** vs. a majority-class baseline of
+≈0.84 (lift ≈ +0.12) — strong evidence the diabetes signal is learnable. The
+probe is deterministic (same cohort + seed → identical result) and fails loud on
+a single-class target or a <10-patient cohort. New module: tests fail before
+(ImportError), pass after. Full suite: 385 passed, 7 skipped — no regressions.
+
+**Limitations.** This proves *signal exists*, not that the synthetic data has
+real-world predictive validity or that a model trained on it transfers to real
+patients (a genuine train-on-synthetic-test-on-real study is out of scope with no
+real data present). The learner is intentionally minimal (no regularization
+sweep, no cross-validation, single train/test split); the AUC is a
+signal-existence indicator, not a benchmarked model score. The high AUC partly
+reflects that the *same* engine couplings generate both features and label — that
+is exactly the round-trip this probe is meant to confirm, not a real-world claim.
+
 ---
 
 # Tier 3 — warehouse connectors + container packaging
