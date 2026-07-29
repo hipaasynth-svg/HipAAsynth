@@ -39,6 +39,12 @@ from hipaasynth.exporters.fhir_validate import (
     validate_bundle, validate_ndjson_dir, validate_resources,
 )
 from hipaasynth.core.profile_loader import load_population_profile
+from hipaasynth.scenarios import (
+    ScenarioError,
+    available_scenarios,
+    get_scenario,
+)
+from hipaasynth.sdk import MODULES
 
 # Supported --format values, in a stable order for deterministic output.
 FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "parquet", "omop")
@@ -51,9 +57,25 @@ def build_parser():
     parser.add_argument("--out", type=str, default="output")
     parser.add_argument("--profile", type=str, default=None)
     parser.add_argument(
+        "--module", choices=list(MODULES), default=None, metavar="MODULE",
+        help="Decision module whose condition to require: " + " ".join(MODULES) + ". "
+             "Omit to keep the legacy behavior (no required condition).",
+    )
+    parser.add_argument(
+        "--scenario", choices=available_scenarios(), default=None, metavar="NAME",
+        help="A named blueprint that resolves to a --module + --profile pair "
+             "(see the shortcuts in hipaasynth/scenarios.json). Mutually exclusive "
+             "with --module/--profile.",
+    )
+    parser.add_argument(
         "--format", nargs="+", choices=FORMATS, default=None, metavar="FORMAT",
         help="One or more export formats: " + " ".join(FORMATS) + ". "
              "Omit to keep the legacy behavior (json + csv + fhir-bundle).",
+    )
+    parser.add_argument(
+        "--viz", action="store_true",
+        help="Also write a hand-rolled SVG of the cohort's age/sex/ethnicity "
+             "distribution to <out>/demographics.svg (stdlib-only; no PHI).",
     )
     parser.add_argument(
         "--validate", action="store_true",
@@ -121,9 +143,37 @@ def _run_validation(patients, formats, output_dir):
     return report
 
 
+_PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
+
+
+def _resolve_scenario_args(args, parser):
+    """Apply a ``--scenario`` blueprint onto ``args`` (module + profile).
+
+    A scenario is a shortcut, so it is mutually exclusive with the flags it
+    resolves into; combining them is a usage error rather than a silent override.
+    Returns the (module, profile_path) to use.
+    """
+    module = args.module
+    profile_path = args.profile
+    if args.scenario:
+        if args.module or args.profile:
+            parser.error(
+                "--scenario is a shortcut for --module + --profile; do not combine them"
+            )
+        try:
+            scenario = get_scenario(args.scenario)
+        except ScenarioError as err:  # pragma: no cover - argparse choices guard
+            parser.error(str(err))
+        module = scenario.module
+        profile_path = str(_PROFILES_DIR / f"{scenario.profile}.json")
+        print(f"  Scenario : {scenario.name} — {scenario.label or scenario.name}")
+    return module, profile_path
+
+
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    module, profile_path = _resolve_scenario_args(args, parser)
     if args.demo:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = Path(args.out) / f"demo_{timestamp}"
@@ -134,9 +184,11 @@ def main(argv=None):
     print(f"HIPAASYNTH ENGINE v{ENGINE_VERSION}")
     print("=" * 50)
     profile_data = None
-    if args.profile is not None:
-        profile_data = load_population_profile(args.profile)
+    if profile_path is not None:
+        profile_data = load_population_profile(profile_path)
         print(f"  Profile: {profile_data['profile_name']}")
+    if module is not None:
+        print(f"  Module : {module}")
     # Legacy default: no --format means json + csv + fhir-bundle (unchanged).
     formats = args.format if args.format is not None else ["json", "csv", "fhir-bundle"]
     print(f"  Patients : {args.count}")
@@ -147,14 +199,15 @@ def main(argv=None):
     start_time = time.time()
     cfg = GenerationConfig(
         patient_count=args.count, seed=args.seed,
-        age_min=18, age_max=90, required_condition=None,
+        age_min=18, age_max=90,
+        required_condition=MODULES[module] if module is not None else None,
         sex_ratio_female=profile_data["sex_ratio_female"] if profile_data else 0.5,
         ethnicity_weights=profile_data["ethnicity_weights"] if profile_data else None,
         include_visits=True, include_labs=True, visits_min=1, visits_max=3,
         synthetic_disclaimer=DEFAULT_SYNTHETIC_DISCLAIMER,
         run_date=date.today().isoformat(),
         age_band_weights=profile_data.get("age_band_weights") if profile_data else None,
-        population_profile_path=args.profile,
+        population_profile_path=profile_path,
         profile_name=profile_data["profile_name"] if profile_data else None,
     )
     patients = generate_patients(cfg)
@@ -168,6 +221,11 @@ def main(argv=None):
     print(f"\n  Runtime  : {elapsed}s")
     for line in written:
         print(f"  {line}")
+    if args.viz:
+        from hipaasynth.viz import demographics_distribution_svg
+        viz_path = output_dir / "demographics.svg"
+        viz_path.write_text(demographics_distribution_svg(patients), encoding="utf-8")
+        print(f"  SVG viz     : {viz_path}")
     exit_code = 0
     if args.validate:
         report = _run_validation(patients, formats, output_dir)

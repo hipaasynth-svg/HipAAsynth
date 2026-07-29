@@ -28,17 +28,27 @@ pattern Tier 1 used for `pyarrow`), not a core dependency.
 
 Endpoints
 ---------
+``GET  /``            → the static web UI (a dependency-free HTML/JS client)
 ``GET  /health``      → ``{"status": "ok", "engine_version": ...}``
-``GET  /formats``     → supported formats, modules, and bundled profile names
+``GET  /formats``     → supported formats, modules, profile + scenario names
+``GET  /scenarios``   → named scenario blueprints (module+profile shortcuts)
 ``GET  /generate``    → generate a cohort using query-string params
 ``POST /generate``    → generate a cohort using a JSON (or form-encoded) body
+``GET  /viz/demographics`` → SVG of a cohort's age/sex/ethnicity distribution
+``GET  /viz/fairness``     → SVG fairness heatmap from a demo DIF audit (mock model)
+
+The web UI is a single static ``ui/index.html`` (kept as a real file — not a
+Python string — so it stays editable, lintable and Playwright-testable) served
+from this same server, so it shares the API's origin and needs no CORS handling.
 
 `/generate` params (all optional; validated):
-  * ``count``   — patients to generate (int, 1..``max_count``; default 100)
-  * ``seed``    — RNG seed (int, 0..2**32-1; default 42)
-  * ``module``  — decision module: ``sepsis`` (default) | ``stroke`` | ``dka`` | ``fabry``
-  * ``profile`` — a **bundled** population-profile name (see ``/formats``); a
+  * ``count``    — patients to generate (int, 1..``max_count``; default 100)
+  * ``seed``     — RNG seed (int, 0..2**32-1; default 42)
+  * ``module``   — decision module: ``sepsis`` (default) | ``stroke`` | ``dka`` | ``fabry``
+  * ``profile``  — a **bundled** population-profile name (see ``/formats``); a
     network client may not supply an arbitrary filesystem path
+  * ``scenario`` — a named blueprint (see ``/scenarios``) supplying a default
+    ``module``+``profile``; an explicit ``module``/``profile`` still overrides it
   * ``format``  — ``json`` (default) | ``csv`` | ``fhir-bundle`` | ``ndjson`` |
     ``omop`` | ``parquet``. ``ndjson`` is streamed (chunked); ``parquet`` needs the
     optional ``pyarrow`` extra.
@@ -72,9 +82,22 @@ from hipaasynth.exporters.exporters import (
 )
 from hipaasynth.exporters.omop import build_cdm_tables
 from hipaasynth.pipelines.population_pipeline import generate_patients
+from hipaasynth.scenarios import (
+    ScenarioError,
+    available_scenarios,
+    resolve_scenario,
+    scenario_summaries,
+)
 from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module map
+from hipaasynth.viz import demographics_distribution_svg, fairness_heatmap_svg
 # Response formats the API can serialize to a single HTTP response.
 API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
+# Built-in mock models the /viz/fairness demo audit can run (no model-under-test
+# is available to a stateless HTTP call, so the heatmap is a *demonstration* audit
+# against a documented mock — see _VIZ_MODELS below).
+_VIZ_MODELS = ("biased", "fair", "sdoh")
+# Bound the demo DIF audit: it renders 7 forms per patient, so keep it cheap.
+VIZ_FAIRNESS_MAX_COUNT = 300
 # Network safety: cap on-demand cohort size unless the operator raises it.
 DEFAULT_MAX_COUNT = 10_000
 # Hard cap on a POST body. A legitimate /generate body is a tiny JSON object
@@ -84,6 +107,7 @@ DEFAULT_MAX_COUNT = 10_000
 # otherwise MemoryError the handling thread.
 MAX_BODY_BYTES = 1_000_000
 _PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
+_UI_DIR = Path(__file__).resolve().parent / "ui"
 
 
 class ApiError(Exception):
@@ -126,13 +150,31 @@ def parse_generate_request(params: dict, *, max_count: int = DEFAULT_MAX_COUNT) 
     if fmt not in API_FORMATS:
         raise ApiError(400, f"unknown format {fmt!r}; supported: {', '.join(API_FORMATS)}")
 
-    module = str(params.get("module", "sepsis"))
+    # A scenario blueprint is a shortcut: it supplies default module + profile,
+    # which an explicit ``module``/``profile`` param may still override (purely
+    # additive — it never changes what module/profile do on their own).
+    scenario_name = params.get("scenario")
+    scenario_module = scenario_profile = None
+    if scenario_name not in (None, ""):
+        scenario_name = str(scenario_name)
+        try:
+            resolved = resolve_scenario(scenario_name)
+        except ScenarioError as err:
+            raise ApiError(400, str(err)) from err
+        scenario_module = resolved["module"]
+        scenario_profile = resolved["profile"]
+    else:
+        scenario_name = None
+
+    module = str(params.get("module") or scenario_module or "sepsis")
     if module not in MODULE_TO_CONDITION:
         raise ApiError(
             400, f"unknown module {module!r}; supported: {', '.join(MODULE_TO_CONDITION)}"
         )
 
     profile_name = params.get("profile")
+    if profile_name in (None, "") and scenario_profile is not None:
+        profile_name = scenario_profile
     profile_path = None
     if profile_name not in (None, ""):
         profile_name = str(profile_name)
@@ -153,6 +195,7 @@ def parse_generate_request(params: dict, *, max_count: int = DEFAULT_MAX_COUNT) 
         "module": module,
         "profile": profile_name,
         "profile_path": profile_path,
+        "scenario": scenario_name,
     }
 
 
@@ -249,9 +292,13 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     max_count = DEFAULT_MAX_COUNT
     # Known routes and the methods they accept (for correct 404 vs 405).
     _ROUTES = {
+        "/": {"GET"},
         "/health": {"GET"},
         "/formats": {"GET"},
+        "/scenarios": {"GET"},
         "/generate": {"GET", "POST"},
+        "/viz/demographics": {"GET"},
+        "/viz/fairness": {"GET"},
     }
 
     def log_message(self, *args):  # keep the test/console output quiet by default
@@ -270,8 +317,21 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         self._send_bytes(status, "application/json",
                          json.dumps(obj, ensure_ascii=False).encode("utf-8"))
 
+    def _send_svg(self, svg: str):
+        self._send_bytes(200, "image/svg+xml; charset=utf-8", svg.encode("utf-8"))
+
     def _send_api_error(self, err: ApiError):
         self._send_json(err.status, {"error": err.message, "status": err.status})
+
+    def _send_ui(self):
+        """Serve the bundled static web UI (``ui/index.html``)."""
+        index = _UI_DIR / "index.html"
+        try:
+            body = index.read_bytes()
+        except OSError:  # pragma: no cover - the file ships with the package
+            return self._send_json(
+                500, {"error": "web UI asset missing", "status": 500})
+        self._send_bytes(200, "text/html; charset=utf-8", body)
 
     def _read_body(self, declared_length: int) -> bytes:
         """Read the request body in bounded chunks, never exceeding
@@ -317,6 +377,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         route, parsed = self._route()
         if self._method_guard(route, "GET"):
             return
+        if route == "/":
+            return self._send_ui()
         if route == "/health":
             return self._send_json(200, {"status": "ok", "engine_version": ENGINE_VERSION})
         if route == "/formats":
@@ -324,10 +386,17 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
                 "formats": list(API_FORMATS),
                 "modules": list(MODULE_TO_CONDITION),
                 "profiles": available_profiles(),
+                "scenarios": available_scenarios(),
                 "max_count": self.max_count,
             })
+        if route == "/scenarios":
+            return self._send_json(200, {"scenarios": scenario_summaries()})
+        params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+        if route == "/viz/demographics":
+            return self._handle_viz_demographics(params)
+        if route == "/viz/fairness":
+            return self._handle_viz_fairness(params)
         if route == "/generate":
-            params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             return self._handle_generate(params)
 
     def do_POST(self):
@@ -392,6 +461,68 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             return self._send_api_error(err)
         self._send_bytes(200, ctype, body)
 
+    def _handle_viz_demographics(self, params: dict):
+        """Return an SVG of the requested cohort's age/sex/ethnicity distribution."""
+        try:
+            req = parse_generate_request(params, max_count=self.max_count)
+            cfg = build_config(req)
+            patients = generate_patients(cfg)
+            svg = demographics_distribution_svg(patients)
+        except ApiError as err:
+            return self._send_api_error(err)
+        except ValueError as err:
+            return self._send_api_error(ApiError(400, str(err)))
+        except Exception as err:  # pragma: no cover - defensive 500
+            return self._send_json(500, {"error": f"viz failed: {err}", "status": 500})
+        self._send_svg(svg)
+
+    def _handle_viz_fairness(self, params: dict):
+        """Return an SVG fairness heatmap from a *demonstration* DIF audit.
+
+        A stateless HTTP call has no real device-under-test, so this runs the
+        polymorphic audit against a documented built-in **mock** model
+        (``model=biased`` by default) over the requested cohort. It illustrates
+        the per-form error heatmap + cohort metrics; it is not an audit of any
+        real model. The cohort is capped (``VIZ_FAIRNESS_MAX_COUNT``) since the
+        audit renders all seven forms per patient.
+        """
+        from hipaasynth.dif import DIFConfig, run_audit
+        from hipaasynth.dif.model_interface import (
+            MockBiasedModel,
+            MockFairModel,
+            MockSDoHBiasedModel,
+        )
+
+        model_name = str(params.get("model", "biased"))
+        if model_name not in _VIZ_MODELS:
+            return self._send_api_error(ApiError(
+                400, f"unknown model {model_name!r}; supported: {', '.join(_VIZ_MODELS)}"))
+        models = {
+            "biased": MockBiasedModel,
+            "fair": MockFairModel,
+            "sdoh": MockSDoHBiasedModel,
+        }
+        try:
+            req = parse_generate_request(params, max_count=self.max_count)
+            if req["count"] > VIZ_FAIRNESS_MAX_COUNT:
+                raise ApiError(
+                    400,
+                    f"'count' for /viz/fairness must be <= {VIZ_FAIRNESS_MAX_COUNT} "
+                    f"(the demo audit renders 7 forms per patient), got {req['count']}",
+                )
+            cfg = build_config(req)
+            dif_cfg = DIFConfig(
+                device_name=f"Demo {model_name} model", device_version="0.0.0")
+            passports = run_audit(models[model_name](), generate_patients, cfg, dif_cfg)
+            svg = fairness_heatmap_svg(passports)
+        except ApiError as err:
+            return self._send_api_error(err)
+        except ValueError as err:
+            return self._send_api_error(ApiError(400, str(err)))
+        except Exception as err:  # pragma: no cover - defensive 500
+            return self._send_json(500, {"error": f"viz failed: {err}", "status": 500})
+        self._send_svg(svg)
+
     def _stream_ndjson(self, patients):
         """Stream FHIR NDJSON with HTTP chunked transfer (never buffers the whole
         cohort in memory) — the streaming answer for large-cohort responses."""
@@ -430,7 +561,9 @@ def main(argv=None) -> int:
     server = make_server(args.host, args.port, args.max_count)
     host, port = server.server_address[0], server.server_address[1]
     print(f"HipAAsynth API listening on http://{host}:{port}  (Ctrl-C to stop)")
-    print("  GET /health | GET /formats | GET|POST /generate")
+    print(f"  Web UI: http://{host}:{port}/")
+    print("  GET / | GET /health | GET /formats | GET /scenarios | GET|POST /generate")
+    print("  GET /viz/demographics | GET /viz/fairness")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

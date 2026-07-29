@@ -14,37 +14,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-from hipaasynth.dif.framework import DIFConfig, run_audit
-from hipaasynth.dif.report import (
-    CohortFairnessSummary,
-    FairnessPassport,
-    per_form_error_rates,
-    summarize_cohort,
-)
-from hipaasynth.dif.stability import (
-    BootstrapUncertainty,
-    ConceptDriftResult,
-    StabilityReport,
-    ThresholdSensitivity,
-    bootstrap_uncertainty,
-    concept_drift,
-    stability_report,
-    threshold_sensitivity,
+"""Hand-rolled, dependency-free SVG visualizations for HipAAsynth cohorts."""
+from hipaasynth.viz.svg import (
+    cohort_demographics,
+    demographics_distribution_svg,
+    fairness_heatmap_svg,
 )
 
 __all__ = [
-    "DIFConfig",
-    "FairnessPassport",
-    "CohortFairnessSummary",
-    "run_audit",
-    "summarize_cohort",
-    "per_form_error_rates",
-    "ConceptDriftResult",
-    "BootstrapUncertainty",
-    "ThresholdSensitivity",
-    "StabilityReport",
-    "concept_drift",
-    "bootstrap_uncertainty",
-    "threshold_sensitivity",
-    "stability_report",
+    "cohort_demographics",
+    "demographics_distribution_svg",
+    "fairness_heatmap_svg",
 ]
