@@ -34,6 +34,8 @@ Endpoints
 ``GET  /scenarios``   → named scenario blueprints (module+profile shortcuts)
 ``GET  /generate``    → generate a cohort using query-string params
 ``POST /generate``    → generate a cohort using a JSON (or form-encoded) body
+``GET  /viz/demographics`` → SVG of a cohort's age/sex/ethnicity distribution
+``GET  /viz/fairness``     → SVG fairness heatmap from a demo DIF audit (mock model)
 
 The web UI is a single static ``ui/index.html`` (kept as a real file — not a
 Python string — so it stays editable, lintable and Playwright-testable) served
@@ -87,8 +89,15 @@ from hipaasynth.scenarios import (
     scenario_summaries,
 )
 from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module map
+from hipaasynth.viz import demographics_distribution_svg, fairness_heatmap_svg
 # Response formats the API can serialize to a single HTTP response.
 API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
+# Built-in mock models the /viz/fairness demo audit can run (no model-under-test
+# is available to a stateless HTTP call, so the heatmap is a *demonstration* audit
+# against a documented mock — see _VIZ_MODELS below).
+_VIZ_MODELS = ("biased", "fair", "sdoh")
+# Bound the demo DIF audit: it renders 7 forms per patient, so keep it cheap.
+VIZ_FAIRNESS_MAX_COUNT = 300
 # Network safety: cap on-demand cohort size unless the operator raises it.
 DEFAULT_MAX_COUNT = 10_000
 # Hard cap on a POST body. A legitimate /generate body is a tiny JSON object
@@ -288,6 +297,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         "/formats": {"GET"},
         "/scenarios": {"GET"},
         "/generate": {"GET", "POST"},
+        "/viz/demographics": {"GET"},
+        "/viz/fairness": {"GET"},
     }
 
     def log_message(self, *args):  # keep the test/console output quiet by default
@@ -305,6 +316,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     def _send_json(self, status: int, obj):
         self._send_bytes(status, "application/json",
                          json.dumps(obj, ensure_ascii=False).encode("utf-8"))
+
+    def _send_svg(self, svg: str):
+        self._send_bytes(200, "image/svg+xml; charset=utf-8", svg.encode("utf-8"))
 
     def _send_api_error(self, err: ApiError):
         self._send_json(err.status, {"error": err.message, "status": err.status})
@@ -377,8 +391,12 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             })
         if route == "/scenarios":
             return self._send_json(200, {"scenarios": scenario_summaries()})
+        params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+        if route == "/viz/demographics":
+            return self._handle_viz_demographics(params)
+        if route == "/viz/fairness":
+            return self._handle_viz_fairness(params)
         if route == "/generate":
-            params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             return self._handle_generate(params)
 
     def do_POST(self):
@@ -443,6 +461,68 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             return self._send_api_error(err)
         self._send_bytes(200, ctype, body)
 
+    def _handle_viz_demographics(self, params: dict):
+        """Return an SVG of the requested cohort's age/sex/ethnicity distribution."""
+        try:
+            req = parse_generate_request(params, max_count=self.max_count)
+            cfg = build_config(req)
+            patients = generate_patients(cfg)
+            svg = demographics_distribution_svg(patients)
+        except ApiError as err:
+            return self._send_api_error(err)
+        except ValueError as err:
+            return self._send_api_error(ApiError(400, str(err)))
+        except Exception as err:  # pragma: no cover - defensive 500
+            return self._send_json(500, {"error": f"viz failed: {err}", "status": 500})
+        self._send_svg(svg)
+
+    def _handle_viz_fairness(self, params: dict):
+        """Return an SVG fairness heatmap from a *demonstration* DIF audit.
+
+        A stateless HTTP call has no real device-under-test, so this runs the
+        polymorphic audit against a documented built-in **mock** model
+        (``model=biased`` by default) over the requested cohort. It illustrates
+        the per-form error heatmap + cohort metrics; it is not an audit of any
+        real model. The cohort is capped (``VIZ_FAIRNESS_MAX_COUNT``) since the
+        audit renders all seven forms per patient.
+        """
+        from hipaasynth.dif import DIFConfig, run_audit
+        from hipaasynth.dif.model_interface import (
+            MockBiasedModel,
+            MockFairModel,
+            MockSDoHBiasedModel,
+        )
+
+        model_name = str(params.get("model", "biased"))
+        if model_name not in _VIZ_MODELS:
+            return self._send_api_error(ApiError(
+                400, f"unknown model {model_name!r}; supported: {', '.join(_VIZ_MODELS)}"))
+        models = {
+            "biased": MockBiasedModel,
+            "fair": MockFairModel,
+            "sdoh": MockSDoHBiasedModel,
+        }
+        try:
+            req = parse_generate_request(params, max_count=self.max_count)
+            if req["count"] > VIZ_FAIRNESS_MAX_COUNT:
+                raise ApiError(
+                    400,
+                    f"'count' for /viz/fairness must be <= {VIZ_FAIRNESS_MAX_COUNT} "
+                    f"(the demo audit renders 7 forms per patient), got {req['count']}",
+                )
+            cfg = build_config(req)
+            dif_cfg = DIFConfig(
+                device_name=f"Demo {model_name} model", device_version="0.0.0")
+            passports = run_audit(models[model_name](), generate_patients, cfg, dif_cfg)
+            svg = fairness_heatmap_svg(passports)
+        except ApiError as err:
+            return self._send_api_error(err)
+        except ValueError as err:
+            return self._send_api_error(ApiError(400, str(err)))
+        except Exception as err:  # pragma: no cover - defensive 500
+            return self._send_json(500, {"error": f"viz failed: {err}", "status": 500})
+        self._send_svg(svg)
+
     def _stream_ndjson(self, patients):
         """Stream FHIR NDJSON with HTTP chunked transfer (never buffers the whole
         cohort in memory) — the streaming answer for large-cohort responses."""
@@ -483,6 +563,7 @@ def main(argv=None) -> int:
     print(f"HipAAsynth API listening on http://{host}:{port}  (Ctrl-C to stop)")
     print(f"  Web UI: http://{host}:{port}/")
     print("  GET / | GET /health | GET /formats | GET /scenarios | GET|POST /generate")
+    print("  GET /viz/demographics | GET /viz/fairness")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

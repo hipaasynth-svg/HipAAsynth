@@ -73,6 +73,11 @@ def build_parser():
              "Omit to keep the legacy behavior (json + csv + fhir-bundle).",
     )
     parser.add_argument(
+        "--viz", action="store_true",
+        help="Also write a hand-rolled SVG of the cohort's age/sex/ethnicity "
+             "distribution to <out>/demographics.svg (stdlib-only; no PHI).",
+    )
+    parser.add_argument(
         "--validate", action="store_true",
         help="Run the structural FHIR validator over the generated cohort. "
              "Exits non-zero if the FHIR resources fail structural validation. "
@@ -216,6 +221,11 @@ def main(argv=None):
     print(f"\n  Runtime  : {elapsed}s")
     for line in written:
         print(f"  {line}")
+    if args.viz:
+        from hipaasynth.viz import demographics_distribution_svg
+        viz_path = output_dir / "demographics.svg"
+        viz_path.write_text(demographics_distribution_svg(patients), encoding="utf-8")
+        print(f"  SVG viz     : {viz_path}")
     exit_code = 0
     if args.validate:
         report = _run_validation(patients, formats, output_dir)

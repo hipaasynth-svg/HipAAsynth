@@ -142,6 +142,24 @@ def test_ui_scenario_dropdown_drives_generation(server, browser):
     page.close()
 
 
+def test_ui_renders_viz_svgs_in_browser(server, browser):
+    page = browser.new_page()
+    page.goto(server, wait_until="networkidle")
+    page.wait_for_selector("#status.ok", timeout=10_000)
+    page.select_option("#module", "stroke")
+    page.fill("#count", "20")
+    page.click("#genBtn")
+    page.wait_for_selector("#patientCount", timeout=15_000)
+    # Both server-rendered SVGs must land in the #viz panel (population + fairness).
+    page.wait_for_selector("#viz svg", timeout=15_000)
+    page.wait_for_function("document.querySelectorAll('#viz svg').length >= 2",
+                           timeout=15_000)
+    viz_text = page.inner_text("#viz")
+    assert "Population distribution" in viz_text
+    assert "Fairness heatmap" in viz_text
+    page.close()
+
+
 def test_ui_download_triggers_download(server, browser):
     page = browser.new_page()
     page.goto(server, wait_until="networkidle")

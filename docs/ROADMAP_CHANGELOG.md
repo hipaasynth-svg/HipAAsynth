@@ -139,6 +139,70 @@ module×profile pairings, not epidemiological claims about those populations; th
 pairing forces a condition via the module, it does not model region-specific
 prevalence beyond what each profile already encodes.
 
+## Step 3 — Population-distribution + fairness-heatmap SVG (`hipaasynth/viz/svg.py`)
+
+**What.** A new `hipaasynth/viz` package that renders two hand-rolled SVG
+visualizations:
+  - `demographics_distribution_svg(patients)` — age-band / sex / ethnicity
+    distribution of a generated cohort as grouped horizontal bar charts, straight
+    from `Patient.demographics` (no new data plumbing).
+  - `fairness_heatmap_svg(passports)` — a per-form **error-rate heatmap** across
+    all seven polymorphic forms (green→amber→red), plus the four cohort
+    `PolymorphicMetrics` (DCS / ISG / LFDI / SAF) as pass/fail tiles, built from a
+    list of `FairnessPassport`s.
+  - `cohort_demographics(patients)` — the pure aggregation behind the demographics
+    chart, exposed for direct testing.
+
+Exposed on three surfaces:
+  - **API:** `GET /viz/demographics` (SVG of the requested cohort) and
+    `GET /viz/fairness` (SVG heatmap from a *demonstration* DIF audit against a
+    built-in mock model — `model=biased|fair|sdoh`, default `biased`; count
+    capped by `VIZ_FAIRNESS_MAX_COUNT` since the audit renders 7 forms/patient).
+  - **UI:** both SVGs embed under the result panel after Generate.
+  - **CLI:** `--viz` writes `<out>/demographics.svg` (the stdlib file-output path).
+
+**Design decision — hand-rolled SVG, no charting dependency (Tier-1-style
+callout).** The engine core stays stdlib-only, so the charts are assembled as
+plain SVG strings rather than pulling in matplotlib/plotly/d3. The shapes needed
+(grouped bars, a coloured grid) are simple enough that hand-rolled SVG is honest
+and readable; a charting library would break the stdlib-only value for no real
+benefit. Output is a self-contained `<svg>` string that embeds in the UI or
+writes to a file.
+
+**Reusing existing structured data (per the CLAUDE.md pointer to `report.py`).**
+Rather than re-derive fairness numbers, the heatmap reuses `summarize_cohort`
+(cohort metric means + pass rates) and a small, additive
+`per_form_error_rates(passports)` helper added to `dif/report.py` — the same
+per-form signal `summarize_cohort` already computes internally to pick the worst
+form, now exposed so a chart can show every form. `summarize_cohort` itself is
+untouched.
+
+**Why.** Roadmap Tier 5 step 3: a non-Python user could generate a cohort but had
+no at-a-glance view of who is in it or where a model's decisions diverge across
+documentation forms. The demographics chart answers the first; the fairness
+heatmap makes the polymorphic-fairness signal legible (the demo biased model
+lights up patient-facing/LEP forms in red while clinician forms stay green).
+
+**How verified.** New `tests/test_viz_svg.py` (12 tests): the aggregation sums to
+`n`; both SVGs parse as well-formed XML via the **stdlib** `xml.dom.minidom` (no
+rendering lib needed for the assertion); the biased model's per-form error rates
+hit patient/LEP forms and spare clinician forms; the fair model is all-zero;
+empty passports raise; the two API endpoints return `image/svg+xml` and reject
+unknown model / oversized count; `--viz` writes a well-formed file. **Real
+headless-Chromium** test `test_ui_renders_viz_svgs_in_browser` asserts both SVGs
+land in the `#viz` panel after Generate. The SVGs were additionally **rendered to
+PNG in headless Chromium** and eyeballed (screenshots saved during development).
+Fail-before/pass-after confirmed by removing the viz package (import error). Full
+suite green (429 passed / 7 skipped).
+
+**Limitations.** `/viz/fairness` and the UI's fairness panel run a *demonstration*
+audit against a documented **mock** model — there is no real device-under-test in
+a stateless HTTP call, so the heatmap illustrates the metric machinery, it is not
+an audit of any real model (to audit a real model, use `hipaasynth.dif.run_audit`
+with your own `predict`). The demographics age bands mirror the profile configs
+(18-24/25-44/45-64/65-90); ages outside 18-90 (not produced by the default
+config) would fall into an "other" band.
+
 ---
 
 # Tier 4 — validation, fidelity, and reporting

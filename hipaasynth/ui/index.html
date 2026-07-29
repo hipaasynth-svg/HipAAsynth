@@ -154,11 +154,12 @@
     }
 
     async function loadCapabilities() {
-      const [fmts, scns] = await Promise.all([
+      const [fmts, scns, health] = await Promise.all([
         fetch("/formats").then((r) => r.json()),
         fetch("/scenarios").then((r) => (r.ok ? r.json() : { scenarios: [] })).catch(() => ({ scenarios: [] })),
+        fetch("/health").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
       ]);
-      $("engineTag").textContent = "engine " + (fmts.engine_version || fmts.max_count ? (fmts.engine_version || "") : "");
+      $("engineTag").textContent = health.engine_version ? "engine " + health.engine_version : "engine";
       // modules
       const mod = $("module");
       (fmts.modules || []).forEach((m) => mod.appendChild(opt(m, m)));
@@ -223,12 +224,15 @@
     function renderResult(patients, params) {
       const n = patients.length;
       const first = patients[0];
-      const modLabel = params.get("scenario") || params.get("module") || "sepsis";
+      // The module/profile selects reflect the resolved values (a scenario locks
+      // them to its blueprint), so read them for an accurate summary.
+      const scenario = params.get("scenario");
+      const modLabel = $("module").value + (scenario ? " (scenario: " + scenario + ")" : "");
       const html = [
         '<dl class="kv">',
         "<dt>Patients</dt><dd id='patientCount'>" + n + "</dd>",
-        "<dt>Module / scenario</dt><dd>" + escapeHtml(modLabel) + "</dd>",
-        "<dt>Profile</dt><dd>" + escapeHtml(params.get("profile") || "(default)") + "</dd>",
+        "<dt>Module</dt><dd>" + escapeHtml(modLabel) + "</dd>",
+        "<dt>Profile</dt><dd>" + escapeHtml($("profile").value || "(default)") + "</dd>",
         "<dt>Seed</dt><dd>" + escapeHtml(params.get("seed")) + "</dd>",
         "</dl>",
         "<label>First patient (sample)</label>",
@@ -237,15 +241,32 @@
       $("result").innerHTML = html;
     }
 
-    // Load the server-rendered SVG population distribution for the same params.
+    // Load the server-rendered SVGs (population distribution + a demo fairness
+    // heatmap) for the same params. The fairness panel is a *demonstration* audit
+    // against a built-in mock model, capped in size — it is not an audit of any
+    // real model.
     async function loadViz(params) {
       const vp = new URLSearchParams(params); vp.delete("format");
+      $("viz").innerHTML = "";
       try {
         const resp = await fetch("/viz/demographics?" + vp.toString());
-        if (!resp.ok) { $("viz").innerHTML = ""; return; }
-        const svg = await resp.text();
-        $("viz").innerHTML = "<label>Population distribution</label>" + svg;
-      } catch { $("viz").innerHTML = ""; }
+        if (resp.ok) {
+          $("viz").innerHTML += "<label>Population distribution</label>" + (await resp.text());
+        }
+      } catch { /* leave demographics out */ }
+      // Fairness heatmap: demo audit with a mock biased model (bounded count).
+      const count = parseInt($("count").value, 10) || 0;
+      if (count > 0 && count <= 300) {
+        try {
+          const fp = new URLSearchParams(vp); fp.set("model", "biased");
+          const fresp = await fetch("/viz/fairness?" + fp.toString());
+          if (fresp.ok) {
+            $("viz").innerHTML +=
+              "<label>Fairness heatmap — demo audit (mock biased model)</label>" +
+              (await fresp.text());
+          }
+        } catch { /* leave fairness out */ }
+      }
     }
 
     async function download() {
