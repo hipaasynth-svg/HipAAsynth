@@ -131,6 +131,66 @@ range). Correlations are marginal/point-biserial, not adjusted for confounders.
 The linked-pair list mirrors `CONDITION_LAB_MODIFIERS`; if that table grows, this
 list must be kept in step (they live with cross-referencing comments).
 
+## Step 2 — Clinical-plausibility rules (`hipaasynth/validation/validator.py`)
+
+**What.** Two new detection rules alongside the existing `AGE_RESTRICTED_CONDITIONS`
+rule, plus a combined `check_clinical_plausibility` / cohort-level
+`find_clinical_plausibility_issues`:
+
+- **Lab-vs-diagnosis consistency** (`check_lab_diagnosis_consistency`). New
+  `LAB_DIAGNOSIS_FLOORS` table: `chronic_kidney_disease→Creatinine ≥ 1.05`,
+  `hyperlipidemia→LDL ≥ 160`, `sepsis→WBC ≥ 11`. These are the *hard* lower
+  bounds the engine's `max(baseline, elevated_draw)` couplings guarantee (draws
+  `U(1.05,1.25)`, `U(160,260)`, `U(11,19)`), so a patient carrying the diagnosis
+  with the coupled lab *below* the floor is an internal contradiction — only
+  possible in a corrupted / hand-edited / externally-merged record. The rule
+  flags it.
+- **Medication-timeline plausibility** (`check_medication_timeline`). Flags a
+  patient that carries a medication but has **no visit** to anchor a drug-exposure
+  date (which would export an OMOP `drug_exposure` row with a NULL
+  `drug_exposure_start_date`).
+
+**Design — detection, not mutation.** Unlike the age rule (which drops a wrong
+condition during generation), a lab-vs-diagnosis contradiction has no single
+obvious repair — discard the lab or the diagnosis? — so these rules *return
+findings* and leave the record untouched, letting the caller decide. This also
+means zero behavioral change for the 373-test suite (engine-generated patients
+never trip them).
+
+**Traced, not assumed — the medication-timeline "gap" is largely already handled
+upstream.** Per the task's instruction to trace the generators first: the core
+`Medication` schema carries only `name` and `active` (no start/stop/onset field),
+the anchor-rooted population pipeline attaches **no** medications at all, and in
+the OMOP exporter a drug exposure's date is pinned to the patient's earliest
+visit (`drug_exposure_start_date == end_date`, a single-day exposure inside the
+observation-period span). So a true medication *timeline* (start/stop ordering,
+overlap with a diagnosis window) is **not modeled anywhere** and is plausible by
+construction where it does exist. Rather than fabricate a timeline check with
+nothing to check, the rule covers the one honest remaining invariant (a
+medication needs a visit to anchor its exposure date), and this limitation is
+recorded explicitly here instead of as a false gap.
+
+**Why.** The validator previously enforced exactly one clinical rule (age-
+restricted conditions). Lab-vs-diagnosis contradictions and un-anchorable
+medications are the next most likely integrity defects to reach an exporter or a
+fairness audit; catching them here is cheap and non-destructive.
+
+**How verified.** `tests/test_validator_plausibility.py` (12 tests). Each rule has
+a *fires* test on a constructed implausible record (CKD + creatinine 0.7,
+hyperlipidemia + LDL 90, sepsis + WBC 6, medication + zero visits) and a *no-
+false-positive* test (at/above floor; low creatinine with no CKD diagnosis;
+diabetes + normal glucose — deliberately excluded because the glucose modifier
+has no hard floor; medication with a visit). A 200-patient seed-11 default cohort
+and a 60-patient sepsis cohort both produce **zero** findings, confirming the
+engine never trips its own rules. New functions, so the tests fail before
+(ImportError) and pass after. Full suite: 373 passed, 7 skipped — no regressions.
+
+**Limitations.** `type2_diabetes→Glucose` has no hard floor to assert (the
+diabetic draw `max(baseline, N(164,40))` can leave a normal baseline in place),
+so that coupling is covered *statistically* by step 1's
+`linked_lab_correlations`, not as a per-patient hard rule. Medication *timeline*
+ordering remains unmodeled (see above).
+
 ---
 
 # Tier 3 — warehouse connectors + container packaging

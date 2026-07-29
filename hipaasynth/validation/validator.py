@@ -37,6 +37,38 @@ AGE_RESTRICTED_CONDITIONS = {
 MIN_AGE_FOR_RESTRICTED_CONDITIONS = 10
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Lab-vs-diagnosis consistency (Tier 4, step 2).
+#
+# The engine couples certain diagnoses to certain labs in
+# ``generator_numerics.CONDITION_LAB_MODIFIERS`` by drawing the lab as
+# ``max(baseline, elevated_draw)``. For three of those couplings the elevated
+# draw has a hard *lower bound*, so a patient carrying the diagnosis can NEVER
+# have the coupled lab below that value if the record came from this engine:
+#
+#   * chronic_kidney_disease → Creatinine ≥ 1.05 mg/dL   (draw U(1.05, 1.25))
+#   * hyperlipidemia         → LDL        ≥ 160  mg/dL   (draw U(160, 260))
+#   * sepsis                 → WBC        ≥ 11   K/uL    (draw U(11, 19))
+#
+# A coupled lab BELOW its floor is therefore an internal contradiction — it can
+# only appear in a record that was corrupted, hand-edited, or merged from an
+# external source, and it would also be clinically implausible for an *untreated*
+# case. This rule flags it.
+#
+# NOTE — type2_diabetes → Glucose is deliberately NOT in this table. The diabetic
+# modifier ``max(baseline, N(164, 40))`` does not guarantee a value above the
+# normal reference range on every draw (a low diabetic draw leaves the normal
+# baseline in place), so there is no honest hard floor to assert for glucose. The
+# *statistical* diabetes→glucose association is checked instead by
+# ``hipaasynth.validation.fidelity.linked_lab_correlations``.
+# ─────────────────────────────────────────────────────────────────────────────
+LAB_DIAGNOSIS_FLOORS = {
+    "chronic_kidney_disease": ("Creatinine", 1.05),
+    "hyperlipidemia": ("LDL", 160.0),
+    "sepsis": ("WBC", 11.0),
+}
+
+
 def _deduplicate_conditions(conditions: list[Condition]) -> list[Condition]:
     """
     Deduplicate conditions by name, keeping the earliest onset age.
@@ -153,3 +185,89 @@ def validate_cohort(patients: list) -> list:
     for patient in patients:
         validate_patient(patient)
     return patients
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Clinical-plausibility checks (Tier 4, step 2).
+#
+# These are DETECTION functions: they return a list of findings rather than
+# mutating the patient. Unlike the age-restricted rule (which drops a
+# clearly-wrong condition during generation), a lab-vs-diagnosis contradiction
+# has no single obvious repair — should the lab be discarded or the diagnosis? —
+# so the honest, non-destructive behavior is to surface it and let the caller
+# decide. They never fire on engine-generated data (the generator guarantees the
+# floors); they exist to catch corrupted, hand-edited, or externally-merged
+# records before they reach an exporter or an audit.
+# ─────────────────────────────────────────────────────────────────────────────
+def check_lab_diagnosis_consistency(patient: Patient) -> list[dict]:
+    """Flag coupled labs that contradict a carried diagnosis.
+
+    For every ``(condition, (lab, floor))`` in :data:`LAB_DIAGNOSIS_FLOORS`, if
+    the patient carries ``condition`` and has any measurement of ``lab`` below
+    ``floor``, a finding is recorded. Returns an empty list for a consistent
+    record (including any record with no coupled diagnoses).
+    """
+    carried = {c.name for c in patient.conditions}
+    findings: list[dict] = []
+    for condition, (lab_name, floor) in LAB_DIAGNOSIS_FLOORS.items():
+        if condition not in carried:
+            continue
+        for visit in patient.visits:
+            for lab in visit.labs:
+                if lab.lab_name == lab_name and lab.value < floor:
+                    findings.append({
+                        "patient_id": patient.demographics.patient_id,
+                        "kind": "lab_below_diagnosis_floor",
+                        "condition": condition,
+                        "lab": lab_name,
+                        "value": lab.value,
+                        "floor": floor,
+                        "visit_id": visit.visit_id,
+                    })
+    return findings
+
+
+def check_medication_timeline(patient: Patient) -> list[dict]:
+    """Flag medications that cannot be placed on a plausible timeline.
+
+    **Scope note (traced, not assumed).** The core ``Medication`` schema carries
+    only ``name`` and ``active`` — there is NO start/stop/onset field — and the
+    anchor-rooted population pipeline attaches no medications at all, so a true
+    medication *timeline* (ordering of starts/stops, overlap with a diagnosis
+    window) is not modeled anywhere and cannot be validated at this layer. In the
+    OMOP export, a drug exposure's date is pinned to the patient's earliest visit
+    date (``drug_exposure_start_date == end_date``, a single-day exposure inside
+    the observation-period span), so it is plausible *by construction*.
+
+    The one honest, checkable medication-timing invariant that remains: a
+    medication needs at least one visit to anchor that exposure date to. A
+    patient carrying a medication but with **no visits** would export a
+    ``drug_exposure`` row with an empty ``drug_exposure_start_date``, which
+    violates OMOP CDM 5.4's NOT NULL requirement. This rule flags exactly that.
+    """
+    meds = list(getattr(patient, "medications", ()) or ())
+    if meds and not patient.visits:
+        return [{
+            "patient_id": patient.demographics.patient_id,
+            "kind": "medication_without_anchoring_visit",
+            "medications": [m.name for m in meds],
+            "detail": "medication present but no visit to anchor a drug-exposure "
+                      "date; OMOP drug_exposure_start_date would be NULL",
+        }]
+    return []
+
+
+def check_clinical_plausibility(patient: Patient) -> list[dict]:
+    """Run every clinical-plausibility rule and return the combined findings."""
+    return (
+        check_lab_diagnosis_consistency(patient)
+        + check_medication_timeline(patient)
+    )
+
+
+def find_clinical_plausibility_issues(patients: list[Patient]) -> list[dict]:
+    """Cohort-level sweep: all clinical-plausibility findings across patients."""
+    findings: list[dict] = []
+    for patient in patients:
+        findings.extend(check_clinical_plausibility(patient))
+    return findings
