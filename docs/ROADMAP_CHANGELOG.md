@@ -63,6 +63,74 @@ regressions.
 full identifier grammar (length limits, leading-digit rules), which remains the
 warehouse's job to enforce on the real `CREATE`/`LOAD`.
 
+## Step 1 — Statistical-fidelity checks (`hipaasynth/validation/fidelity.py`)
+
+**What.** A new, **profile-free** fidelity module that asks *"is the generated
+data internally faithful to the engine's own generative model?"* — complementary
+to `exporters.profile_fit_stats`, which only runs when a population profile is
+set and only checks three demographic marginals (sex / ethnicity / age bands).
+Three families of check, pure standard library (no numpy/scipy/pandas):
+
+- **Marginal distributions** — `lab_value_marginals` (per-analyte n / mean / std
+  / min / quartiles / max over every OMOP `measurement` row) and
+  `condition_prevalence` (count + fraction per condition). These are the
+  lab/condition marginals `profile_fit_stats` never looks at.
+- **Pairwise correlations between clinically-linked variables** —
+  `linked_lab_correlations` measures the association the engine *deliberately*
+  encodes in `generator_numerics.CONDITION_LAB_MODIFIERS`: diabetes→Glucose,
+  CKD→Creatinine, hyperlipidemia→LDL, sepsis→WBC are each drawn as
+  `max(baseline, elevated_draw)`, so a faithful cohort must show the diagnosed
+  group's mean lab shifted *up* with a positive point-biserial correlation. The
+  check reports mean-with / mean-without / shift / point-biserial and a
+  `direction_ok` flag — which is `None` (not `False`) when a group is empty and
+  the association simply can't be evaluated (e.g. no sepsis in a default cohort).
+- **Temporal consistency** — `temporal_consistency` enforces the invariants the
+  engine actually guarantees: every `condition.onset_age ≤ patient.age`, every
+  measurement date inside the person's observation-period span, and
+  `observation_period_start ≤ end`.
+
+**Data access** reuses `build_cdm_tables` (measurement / observation_period rows)
+and `_flat_patient_rows`, so the module sees exactly what an OMOP / flat-table
+consumer loads and can't drift out of sync with the exporters.
+
+**Design honesty — visit ordering is reported, not asserted.** The task listed
+"visit dates ordered" as a temporal check, but tracing `generator_numerics.
+generate_visits` / `_generate_visit_date` shows each visit date is drawn
+*independently* (`rng.randint(0, 365)` back from a fixed reference) and never
+sorted — so within-patient visits are frequently out of chronological order *by
+design*. Asserting ordering would flag a modeling choice as a defect, so
+`visit_order_report` exposes the ordered-fraction as an **informational**
+statistic only. What *is* invariant (and is asserted) is that every lab/
+measurement date falls inside the observation-period span, because a lab's
+`date_recorded` is always its own visit's date.
+
+**Why.** Tiers 1–3 proved the data was *exportable*; nothing proved it was
+*statistically faithful*. A silent regression that decoupled, say, diabetes from
+glucose would pass every prior test yet destroy the dataset's utility. This is
+the first check that would catch it.
+
+**How verified (incl. ground rule 5).** `tests/test_fidelity.py` (18 tests). The
+correlation statistic itself is verified against **constructed reference cases**,
+not "it ran": `pearson_correlation` returns `+1.0` on perfectly-correlated,
+`-1.0` on anti-correlated, `~0` (|r|<0.15) on an independently-constructed pair,
+and `None` on a zero-variance/degenerate input. Only then is it trusted to judge
+the engine: on a 150-patient seed-7 cohort the diabetes→Glucose coupling shows a
++78.9 mg/dL shift (r≈0.81), CKD→Creatinine and hyperlipidemia→LDL both shift up
+past their engine floors, and a 60-patient sepsis cohort lifts mean WBC to ≈15
+(leukocytosis range). Temporal checks: a generated cohort is clean (0
+violations); hand-built patients with `onset_age > age` and with a lab date
+outside the visit span are each **flagged** (fires), while a valid hand-built
+patient is **not** (no false positive). New module, so the suite fails before
+(ImportError) and passes after. Full suite: 361 passed, 7 skipped — no
+regressions.
+
+**Limitations.** These are *internal-consistency* checks against the engine's own
+generative model, not a claim of real-world epidemiological validity (the engine
+does not model, e.g., treatment lowering a diagnosed patient's lab back into
+range). Correlations are marginal/point-biserial, not adjusted for confounders.
+The linked-pair list mirrors `CONDITION_LAB_MODIFIERS`; if that table grows, this
+list must be kept in step (they live with cross-referencing comments).
+
 ---
 
 # Tier 3 — warehouse connectors + container packaging
