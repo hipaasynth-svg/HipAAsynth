@@ -179,3 +179,48 @@ def test_summary_json_round_trips(agent):
 
     reloaded = FairnessPassportSummary.model_validate_json(summary.model_dump_json())
     assert reloaded.per_form_decisions == summary.per_form_decisions
+
+
+# --- Interpretation must have a self-contained (no $defs/$ref) schema -------
+#
+# Empirically observed against a live xAI grok-3 call: a Dict keyed by a str
+# Enum (DocumentationForm/FairnessMetric) renders as a `propertyNames` $ref
+# into a `$defs` block, and xAI's structured-output validator rejects it
+# ("unresolvable $ref '#/$defs/...': key '$defs' not found in schema") when
+# asked to generate this model directly. Plain string keys avoid the $ref
+# entirely. This test locks in that shape so it can't regress.
+
+def _find_ref_keys(node):
+    """Recursively collect any dict keys literally named '$ref' or '$defs'."""
+    found = []
+    if isinstance(node, dict):
+        found.extend(k for k in ("$ref", "$defs") if k in node)
+        for v in node.values():
+            found.extend(_find_ref_keys(v))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(_find_ref_keys(item))
+    return found
+
+
+def test_interpretation_schema_has_no_defs_or_refs():
+    from nooa_validation_orchestrator import Interpretation
+
+    schema = Interpretation.model_json_schema()
+    # A structural check (dict keys), not a substring search — the class
+    # docstring itself discusses "$ref"/"$defs" in prose.
+    assert _find_ref_keys(schema) == []
+
+
+def test_interpretation_accepts_string_keyed_notes():
+    from nooa_validation_orchestrator import Interpretation
+
+    interp = Interpretation(
+        run_id="r1",
+        summary="Documentation-form effects observed; no bias claim made.",
+        form_level_notes={"FHIR_STRUCTURED": "consistent decision"},
+        metric_notes={"DCS": "within threshold"},
+    )
+    # str-Enum equality/hash means the enum member still matches a plain key.
+    assert DocumentationForm.FHIR_STRUCTURED in interp.form_level_notes
+    assert FairnessMetric.DCS in interp.metric_notes

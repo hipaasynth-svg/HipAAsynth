@@ -193,10 +193,25 @@ class RunSummary(BaseModel):
 
 
 class Interpretation(BaseModel):
+    """Agentic output of ``interpret_passport``.
+
+    ``form_level_notes`` / ``metric_notes`` are keyed by plain strings (the
+    form/metric name, e.g. ``"FHIR_STRUCTURED"``) rather than
+    ``DocumentationForm``/``FairnessMetric`` enum members. Pydantic renders an
+    enum-keyed ``Dict`` as a ``propertyNames`` constraint referencing a shared
+    ``$defs`` entry; empirically, xAI's structured-output schema validator
+    rejects that shape with "unresolvable $ref '#/$defs/...': key '$defs' not
+    found in schema" when the LLM is asked to generate this model directly.
+    Plain string keys produce a self-contained schema with no ``$defs``/``$ref``
+    and are unaffected. Since both enums mix in ``str``, an enum member still
+    compares equal to (and hashes the same as) its string value, so existing
+    lookups like ``DocumentationForm.FHIR_STRUCTURED in notes`` keep working.
+    """
+
     run_id: str
     summary: str
-    form_level_notes: Dict[DocumentationForm, str] = Field(default_factory=dict)
-    metric_notes: Dict[FairnessMetric, str] = Field(default_factory=dict)
+    form_level_notes: Dict[str, str] = Field(default_factory=dict)
+    metric_notes: Dict[str, str] = Field(default_factory=dict)
     caveats: List[str] = Field(default_factory=list)
     zero_phi_confirmed: bool = True
     no_regulatory_claims: bool = True
@@ -504,10 +519,12 @@ class HipAAsynthAgent(Agent):
         1. Narrate per_form_decisions for the seven forms without inventing
            values. Forms listed in passport.refused_forms or
            unparseable_forms have NO decision — say so; never treat them as a
-           negative decision.
+           negative decision. Key form_level_notes by the plain form name
+           string (e.g. "FHIR_STRUCTURED"), one entry per form discussed.
         2. Comment on the four metrics (DCS, ISG, LFDI, SAF) using the values
            present. Each metric value carries a {"value", "pass"} pair when the
-           summary came from a real engine passport.
+           summary came from a real engine passport. Key metric_notes by the
+           plain metric name string (e.g. "DCS").
         3. Use cautious language: these are documentation-form effects on
            synthetic patients, not evidence of real-world bias or clinical
            validity.
