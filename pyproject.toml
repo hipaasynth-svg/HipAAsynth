@@ -43,6 +43,10 @@ fhir = ["fhir.resources>=7.0"]
 # Optional Parquet export (hipaasynth.exporters.export_parquet). The engine core
 # stays pure-Python/standard-library; pyarrow is pulled in only for this feature.
 parquet = ["pyarrow>=14.0"]
+# Optional DuckDB warehouse connector (hipaasynth.connectors.duckdb). Embedded,
+# no server; duckdb is lazily imported only when the connector is used, same
+# pattern as pyarrow above.
+duckdb = ["duckdb>=0.10"]
 seismometer = [
     "seismometer>=0.5",
     "pandas>=2.0",

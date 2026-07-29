@@ -1,0 +1,20 @@
+# Minimal compose for the HipAAsynth REST API.
+#
+#   docker compose up --build
+#   curl http://localhost:8000/health
+#
+# One service, but it earns its place: it captures the port mapping, a restart
+# policy, and the tunable request cap (--max-count) so you don't have to remember
+# the `docker run` flags. Override the cap without editing this file:
+#
+#   HIPAASYNTH_MAX_COUNT=50000 docker compose up
+services:
+  api:
+    build: .
+    image: hipaasynth-api
+    ports:
+      - "8000:8000"
+    # Bind to 0.0.0.0 (container-external) and apply the request cap.
+    command: ["--host", "0.0.0.0", "--port", "8000",
+              "--max-count", "${HIPAASYNTH_MAX_COUNT:-10000}"]
+    restart: unless-stopped

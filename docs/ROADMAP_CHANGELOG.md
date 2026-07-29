@@ -1,17 +1,159 @@
 # Interoperability Roadmap — Change Log
 
-Running log of the FHIR + OMOP interoperability work (Tier 1 + Tier 2). One entry
-per change: **what** was added/changed, **why** (which roadmap gap it closes),
-**how** it was verified, and **known limitations**. Newest entries first.
+Running log of the FHIR + OMOP interoperability work (Tier 1 + Tier 2 + Tier 3).
+One entry per change: **what** was added/changed, **why** (which roadmap gap it
+closes), **how** it was verified, and **known limitations**. Newest entries first.
 
 The engine core stays pure-Python / standard-library. Optional interoperability
-extras (e.g. Parquet) are gated behind `pip install hipaasynth[...]` and flagged
-explicitly below.
+extras (e.g. Parquet, DuckDB) are gated behind `pip install hipaasynth[...]` and
+flagged explicitly below.
 
 > **Base branch note (Tier 2).** Tier 1 (PR #81) was still an *open draft* — not
 > merged into `main` — when Tier 2 began, so the Tier-2 branch is stacked directly
 > on the Tier-1 branch. Until #81 merges, the Tier-2 PR diff includes the Tier-1
 > commits; it targets `main` and collapses to Tier-2-only once #81 lands.
+>
+> **Base branch note (Tier 3).** By the time Tier 3 began, both #81 (Tier 1) and
+> #83 (Tier 2) had **merged into `main`**, so Tier 3 is built directly on `main`
+> (no stacking) on a branch restarted from the latest `main`.
+
+---
+
+# Tier 3 — warehouse connectors + container packaging
+
+Getting a generated cohort *into* the systems people actually analyze it in: a
+real embedded warehouse (DuckDB), a cloud-warehouse schema/load-SQL generator
+(BigQuery), and a container image for the REST API. Each change is additive and
+gated on a fails-before / passes-after test.
+
+## Step 11 — Docker packaging for the REST API (`Dockerfile`, `docker-compose.yml`)
+
+**What.** A `Dockerfile` (and `.dockerignore` + a minimal `docker-compose.yml`)
+that installs the package and runs the REST API as the container entrypoint:
+  - `FROM python:3.11-slim`; copies `pyproject.toml`/`README.md`/`LICENSE.md` +
+    `hipaasynth/` and runs `pip install --no-cache-dir .` (hatchling build).
+  - Runs as a **non-root** user (`appuser`, uid 10001) — it's a network-facing
+    service — `EXPOSE 8000`, a stdlib-only `HEALTHCHECK` hitting `/health`, and
+    `ENTRYPOINT python -m hipaasynth.api` / `CMD --host 0.0.0.0 --port 8000`.
+  - `docker-compose.yml`: one `api` service, `build: .`, `8000:8000`, `restart:
+    unless-stopped`, and a tunable `--max-count` via `${HIPAASYNTH_MAX_COUNT}`.
+  - `.dockerignore` keeps the context/image small (drops `.git`, `tests/`,
+    `docs/`, caches, `*.duckdb`) while keeping the `README.md`/`LICENSE.md` the
+    build needs.
+
+**Why.** Roadmap Tier 3 step 3 — a deployable artifact for the REST API. Core-only
+install keeps the image lean and stdlib-true; the `format=parquet` path returns a
+clean 400 telling the caller to add the `[parquet]` extra (documented inline).
+
+**Dependency decision.** None — the image installs only the stdlib-only core; no
+optional extra is baked in by default.
+
+**How verified — Dockerfile written; `docker` daemon UNAVAILABLE in this sandbox,
+so NOT verified with a real `docker build`/`docker run`.** `docker build` here fails
+with `failed to connect to the docker API at unix:///var/run/docker.sock … daemon`
+(the CLI exists, the daemon does not). The Dockerfile's real logic was instead
+verified by a **shell dry-run that executes the same steps**: staged the exact COPY
+set, created a clean virtualenv (stand-in for `python:3.11-slim`), ran the
+Dockerfile's `pip install .` (→ `Successfully installed hipaasynth-1.3.0`, console
+script present), then ran the exact ENTRYPOINT+CMD (`python -m hipaasynth.api --host
+0.0.0.0 --port 8000`) and confirmed the **verbatim HEALTHCHECK command returns exit
+0**, `GET /health` → `{"status":"ok",…}`, and `GET /generate?...` → 200.
+Additionally, `tests/test_docker.py` (9 tests) statically guards the artifacts:
+base image, package-install step, EXPOSE/ENTRYPOINT/CMD, non-root ordering,
+healthcheck endpoint, `.dockerignore` rules, compose build/port/YAML validity, and
+port consistency across all three files.
+
+**Known limitations (stated plainly).** The image was **never actually built or
+run** (no Docker daemon here) — a human should run `docker build`/`docker run`
+before relying on it. No multi-stage slimming, no pinned base-image digest, no TLS/
+auth (deploy behind a reverse proxy). **Helm/Kubernetes is deferred** (Tier 3 step
+4): not built, as it can't be tested without a cluster.
+
+---
+
+## Step 10 — BigQuery connector, schema/query text only (`hipaasynth/connectors/bigquery.py`)
+
+**What.** A **schema/query-level** BigQuery connector that generates, from the
+shared OMOP CDM 5.4 column sets, the text you would run against BigQuery:
+  - `table_ddl(table, dataset, project=, if_not_exists=)` and
+    `schema_ddl(dataset, project=)` — GoogleSQL `CREATE TABLE` DDL with BigQuery
+    scalar types (`INT64`/`FLOAT64`/`DATE`/`DATETIME`/`STRING`).
+  - `table_schema_json(table)` — the `[{"name","type","mode"}]` load-schema JSON
+    that `bq load --schema` and the BigQuery client accept.
+  - `load_data_sql(table, uris, …, overwrite=)` — GoogleSQL `LOAD DATA
+    INTO|OVERWRITE … FROM FILES(...)`; `bq_load_command(...)` — the equivalent
+    `bq load` CLI string; `load_all_sql(dataset, gcs_prefix)` — a statement per
+    OMOP table expecting `{prefix}/{table}.csv` (matching `export_omop`'s layout).
+  - Identifier validation rejects anything that could smuggle a backtick / SQL into
+    the generated text.
+
+**Why.** Roadmap Tier 3 step 2 — a second connector at the level that is honestly
+testable without a live account. **BigQuery chosen** (over Snowflake/Redshift/
+Databricks) because its GoogleSQL DDL, `LOAD DATA … FROM FILES` DML, `bq load` CLI,
+and JSON load-schema are the most stable, well-documented text to generate and
+assert offline.
+
+**Dependency decision.** **None** — the connector is pure standard library. It
+deliberately does **not** import `google-cloud-bigquery` and opens no connection,
+so it needs no optional extra and no CI zero-dep exemption. (A client-based loader
+is **deferred**, not built, because it cannot be tested against a real account
+here.)
+
+**How verified — generated SQL/DDL TEXT ONLY; a live BigQuery warehouse was NEVER
+contacted (no account in this sandbox).** `tests/test_connector_bigquery.py`
+(13 tests) asserts on the generated strings: qualified names with/without project,
+every BigQuery type mapping (INT64/FLOAT64/DATE/DATETIME/STRING), `IF NOT EXISTS`,
+full-schema DDL covering all six tables, load-schema JSON column/type/mode, `LOAD
+DATA INTO` vs `OVERWRITE`, multi-URI, the `bq load` CLI string, per-table load map,
+unknown-table `ValueError`, identifier-injection rejection, and that the BigQuery
+column set matches the DuckDB one (same `omop_schema` source, no drift).
+
+**Known limitations (stated plainly).** Text generation only — **not executed**
+against BigQuery; no dataset creation, no partitioning/clustering, and no
+client-based load path (deferred until testable). Types are the OMOP-faithful
+scalar choices; a team may prefer `NUMERIC` over `FLOAT64` for exact decimals.
+
+---
+
+## Step 9 — DuckDB connector (`hipaasynth/connectors/duckdb.py`)
+
+**What.** A connector that loads a cohort into a **real local DuckDB database
+file**. `load(cohort, database, *, mode="omop"|"flat", if_exists="replace"|"append")
+-> {table: row_count}`:
+  - `mode="omop"` (default) creates the six OMOP CDM 5.4 tables with **typed**
+    columns and inserts `build_cdm_tables()` rows (empty CSV values → real SQL
+    NULLs).
+  - `mode="flat"` loads the single flat patient table (base fields typed;
+    observation columns typed `DOUBLE` when all-numeric, else `VARCHAR`).
+  - Accepts a `Cohort` or a plain list of patients; `create_table_ddl(table)`
+    exposes the DDL text.
+  - Column→SQL types come from a new shared `hipaasynth/connectors/omop_schema.py`,
+    which derives its **column sets from `omop._TABLE_COLUMNS`** (the same lists the
+    CSV exporter writes) — so a connector's schema can never drift from the export.
+
+**Why.** Roadmap Tier 3 step 1: there was no way to get a cohort into a warehouse.
+DuckDB is embedded (no server/account/network), so it is the connector that can be
+**fully integration-tested here**, and the reference for connector shape.
+
+**Dependency decision (flagged, pyarrow-style).** `duckdb` is a new **optional
+extra** (`pip install 'hipaasynth[duckdb]'`), imported **lazily** inside
+`load()` — importing `hipaasynth`, `hipaasynth.connectors`, or `omop_schema` pulls
+in nothing new. The engine core stays stdlib-only; the CI zero-dep check's per-file
+allowlist was extended to exempt exactly `connectors/duckdb.py` (nothing else).
+
+**How verified — ran against a REAL local DuckDB file (not a mock).**
+`tests/test_connector_duckdb.py` (11 tests, skipped when `duckdb` is absent):
+row-count summary equals `build_cdm_tables`; data is queryable after reopening the
+`.duckdb` file (incl. a real CDM join); columns are correctly typed
+(`person_id`→BIGINT, `condition_start_date`→DATE, `value_as_number`→DOUBLE,
+`person_source_value`→VARCHAR); empty OMOP values load as `NULL`;
+`condition_status_concept_id` survives as a non-zero int; flat mode; replace-vs-
+append; plain-list input; and a missing-`duckdb` path that raises a clear
+`RuntimeError` with the install hint. Verified locally against `duckdb 1.5.5`.
+
+**Known limitations.** Loads via parameterized `executemany` (fine for the cohort
+sizes this generates; not a bulk-COPY path for millions of rows). `mode="flat"`
+infers observation-column types from the data, not a fixed schema.
 
 ---
 
