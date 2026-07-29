@@ -240,6 +240,78 @@ signal-existence indicator, not a benchmarked model score. The high AUC partly
 reflects that the *same* engine couplings generate both features and label — that
 is exactly the round-trip this probe is meant to confirm, not a real-world claim.
 
+## Step 4 — Audit-stability metrics: concept drift, uncertainty, sensitivity (`hipaasynth/dif/stability.py`)
+
+**What.** A new **cohort-level** layer on top of the existing fairness passport /
+`summarize_cohort` roll-up, answering *"how trustworthy are the audit's own
+numbers?"* — **all three** requested metrics were honestly definable, so all
+three are implemented (none skipped):
+
+- **Concept drift** (`concept_drift`) — per-metric shift of a cohort fairness
+  statistic (`dcs_mean`, `isg_mean`, `lfdi_mean`, `saf_mean`,
+  `overall_pass_rate`) between two cohort generations produced with **different
+  seeds** but the same config. Each result carries `drift = comparison −
+  baseline` and a `drifted` flag when `|drift|` exceeds a threshold. Answers "is
+  my verdict an artifact of one lucky seed?"
+- **Uncertainty** (`bootstrap_uncertainty`) — because the engine is
+  **deterministic per seed**, there is no run-to-run noise to average; the honest
+  remaining uncertainty is *estimator* uncertainty. So uncertainty is defined as
+  **bootstrap resampling** of the passports (with replacement): resample the
+  cohort N times, recompute the metric each time, report the bootstrap standard
+  error and a 95% percentile CI. (This "define it honestly before implementing"
+  step is exactly what the task asked for.)
+- **Sensitivity** (`threshold_sensitivity`) — the *local* sensitivity of a
+  pass-rate to its pass/fail **threshold**, by central finite difference:
+  recompute the pass rate at `threshold ± δ` from the stored per-patient metric
+  values (no re-audit) and return `d(pass_rate)/d(threshold)`. A large magnitude
+  means the verdict is fragile at that operating point.
+
+`stability_report` bundles all three (with a `to_markdown`), exported from
+`hipaasynth.dif`.
+
+**Design — cohort layer, sealed passport untouched.** These operate on lists of
+`FairnessPassport` and never modify the per-patient passport or its
+`content_sha256` seal, so the existing byte-stability guarantee
+(`test_polymorphic_fidelity.py` — identical `content_sha256()` across runs) still
+holds. Read `metrics.py` and `report.py` in full first; the frozen
+`PolymorphicMetrics` and its seal payload are deliberately not extended.
+
+**Why.** The audit previously reported point metrics with per-patient CIs
+(`CohortFairnessSummary`) but nothing about whether the *conclusion* is stable:
+would a different seed flip it? how uncertain is the pass rate? how fragile is it
+to the threshold? These three metrics make the audit's own reliability legible —
+the reporting half of "validation, fidelity, and **reporting**".
+
+**How verified (incl. ground rule 5).** `tests/test_stability.py` (14 tests). Each
+metric is checked against a **constructed reference case with a known answer**,
+using hand-built passports so inputs (and the correct outputs) are fully
+controlled:
+  - *Concept drift* — identical cohorts → drift exactly 0 (not flagged); an
+    all-pass vs. all-fail pair → drift exactly −1.0 (flagged); a 10/10-vs-9/10
+    pair → drift −0.1, correctly *below* a 0.15 threshold (not flagged).
+  - *Uncertainty* — a 100-passport cohort at pass-rate 0.5 gives bootstrap
+    SE ≈ **0.051**, matching the analytic binomial `sqrt(p(1−p)/n) = 0.05` within
+    0.01; a constant cohort gives SE exactly 0 and a collapsed CI; deterministic
+    given the seed.
+  - *Sensitivity* — a cohort of 60 patients at DCS 0.90 and 40 at 0.82 with base
+    threshold 0.85 ± 0.05 gives pass rates 1.0 / 0.6 / 0.6 and slope exactly
+    **−4.0**, matching the hand-computed value; DCS sensitivity is proven ≤ 0 for
+    any cohort (raising a `≥`-threshold can only lose passers).
+Two end-to-end tests run a **real** `run_audit`: a biased vs. fair model on the
+same cohort config shows large flagged drift (`overall_pass_rate` drift > 0.5),
+while the same biased model across two seeds shows **no** flagged drift. New
+module: tests fail before (ImportError), pass after. Full suite: **399 passed, 7
+skipped** — no regressions, and the sealed-passport hash tests still pass.
+
+**Limitations.** Concept drift compares exactly two generations; it flags a shift,
+it does not model a drift *trend* over many generations. Bootstrap uncertainty
+captures finite-cohort sampling variability only — it cannot represent
+uncertainty the deterministic engine has by construction removed (e.g. model or
+label noise that isn't present). Threshold sensitivity is a *local* derivative at
+one operating point, not a global robustness guarantee; it also does not perturb
+the generated data itself (a data-perturbation sensitivity would require
+re-auditing perturbed cohorts and is a heavier, separate build).
+
 ---
 
 # Tier 3 — warehouse connectors + container packaging
