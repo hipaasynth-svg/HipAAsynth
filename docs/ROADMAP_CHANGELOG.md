@@ -16,6 +16,52 @@ flagged explicitly below.
 > **Base branch note (Tier 3).** By the time Tier 3 began, both #81 (Tier 1) and
 > #83 (Tier 2) had **merged into `main`**, so Tier 3 is built directly on `main`
 > (no stacking) on a branch restarted from the latest `main`.
+>
+> **Base branch note (Tier 4).** By the time Tier 4 began, Tier 3 (PR #84) had
+> **merged into `main`**, so Tier 4 is built directly on the latest `main`
+> (no stacking).
+
+---
+
+# Tier 4 — validation, fidelity, and reporting
+
+Proving the synthetic data and the fairness audit are *trustworthy*, not just
+exportable: statistical-fidelity checks, more clinical-plausibility rules, a
+downstream-utility probe, and new fairness-passport metrics (concept-drift /
+uncertainty / sensitivity). Stdlib-only core preserved; each change is gated on a
+fails-before / passes-after test.
+
+## Tier 3 review fix — BigQuery identifier validation used `re.match`, letting a trailing newline through (`hipaasynth/connectors/bigquery.py`)
+
+**What.** `_validate_identifier` validated dataset/table/project ids with
+`pattern.match(value)`. Python's `$` anchor matches *just before* a trailing
+newline as well as at true end-of-string, and `re.match` is not end-anchored, so
+`_ID_RE = re.compile(r"^[A-Za-z0-9_]+$")` accepted `"person\n"`. That let a
+control character smuggle into generated DDL/load text:
+`qualified_name('person\n', 'omop')` returned `` `omop.person\n` ``. Changed the
+check to `pattern.fullmatch(value)`, which anchors to the true end-of-string and
+needs no regex change (`_PROJECT_RE` had the identical issue and is fixed by the
+same one-line change, since both patterns flow through `_validate_identifier`).
+
+**Why.** This is **not** a SQL-injection escape — backtick-quoting still holds, and
+the existing `test_identifier_injection_is_rejected` (semicolons, backticks,
+`DROP TABLE`, `OR 1=1`, path traversal) keeps passing. But it is a genuine
+validation bypass: the smuggled newline would be a syntax error against real
+BigQuery, and could forge a fake line if the generated text were ever logged or
+parsed line-by-line.
+
+**How verified.** `tests/test_connector_bigquery.py::test_trailing_newline_identifier_is_rejected`
+(new) asserts `ValueError` for a trailing newline in table, dataset, and project,
+plus a carriage return via `bq_target`. It **fails before** the fix
+(`DID NOT RAISE ValueError`) and **passes after**. The full existing BigQuery
+suite (14 tests) stays green — every previously-rejected injection case is still
+rejected and every valid plain identifier still passes. Full suite re-run: no
+regressions.
+
+**Limitations.** Validation is still a conservative allow-list
+(`[A-Za-z0-9_]`, plus `-` for projects); it does not attempt to mirror BigQuery's
+full identifier grammar (length limits, leading-digit rules), which remains the
+warehouse's job to enforce on the real `CREATE`/`LOAD`.
 
 ---
 
