@@ -384,6 +384,29 @@ def summarize_cohort(passports: List[FairnessPassport]) -> CohortFairnessSummary
     )
 
 
+def per_form_error_rates(passports: List[FairnessPassport]) -> Dict[str, float]:
+    """Per-form disagreement-with-ground-truth rate across a cohort of passports.
+
+    Returns ``{form_name: error_rate}`` over the ground-truth-evaluated passports
+    (the same signal :func:`summarize_cohort` uses to pick the worst form, exposed
+    here so a visualization can render every form rather than only the worst one).
+    A form with no evaluated decisions is reported as ``0.0``.
+    """
+    error_counts: Dict[str, int] = {}
+    error_totals: Dict[str, int] = {}
+    for p in passports:
+        if not p.metrics.truth_evaluated:
+            continue
+        for form_name, decision in p.decisions.items():
+            error_totals[form_name] = error_totals.get(form_name, 0) + 1
+            if decision != p.ground_truth:
+                error_counts[form_name] = error_counts.get(form_name, 0) + 1
+    return {
+        form_name: (error_counts.get(form_name, 0) / total if total else 0.0)
+        for form_name, total in sorted(error_totals.items())
+    }
+
+
 def _fda_tplc_mapping(metrics: PolymorphicMetrics) -> Dict[str, str]:
     """Map polymorphic metrics to FDA Total Product Life Cycle stages."""
     return {

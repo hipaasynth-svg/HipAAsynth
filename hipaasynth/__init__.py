@@ -35,6 +35,7 @@ from hipaasynth.core import (
     MockClinicalModel,
     ScoredMockModel,
 )
+from hipaasynth.sdk import generate, Cohort, MODULES, available_profiles
 
 __all__ = [
     "PSFGenerator",
@@ -64,4 +65,8 @@ __all__ = [
     "ModelInterface",
     "MockClinicalModel",
     "ScoredMockModel",
+    "generate",
+    "Cohort",
+    "MODULES",
+    "available_profiles",
 ]

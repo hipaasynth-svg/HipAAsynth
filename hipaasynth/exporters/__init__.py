@@ -15,9 +15,22 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from hipaasynth.exporters.exporters import (
-    export_csv, export_csv_stream, export_fhir, export_json,
-    print_profile_fit, print_summary, profile_fit_stats,
+    export_csv, export_csv_stream, export_fhir, export_fhir_ndjson, export_json,
+    export_parquet, print_profile_fit, print_summary, profile_fit_stats,
     summary_stats,
 )
+from hipaasynth.exporters.fhir_validate import (
+    FhirValidationReport, validate_bundle, validate_ndjson_dir,
+    validate_resource, validate_resources,
+)
 from hipaasynth.exporters.omop import build_cdm_tables, export_omop
+
+__all__ = [
+    "export_csv", "export_csv_stream", "export_fhir", "export_fhir_ndjson",
+    "export_json", "export_parquet", "print_profile_fit", "print_summary",
+    "profile_fit_stats", "summary_stats",
+    "FhirValidationReport", "validate_bundle", "validate_ndjson_dir",
+    "validate_resource", "validate_resources",
+    "build_cdm_tables", "export_omop",
+]
 

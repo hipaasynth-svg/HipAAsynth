@@ -1,0 +1,69 @@
+{
+  "_comment": "Named scenario blueprints: each pairs an EXISTING decision module (sepsis|stroke|dka|fabry) with an EXISTING bundled population profile and a human-readable description. No module or profile is invented here; the loader (hipaasynth/scenarios.py) validates every 'module' against hipaasynth.sdk.MODULES and every 'profile' against the bundled profiles at load time. All records generated are synthetic — no PHI.",
+  "scenarios": [
+    {
+      "name": "tribal_sepsis",
+      "label": "Tribal ICU · Sepsis",
+      "module": "sepsis",
+      "profile": "nd_tribal_region_a",
+      "default_count": 200,
+      "description": "Sepsis decision module + Northern Plains tribal health profile (rural IHS service area, AI/AN-majority). Reflects the elevated sepsis burden documented for Indigenous populations in a low-connectivity, air-gapped deployment context."
+    },
+    {
+      "name": "tribal_stroke",
+      "label": "Tribal ICU · Stroke",
+      "module": "stroke",
+      "profile": "nd_tribal_region_a",
+      "default_count": 200,
+      "description": "Stroke decision module + Northern Plains tribal health profile. The profile's age bands are calibrated for an ICU stroke cohort (mean age 65-68), pairing a rural, majority-AI/AN population with acute-stroke decision support."
+    },
+    {
+      "name": "rural_nd_dka",
+      "label": "Rural ND · DKA",
+      "module": "dka",
+      "profile": "minot_nd",
+      "default_count": 150,
+      "description": "Diabetic ketoacidosis module + Minot, North Dakota profile. Rural upper-Midwest demographics with a high diabetes burden, screening for acute DKA presentations."
+    },
+    {
+      "name": "urban_nd_sepsis",
+      "label": "Urban ND · Sepsis",
+      "module": "sepsis",
+      "profile": "fargo_nd",
+      "default_count": 200,
+      "description": "Sepsis module + Fargo, North Dakota profile — the state's largest urban safety-net setting, contrasting with the rural tribal and small-town ND scenarios."
+    },
+    {
+      "name": "karachi_dka",
+      "label": "Karachi · DKA",
+      "module": "dka",
+      "profile": "karachi_pakistan",
+      "default_count": 200,
+      "description": "DKA module + Karachi, Pakistan profile. A large low/middle-income-country urban population where limited-English-proficiency and low-literacy documentation forms are common, stressing the polymorphic fairness surface."
+    },
+    {
+      "name": "lagos_sepsis",
+      "label": "Lagos · Sepsis",
+      "module": "sepsis",
+      "profile": "lagos_nigeria",
+      "default_count": 200,
+      "description": "Sepsis module + Lagos, Nigeria profile — a large sub-Saharan-African LMIC cohort, testing sepsis decision consistency across community-health-worker and patient-facing documentation forms."
+    },
+    {
+      "name": "fabry_baseline",
+      "label": "US baseline · Fabry",
+      "module": "fabry",
+      "profile": "us_default",
+      "default_count": 300,
+      "description": "Fabry disease (rare lysosomal storage disorder) module + US national reference profile. A rare-condition screening baseline against a general US population."
+    },
+    {
+      "name": "us_baseline_sepsis",
+      "label": "US baseline · Sepsis",
+      "module": "sepsis",
+      "profile": "us_default",
+      "default_count": 300,
+      "description": "Sepsis module + US national reference profile (ACS/NHANES). The neutral national baseline for comparison against the region- and country-specific scenarios."
+    }
+  ]
+}
