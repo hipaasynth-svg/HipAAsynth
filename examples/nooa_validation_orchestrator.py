@@ -55,9 +55,18 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-# The production runtime supplies the real NOOA Agent base. For standalone use
-# (tests, local development, CI without the nooa runtime) fall back to a plain
-# pydantic model so the deterministic layer is importable and testable.
+# The production runtime supplies the real NOOA Agent base
+# (``nooa`` == NVIDIA-labs Object-Oriented Agents; Python >= 3.12). That base is
+# metaclass-driven, *not* a pydantic model, and it requires an LLM at
+# construction — instantiate as ``HipAAsynthAgent(llm=my_llm)`` or declare one on
+# the class (``class HipAAsynthAgent(Agent, llm=my_llm)``), or run inside a
+# parent agent's context. Because the real base is not pydantic, class-level
+# mutable defaults (e.g. ``run_history``) are shared until reassigned, which is
+# why ``__init__`` re-initializes them per instance.
+#
+# For standalone use (tests, local development, CI without the nooa runtime) fall
+# back to a plain pydantic model so the deterministic layer stays importable and
+# testable. The fallback needs no LLM; only the agentic methods do.
 try:  # pragma: no cover - exercised only where nooa is installed
     from nooa import Agent
 except ModuleNotFoundError:  # pragma: no cover - the standalone path
@@ -244,6 +253,12 @@ class HipAAsynthAgent(Agent):
     pending_suggestions: List[SuggestedTest] = []
 
     def __init__(self, **data):
+        # ``data`` is forwarded verbatim to the base. Under the real nooa runtime
+        # that means framework kwargs (``llm=``, ``storage=``, ...); an ``llm`` is
+        # required there. Under the pydantic fallback it means field values.
+        # The list re-initialization below is required on the non-pydantic base,
+        # where the class-level ``[]`` defaults are otherwise shared across
+        # instances (verified against nooa.Agent).
         super().__init__(**data)
         self.run_history = list(self.run_history or [])
         self.interpretation_history = list(self.interpretation_history or [])
