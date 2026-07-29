@@ -20,6 +20,16 @@ from hipaasynth.dif.report import (
     FairnessPassport,
     summarize_cohort,
 )
+from hipaasynth.dif.stability import (
+    BootstrapUncertainty,
+    ConceptDriftResult,
+    StabilityReport,
+    ThresholdSensitivity,
+    bootstrap_uncertainty,
+    concept_drift,
+    stability_report,
+    threshold_sensitivity,
+)
 
 __all__ = [
     "DIFConfig",
@@ -27,4 +37,12 @@ __all__ = [
     "CohortFairnessSummary",
     "run_audit",
     "summarize_cohort",
+    "ConceptDriftResult",
+    "BootstrapUncertainty",
+    "ThresholdSensitivity",
+    "StabilityReport",
+    "concept_drift",
+    "bootstrap_uncertainty",
+    "threshold_sensitivity",
+    "stability_report",
 ]
