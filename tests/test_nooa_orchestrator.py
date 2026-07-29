@@ -45,6 +45,20 @@ def agent() -> HipAAsynthAgent:
     return HipAAsynthAgent()
 
 
+# --- agentic methods must be async (nooa only generates async ellipsis) ------
+
+@pytest.mark.parametrize(
+    "name",
+    ["design_experiment", "interpret_passport", "suggest_next_tests", "explain_form_disparity"],
+)
+def test_agentic_methods_are_coroutines(name):
+    # nooa's metaclass treats only `async def` + `...` bodies as generatable;
+    # a sync `...` method silently returns None instead of calling the LLM.
+    import asyncio
+
+    assert asyncio.iscoroutinefunction(getattr(HipAAsynthAgent, name))
+
+
 def _spec(label=None, seed=1) -> PopulationSpec:
     return PopulationSpec(
         profile=PopulationProfile.MINOT_ND,

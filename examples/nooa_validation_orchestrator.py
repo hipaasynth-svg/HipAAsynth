@@ -29,9 +29,13 @@ Design contract
   invariants: seed derivation, plan anchoring, zero-PHI screening, and
   adapting a real :class:`hipaasynth.dif.FairnessPassport` into a compact,
   serializable summary.
-* Agentic methods (``...`` bodies) are executed by the NOOA runtime; their
-  docstrings are the runtime prompts. They perform design, interpretation, and
-  suggestion — never data generation or metric computation.
+* Agentic methods (``async def`` + ``...`` body) are executed by the NOOA
+  runtime; their docstrings are the runtime prompts. They perform design,
+  interpretation, and suggestion — never data generation or metric computation.
+  They MUST be ``async``: nooa's metaclass only treats an ``async`` ellipsis
+  method as generatable ("sync methods can't generate"), so a sync ``...`` body
+  silently returns ``None`` instead of calling the LLM. Await them
+  (``await agent.design_experiment(...)``).
 
 Grounding notes (verified against the v1.3 engine)
 --------------------------------------------------
@@ -240,8 +244,8 @@ class HipAAsynthAgent(Agent):
     Careful validation orchestrator for the public HipAAsynth engine.
 
     Deterministic methods wrap engine operations and enforce invariants.
-    Agentic methods (`...`) perform design, interpretation, and suggestion;
-    their docstrings are the runtime prompts.
+    Agentic methods (`async def` + `...` body) perform design, interpretation,
+    and suggestion; their docstrings are the runtime prompts. Await them.
     """
 
     # Durable state
@@ -462,7 +466,7 @@ class HipAAsynthAgent(Agent):
     # Agentic methods
     # ------------------------------------------------------------------
 
-    def design_experiment(
+    async def design_experiment(
         self,
         operator_request: str,
         prior_interpretations: Optional[List[Interpretation]] = None,
@@ -488,7 +492,7 @@ class HipAAsynthAgent(Agent):
         """
         ...
 
-    def interpret_passport(
+    async def interpret_passport(
         self,
         passport: FairnessPassportSummary,
         operator_question: Optional[str] = None,
@@ -515,7 +519,7 @@ class HipAAsynthAgent(Agent):
         """
         ...
 
-    def suggest_next_tests(
+    async def suggest_next_tests(
         self,
         summaries: List[RunSummary],
         interpretations: List[Interpretation],
@@ -536,7 +540,7 @@ class HipAAsynthAgent(Agent):
         """
         ...
 
-    def explain_form_disparity(
+    async def explain_form_disparity(
         self,
         passport: FairnessPassportSummary,
         form_a: DocumentationForm,
