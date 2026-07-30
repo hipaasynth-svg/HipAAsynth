@@ -5,6 +5,103 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-07-30
+
+Interoperability and access. Earlier releases exposed the engine as an
+importable Python package. This release adds a CLI, a REST API, an SDK, a web
+UI, warehouse connectors, and container artifacts, without changing how
+generation works. Determinism, the stdlib-only core, and zero PHI are
+preserved: the core installs with no third-party dependencies, and every
+integration that needs one is an optional extra, lazily imported.
+
+Note on versioning: this entry covers work merged in PRs #81 and #83–#86, which
+landed while the version string stayed at 1.3.0. Because `ENGINE_VERSION` is
+sealed into every FairnessPassport, passports produced during that window record
+`1.3.0` and cannot be distinguished by version from pre-1.4.0 output. If you are
+reproducing a passport generated between 2026-07-27 and 2026-07-30, identify the
+engine by commit rather than by the recorded version.
+`tests/test_version_consistency.py` now prevents this from recurring.
+
+### Added
+
+- **CLI entry point** — `pip install hipaasynth` provides a `hipaasynth` command
+  (`[project.scripts]`), with `--format {json,csv,fhir-bundle,ndjson,parquet,omop}`,
+  `--scenario`, `--module`, `--viz`, and `--validate`. Existing flags and default
+  output are unchanged.
+- **REST API** (`hipaasynth/api.py`) — stdlib `http.server`, no framework
+  dependency. `GET /health`, `/formats`, `/scenarios`, `GET|POST /generate`,
+  `GET /viz/demographics`, `GET /viz/fairness`, and the web UI at `GET /`.
+  NDJSON responses are chunk-streamed; `profile` is restricted to bundled names.
+- **Python SDK** (`hipaasynth/sdk.py`) — `hipaasynth.generate(...) -> Cohort`,
+  iterable and indexable, with `to_json`/`to_csv`/`to_fhir_bundle`/`to_ndjson`/
+  `to_omop`/`to_parquet`, plus `validate()` and `summary()`.
+- **Web UI** (`hipaasynth/ui/index.html`) — dependency-free HTML/CSS/JS served
+  from the API on the same origin. Pick a module, profile, size and seed;
+  preview a real sample record; download in any supported format.
+- **Scenario blueprints** (`hipaasynth/scenarios.json`, `scenarios.py`) — eight
+  named module+profile pairings (e.g. `tribal_sepsis` = `sepsis` +
+  `nd_tribal_region_a`), validated at load against the real module and profile
+  registries so an unknown name fails immediately.
+- **SVG visualization** (`hipaasynth/viz/`) — hand-rolled, dependency-free
+  cohort demographics and a per-form fairness heatmap.
+- **OMOP/FHIR interoperability** — `MedicationRequest` alongside the existing
+  `MedicationStatement`, FHIR Bulk Data NDJSON export, an offline structural
+  FHIR validator, OMOP CDM 5.4 completion (`OBSERVATION_PERIOD`, visit linkage,
+  full column set), and optional Parquet export via the `[parquet]` extra.
+- **DuckDB connector** (`hipaasynth/connectors/duckdb.py`) — loads a cohort into
+  a real DuckDB file as typed OMOP tables or the flat patient table. Optional
+  `[duckdb]` extra, lazily imported.
+- **BigQuery schema generation** (`hipaasynth/connectors/bigquery.py`) — emits
+  GoogleSQL DDL, JSON load schemas, `LOAD DATA` statements and `bq` CLI strings.
+  Text generation only: it never contacts BigQuery and adds no dependency.
+- **Container artifacts** — `Dockerfile` (non-root, stdlib `/health`
+  healthcheck) and a single-service `docker-compose.yml`.
+- **Validation and fidelity suite** — statistical fidelity
+  (`validation/fidelity.py`), a downstream-utility probe
+  (`validation/utility_probe.py`), clinical-plausibility rules, and audit
+  stability metrics (`dif/stability.py`: seed drift, bootstrap CI, threshold
+  sensitivity). Each statistic is tested against a constructed case with a
+  known analytic answer.
+- **NOOA validation orchestrator** (`examples/nooa_validation_orchestrator.py`)
+  — an example agent pairing deterministic, engine-grounded wrappers with an
+  LLM interpretation layer. Verified end-to-end against a live model.
+
+### Changed
+
+- `ENGINE_VERSION` and `pyproject.toml`'s `version` are now covered by
+  `tests/test_version_consistency.py`, which also requires a CHANGELOG entry for
+  the current version. They were previously independent literals.
+- The CI zero-dependency check uses a per-file allowlist, so the stdlib-only
+  guarantee is enforced per module rather than waived wholesale.
+
+### Fixed
+
+- **API denial of service** — `do_POST` trusted `Content-Length` before reading,
+  so a forged header pre-allocated arbitrarily large buffers and killed the
+  handler thread. Bodies are now capped (`MAX_BODY_BYTES`), rejected with 413
+  before allocation, and read in bounded chunks.
+- **BigQuery identifier validation bypass** — `_validate_identifier` used
+  `re.match`, which is not end-anchored and lets `$` match before a trailing
+  newline, so a control character could reach generated DDL. Now uses
+  `fullmatch`.
+- **ATHENA tooling quote handling** — tab-delimited reads in the `tools/`
+  scripts use `QUOTE_NONE`, matching the fix already applied to
+  `vocabulary/validate.py`; bare quotes in `concept_name` no longer swallow
+  subsequent rows.
+
+### Known limitations
+
+- The `Dockerfile` has not been verified by a real `docker build`; its tests are
+  static checks on file contents (tracked in #91).
+- Tier 4 validation modules are not yet exported from
+  `hipaasynth.validation` or wired to the CLI/API/SDK (tracked in #88).
+- DuckDB, Parquet and Playwright tests are skipped unless those packages are
+  installed; CI does not currently install them (tracked in #87).
+- `GET /viz/fairness` runs a built-in mock model. It demonstrates the heatmap;
+  it does not audit any real system.
+- OMOP `concept_id`s remain partially ATHENA-verified; validate against a pinned
+  ATHENA release before production use.
+
 ## [1.3.0] — 2026-07-24
 
 Polymorphic fidelity: the seven documentation forms and the FairnessPassport are
