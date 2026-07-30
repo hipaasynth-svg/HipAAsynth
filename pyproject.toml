@@ -69,6 +69,29 @@ dev = [
     "mypy>=1.9",
     "pre-commit>=3.7",
 ]
+# Headless-browser tests (tests/test_web_ui.py). Playwright was previously not
+# declared in any extra, so the browser-driven proof that the non-Python user
+# journey works could not run for anyone but its original author (issue #87).
+# NOTE: pip installs only the driver — the browser binary itself still needs a
+# one-time `python -m playwright install chromium`.
+test-browser = ["playwright>=1.44"]
+# Third-party deps of the scripts under examples/, which live outside the
+# stdlib-only hipaasynth package and are covered by their own tests:
+#   * examples/nooa_validation_orchestrator.py       → pydantic
+#   * examples/seismometer/seismometer_adapter.py    → pandas, pyarrow, pyyaml
+# The adapter needs no notebook stack to build a package, so this is a deliberate
+# subset of [seismometer] — that extra stays the heavier "render the report" one.
+examples = [
+    "pydantic>=2.0",
+    "pandas>=2.0",
+    "pyarrow>=14.0",
+    "pyyaml>=6.0",
+]
+# Everything needed to run the suite with ZERO skips. Every skip in the suite is
+# dependency-gated, so this is the single "run absolutely everything" install and
+# it is what CI's `capabilities` job uses. Keep it exhaustive: a test that skips
+# under this extra is a test CI cannot regression-detect.
+test-full = ["hipaasynth[dev,parquet,duckdb,test-browser,examples]"]
 
 [project.urls]
 Homepage = "https://hipaasynth.com"
