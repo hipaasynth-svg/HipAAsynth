@@ -22,6 +22,8 @@ The one-liner most users want::
     cohort = hipaasynth.generate(count=100, seed=42, module="stroke")
     cohort.to_fhir_bundle("cohort.json")     # or .to_csv(), .to_omop(), ...
     report = cohort.validate()               # structural FHIR check
+    stats = cohort.fidelity()                # are the statistics plausible?
+    probe = cohort.utility()                 # is the signal learnable?
 
 No argparse, no manual ``GenerationConfig`` assembly, and every exporter is a
 method that either **returns** the data (no path given) or **writes** a file (path
@@ -58,6 +60,11 @@ from hipaasynth.exporters.exporters import (
 from hipaasynth.exporters.fhir_validate import FhirValidationReport, validate_resources
 from hipaasynth.exporters.omop import build_cdm_tables, export_omop
 from hipaasynth.pipelines.population_pipeline import generate_patients
+from hipaasynth.validation import (
+    UtilityProbeResult,
+    downstream_utility_probe,
+    fidelity_report,
+)
 
 # Canonical decision-module → GenerationConfig.required_condition map. The REST
 # API imports this so the two surfaces never drift.
@@ -155,6 +162,41 @@ class Cohort:
         validator (see :mod:`hipaasynth.exporters.fhir_validate`).
         """
         return validate_resources(self.fhir_resources())
+
+    # ── trustworthiness (Tier 4) ─────────────────────────────────────────────
+    # `validate()` above asks "is this well-formed FHIR?". These two ask the
+    # different and harder question the Tier 4 modules exist for: is the data
+    # itself any good? Keep them distinct — a cohort can be perfectly valid FHIR
+    # and still be statistically implausible.
+    def fidelity(self) -> dict:
+        """Statistical-fidelity report: are the cohort's statistics plausible?
+
+        Lab-value marginals, condition prevalence, physiologically linked lab
+        correlations, temporal ordering, and visit sequencing. Returns a plain
+        JSON-friendly dict, so it serializes next to an OMOP/FHIR export.
+
+        Needs a non-empty cohort; raises ``ValueError`` otherwise.
+        """
+        return fidelity_report(self.patients)
+
+    def utility(self, **kwargs) -> UtilityProbeResult:
+        """Train-on-synthetic probe: is the cohort's signal actually learnable?
+
+        Trains a pure-Python logistic model on part of the cohort and reports
+        held-out accuracy, ROC-AUC and lift over the majority-class baseline. An
+        AUC well above 0.5 is evidence the feature→label signal is real.
+
+        Keyword args pass through to
+        :func:`~hipaasynth.validation.utility_probe.downstream_utility_probe`
+        (``target``, ``test_fraction``, ``seed``, ``epochs``, ``lr``).
+
+        The default ``target`` is a *comorbidity* that varies across the cohort,
+        deliberately not the module's own condition: a ``module="stroke"`` cohort
+        is 100% stroke by construction, so probing for it would leave a single
+        class and tell you nothing. Raises ``ValueError`` if the cohort is too
+        small or a split ends up single-class.
+        """
+        return downstream_utility_probe(self.patients, **kwargs)
 
     # ── exporters (return-or-write) ──────────────────────────────────────────
     def to_json(self, path: Optional[PathLike] = None):
