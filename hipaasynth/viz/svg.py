@@ -76,6 +76,9 @@ _BAR_ALT = "#8b5cf6"
 _BAR_ETH = "#0ea5a4"
 _GRID = "#d1d9e6"
 
+# Vertical room reserved for ``fairness_heatmap_svg(note=...)``'s caption line.
+_NOTE_DY = 14
+
 
 def _esc(text: object) -> str:
     return escape(str(text), quote=True)
@@ -202,12 +205,21 @@ def _heat_colour(rate: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def fairness_heatmap_svg(passports: Sequence, *, width: int = 460) -> str:
+def fairness_heatmap_svg(
+    passports: Sequence, *, width: int = 460, note: Optional[str] = None
+) -> str:
     """Render a fairness visualization from a cohort of ``FairnessPassport`` objects.
 
     Two panels: (1) a per-form error-rate heatmap across the seven polymorphic
     forms, and (2) the four cohort ``PolymorphicMetrics`` (DCS/ISG/LFDI/SAF) with
     their cohort means and pass/fail status.
+
+    ``note`` stamps an extra caption line directly under the heading. It exists so
+    a caller that audits a *mock* model can say so inside the image itself: an SVG
+    gets saved, pasted into a deck and mailed around, and once it is detached from
+    the page that framed it the image is the only thing left carrying the caveat.
+    Defaults to ``None`` — a real audit of a real device must not be stamped with
+    demonstration language, so the caller opts in.
     """
     # Local imports keep this module import-light and avoid a hard dif dependency
     # for callers that only want the demographics chart.
@@ -225,7 +237,8 @@ def fairness_heatmap_svg(passports: Sequence, *, width: int = 460) -> str:
     gap = 4
     parts: List[str] = []
 
-    y = 66
+    # A note takes its own caption line under the subtitle, so the body starts lower.
+    y = 66 + (_NOTE_DY if note else 0)
     parts.append(
         f'<text x="16" y="{y}" font-size="13" font-weight="600" fill="{_INK}">'
         f'Per-form error rate (vs. ground truth)</text>'
@@ -295,6 +308,12 @@ def fairness_heatmap_svg(passports: Sequence, *, width: int = 460) -> str:
 
     height = y + 6
     heading = f"Fairness audit · {_esc(summary.device_name)} v{_esc(summary.device_version)}"
+    note_el = (
+        f'<text x="16" y="56" font-size="10" font-weight="600" fill="{_INK}">'
+        f'{_esc(note)}</text>'
+        if note
+        else ""
+    )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" role="img" aria-label="fairness heatmap" '
@@ -303,6 +322,7 @@ def fairness_heatmap_svg(passports: Sequence, *, width: int = 460) -> str:
         f'<text x="16" y="28" font-size="15" font-weight="700" fill="{_INK}">{heading}</text>'
         f'<text x="16" y="44" font-size="10" fill="{_MUTED}">'
         f'overall pass rate {summary.overall_pass_rate * 100:.0f}% · synthetic — no PHI</text>'
+        + note_el
         + "\n".join(parts)
         + "</svg>"
     )
