@@ -125,6 +125,25 @@ def test_identifier_injection_is_rejected():
         bq.table_ddl("person; DROP TABLE x", dataset="omop")
 
 
+def test_trailing_newline_identifier_is_rejected():
+    """A trailing newline must not slip through validation.
+
+    Python's ``$`` (and thus ``re.match``) matches just before a trailing
+    newline, so ``qualified_name('person\\n', 'omop')`` used to produce
+    ``` `omop.person\\n` ``` — a control character smuggled into the generated
+    DDL text. ``fullmatch`` anchors to the true end-of-string and rejects it.
+    """
+    with pytest.raises(ValueError):
+        bq.qualified_name("person\n", dataset="omop")
+    with pytest.raises(ValueError):
+        bq.qualified_name("person", dataset="omop\n")
+    with pytest.raises(ValueError):
+        bq.qualified_name("person", dataset="omop", project="my-proj\n")
+    # A carriage return is equally rejected.
+    with pytest.raises(ValueError):
+        bq.bq_target("person", dataset="omop\r")
+
+
 def test_schema_json_column_set_matches_duckdb_schema_source():
     """Both connectors derive columns from the same omop_schema source (no drift)."""
     for table in OMOP_TABLES:

@@ -16,6 +16,483 @@ flagged explicitly below.
 > **Base branch note (Tier 3).** By the time Tier 3 began, both #81 (Tier 1) and
 > #83 (Tier 2) had **merged into `main`**, so Tier 3 is built directly on `main`
 > (no stacking) on a branch restarted from the latest `main`.
+>
+> **Base branch note (Tier 4).** By the time Tier 4 began, Tier 3 (PR #84) had
+> **merged into `main`**, so Tier 4 is built directly on the latest `main`
+> (no stacking).
+>
+> **Base branch note (Tier 5).** By the time Tier 5 began, Tier 4 (PR #85) had
+> **merged into `main`**, so Tier 5 is built directly on the latest `main`
+> (no stacking); the branch was restarted from `main`.
+
+---
+
+# Tier 5 — a UI for non-Python users (web UI, scenarios, visualization)
+
+Making the whole engine reachable by someone who is not writing Python: a static,
+dependency-free web page against the existing REST API, named scenario shortcuts
+that pair a profile with a decision module, and hand-rolled SVG visualizations of
+population distribution and polymorphic fairness. Stdlib-only core preserved — the
+web client adds **zero** Python dependencies (it is HTML/CSS/vanilla-JS served by
+the existing `http.server`).
+
+> **Real-browser verification (new this tier).** Unlike every prior tier ("no live
+> browser to test against"), this sandbox ships Chromium + Playwright, so the UI is
+> driven for real in headless Chromium — form interaction, an actual `/generate`
+> request observed on the wire, and asserted DOM content — not merely by reading
+> the HTML. Browser tests `skip` cleanly where Playwright/Chromium is absent.
+
+## Step 1 — Static web UI (`hipaasynth/ui/index.html`, `GET /` on `hipaasynth/api.py`)
+
+**What.** A single static `ui/index.html` (HTML + CSS + vanilla JS, no framework,
+no build step, no CDN) served by the existing stdlib API server at a new `GET /`
+route. It is a thin client: it reads capabilities from `/formats` and generates /
+downloads cohorts through `/generate`. The form lets a non-Python user pick a
+decision module, a bundled population profile, a cohort size and seed, preview the
+result (patient count + a real sample record), and download it in any supported
+export format (`json|csv|fhir-bundle|ndjson|omop|parquet`).
+
+**Design decision — a real file, served from the existing server.** The page is a
+standalone file (not a Python string literal) so it stays editable, lintable and
+Playwright-testable; it is served from the same `http.server` so it shares the
+API's origin and needs no CORS handling and no second process/port. A separate
+static-file webserver or a server-side templating framework would add moving parts
+(and, for templating, a dependency) for no benefit — the page is fully static and
+the API already speaks JSON.
+
+**Why.** Roadmap Tier 5 step 1: the engine had a CLI, REST API and SDK, but no way
+for a non-programmer to drive it. The web UI closes that gap without touching the
+stdlib-only core.
+
+**How verified.** New `tests/test_web_ui.py`:
+  - `test_root_serves_html` — `GET /` returns `200 text/html` carrying the client
+    (plain urllib; no browser).
+  - `test_ui_generates_cohort_in_browser` — **real headless Chromium**: loads `/`,
+    waits for capabilities to populate the selects from `/formats`, selects the
+    `stroke` module, sets count=7, clicks Generate, then asserts (a) a network
+    request to `/generate?…count=7…` actually fired, (b) `#patientCount` renders
+    `7`, and (c) the sample pane shows a real engine record (`demographics`).
+  - `test_ui_download_triggers_download` — real headless Chromium: selects CSV,
+    clicks Download, asserts the browser download fires with filename `cohort.csv`.
+  Fail-before/pass-after confirmed by removing the `GET /` route (the HTTP test
+  404s and the browser test times out waiting for the page to load). Full suite
+  green (402 passed / 7 skipped).
+
+**Limitations.** The UI talks to whatever server serves it; running it against a
+public deployment is the operator's responsibility (the API's `max_count` still
+bounds cohort size). The `scenario` dropdown and the population-distribution SVG
+degrade gracefully to empty until Steps 2–3 add `/scenarios` and `/viz/*`.
+
+## Step 2 — Named scenario blueprints (`hipaasynth/scenarios.json` + `hipaasynth/scenarios.py`)
+
+**What.** A small set of named **scenario blueprints**, each pairing an existing
+decision module with an existing bundled population profile plus a human-readable
+description (e.g. `tribal_sepsis` = `sepsis` module + `nd_tribal_region_a`
+profile; `karachi_dka` = `dka` + `karachi_pakistan`). Blueprints live in
+`scenarios.json`; `scenarios.py` loads them into validated `Scenario` objects and
+exposes `resolve_scenario(name) → {module, profile}`. Wired additively into all
+three surfaces:
+  - **API:** new `GET /scenarios` (rich list) and a `scenario` param on
+    `/generate` that supplies a default `module`+`profile`; `/formats` also lists
+    the scenario names.
+  - **CLI:** `--scenario NAME` (choices validated from the blueprints), mutually
+    exclusive with `--module`/`--profile`. *(This step also adds the previously
+    missing `--module` flag to the CLI, so a scenario has a concrete module to
+    resolve into — additive; omitting it keeps the legacy no-required-condition
+    behavior.)*
+  - **UI:** a scenario dropdown that, on selection, reflects and locks the
+    module/profile selects and shows the description.
+
+**Design decision — real modules/profiles only, validated at load.** The roadmap
+suggested condition names like CHF or "sepsis-by-payer" that are **not** real
+engine modules. Rather than invent fake modules, every blueprint uses one of the
+four real modules (`sepsis`/`stroke`/`dka`/`fabry`) and one of the nine bundled
+profiles, and `scenarios.py` **validates each entry against
+`hipaasynth.sdk.MODULES` and the bundled profile names at load time** — a typo or
+an invented module/profile fails loudly rather than shipping a broken shortcut.
+The blueprints are JSON (same pattern as `profiles/`) so they are editable without
+touching Python.
+
+**Additive by construction.** A scenario only *resolves to* module+profile; it
+never changes what `--module`/`--profile` (CLI) or `module`/`profile` (API) do on
+their own. On the API an explicit `module`/`profile` still overrides the
+scenario's value; on the CLI the two are mutually exclusive (a usage error rather
+than a silent override, which is clearer for a one-shot command).
+
+**Why.** Roadmap Tier 5 step 2: give non-experts a one-click, meaningfully-named
+starting point ("Tribal ICU · Sepsis") instead of having to know which
+module/profile combination is interesting.
+
+**How verified.** New `tests/test_scenarios.py` (13 tests): every blueprint
+resolves to a real module + real bundled profile (guards against invented
+conditions); `resolve_scenario` returns the right pair; unknown scenario raises;
+API `/scenarios` + `/formats` list them; `/generate?scenario=…` works over real
+HTTP; CLI `--scenario` generates and conflicts with `--module`. Plus a real
+headless-Chromium test (`test_ui_scenario_dropdown_drives_generation`) that picks
+a scenario in the browser, asserts the module/profile lock to the blueprint's
+values, and confirms a `/generate?scenario=…` request fires. Fail-before/
+pass-after confirmed by removing the scenarios module (import error).
+Full suite green (416 passed / 7 skipped).
+
+**Limitations.** Blueprints are curated demonstrations of interesting
+module×profile pairings, not epidemiological claims about those populations; the
+pairing forces a condition via the module, it does not model region-specific
+prevalence beyond what each profile already encodes.
+
+## Step 3 — Population-distribution + fairness-heatmap SVG (`hipaasynth/viz/svg.py`)
+
+**What.** A new `hipaasynth/viz` package that renders two hand-rolled SVG
+visualizations:
+  - `demographics_distribution_svg(patients)` — age-band / sex / ethnicity
+    distribution of a generated cohort as grouped horizontal bar charts, straight
+    from `Patient.demographics` (no new data plumbing).
+  - `fairness_heatmap_svg(passports)` — a per-form **error-rate heatmap** across
+    all seven polymorphic forms (green→amber→red), plus the four cohort
+    `PolymorphicMetrics` (DCS / ISG / LFDI / SAF) as pass/fail tiles, built from a
+    list of `FairnessPassport`s.
+  - `cohort_demographics(patients)` — the pure aggregation behind the demographics
+    chart, exposed for direct testing.
+
+Exposed on three surfaces:
+  - **API:** `GET /viz/demographics` (SVG of the requested cohort) and
+    `GET /viz/fairness` (SVG heatmap from a *demonstration* DIF audit against a
+    built-in mock model — `model=biased|fair|sdoh`, default `biased`; count
+    capped by `VIZ_FAIRNESS_MAX_COUNT` since the audit renders 7 forms/patient).
+  - **UI:** both SVGs embed under the result panel after Generate.
+  - **CLI:** `--viz` writes `<out>/demographics.svg` (the stdlib file-output path).
+
+**Design decision — hand-rolled SVG, no charting dependency (Tier-1-style
+callout).** The engine core stays stdlib-only, so the charts are assembled as
+plain SVG strings rather than pulling in matplotlib/plotly/d3. The shapes needed
+(grouped bars, a coloured grid) are simple enough that hand-rolled SVG is honest
+and readable; a charting library would break the stdlib-only value for no real
+benefit. Output is a self-contained `<svg>` string that embeds in the UI or
+writes to a file.
+
+**Reusing existing structured data (per the CLAUDE.md pointer to `report.py`).**
+Rather than re-derive fairness numbers, the heatmap reuses `summarize_cohort`
+(cohort metric means + pass rates) and a small, additive
+`per_form_error_rates(passports)` helper added to `dif/report.py` — the same
+per-form signal `summarize_cohort` already computes internally to pick the worst
+form, now exposed so a chart can show every form. `summarize_cohort` itself is
+untouched.
+
+**Why.** Roadmap Tier 5 step 3: a non-Python user could generate a cohort but had
+no at-a-glance view of who is in it or where a model's decisions diverge across
+documentation forms. The demographics chart answers the first; the fairness
+heatmap makes the polymorphic-fairness signal legible (the demo biased model
+lights up patient-facing/LEP forms in red while clinician forms stay green).
+
+**How verified.** New `tests/test_viz_svg.py` (12 tests): the aggregation sums to
+`n`; both SVGs parse as well-formed XML via the **stdlib** `xml.dom.minidom` (no
+rendering lib needed for the assertion); the biased model's per-form error rates
+hit patient/LEP forms and spare clinician forms; the fair model is all-zero;
+empty passports raise; the two API endpoints return `image/svg+xml` and reject
+unknown model / oversized count; `--viz` writes a well-formed file. **Real
+headless-Chromium** test `test_ui_renders_viz_svgs_in_browser` asserts both SVGs
+land in the `#viz` panel after Generate. The SVGs were additionally **rendered to
+PNG in headless Chromium** and eyeballed (screenshots saved during development).
+Fail-before/pass-after confirmed by removing the viz package (import error). Full
+suite green (429 passed / 7 skipped).
+
+**Limitations.** `/viz/fairness` and the UI's fairness panel run a *demonstration*
+audit against a documented **mock** model — there is no real device-under-test in
+a stateless HTTP call, so the heatmap illustrates the metric machinery, it is not
+an audit of any real model (to audit a real model, use `hipaasynth.dif.run_audit`
+with your own `predict`). The demographics age bands mirror the profile configs
+(18-24/25-44/45-64/65-90); ages outside 18-90 (not produced by the default
+config) would fall into an "other" band.
+
+---
+
+# Tier 4 — validation, fidelity, and reporting
+
+Proving the synthetic data and the fairness audit are *trustworthy*, not just
+exportable: statistical-fidelity checks, more clinical-plausibility rules, a
+downstream-utility probe, and new fairness-passport metrics (concept-drift /
+uncertainty / sensitivity). Stdlib-only core preserved; each change is gated on a
+fails-before / passes-after test.
+
+## Tier 3 review fix — BigQuery identifier validation used `re.match`, letting a trailing newline through (`hipaasynth/connectors/bigquery.py`)
+
+**What.** `_validate_identifier` validated dataset/table/project ids with
+`pattern.match(value)`. Python's `$` anchor matches *just before* a trailing
+newline as well as at true end-of-string, and `re.match` is not end-anchored, so
+`_ID_RE = re.compile(r"^[A-Za-z0-9_]+$")` accepted `"person\n"`. That let a
+control character smuggle into generated DDL/load text:
+`qualified_name('person\n', 'omop')` returned `` `omop.person\n` ``. Changed the
+check to `pattern.fullmatch(value)`, which anchors to the true end-of-string and
+needs no regex change (`_PROJECT_RE` had the identical issue and is fixed by the
+same one-line change, since both patterns flow through `_validate_identifier`).
+
+**Why.** This is **not** a SQL-injection escape — backtick-quoting still holds, and
+the existing `test_identifier_injection_is_rejected` (semicolons, backticks,
+`DROP TABLE`, `OR 1=1`, path traversal) keeps passing. But it is a genuine
+validation bypass: the smuggled newline would be a syntax error against real
+BigQuery, and could forge a fake line if the generated text were ever logged or
+parsed line-by-line.
+
+**How verified.** `tests/test_connector_bigquery.py::test_trailing_newline_identifier_is_rejected`
+(new) asserts `ValueError` for a trailing newline in table, dataset, and project,
+plus a carriage return via `bq_target`. It **fails before** the fix
+(`DID NOT RAISE ValueError`) and **passes after**. The full existing BigQuery
+suite (14 tests) stays green — every previously-rejected injection case is still
+rejected and every valid plain identifier still passes. Full suite re-run: no
+regressions.
+
+**Limitations.** Validation is still a conservative allow-list
+(`[A-Za-z0-9_]`, plus `-` for projects); it does not attempt to mirror BigQuery's
+full identifier grammar (length limits, leading-digit rules), which remains the
+warehouse's job to enforce on the real `CREATE`/`LOAD`.
+
+## Step 1 — Statistical-fidelity checks (`hipaasynth/validation/fidelity.py`)
+
+**What.** A new, **profile-free** fidelity module that asks *"is the generated
+data internally faithful to the engine's own generative model?"* — complementary
+to `exporters.profile_fit_stats`, which only runs when a population profile is
+set and only checks three demographic marginals (sex / ethnicity / age bands).
+Three families of check, pure standard library (no numpy/scipy/pandas):
+
+- **Marginal distributions** — `lab_value_marginals` (per-analyte n / mean / std
+  / min / quartiles / max over every OMOP `measurement` row) and
+  `condition_prevalence` (count + fraction per condition). These are the
+  lab/condition marginals `profile_fit_stats` never looks at.
+- **Pairwise correlations between clinically-linked variables** —
+  `linked_lab_correlations` measures the association the engine *deliberately*
+  encodes in `generator_numerics.CONDITION_LAB_MODIFIERS`: diabetes→Glucose,
+  CKD→Creatinine, hyperlipidemia→LDL, sepsis→WBC are each drawn as
+  `max(baseline, elevated_draw)`, so a faithful cohort must show the diagnosed
+  group's mean lab shifted *up* with a positive point-biserial correlation. The
+  check reports mean-with / mean-without / shift / point-biserial and a
+  `direction_ok` flag — which is `None` (not `False`) when a group is empty and
+  the association simply can't be evaluated (e.g. no sepsis in a default cohort).
+- **Temporal consistency** — `temporal_consistency` enforces the invariants the
+  engine actually guarantees: every `condition.onset_age ≤ patient.age`, every
+  measurement date inside the person's observation-period span, and
+  `observation_period_start ≤ end`.
+
+**Data access** reuses `build_cdm_tables` (measurement / observation_period rows)
+and `_flat_patient_rows`, so the module sees exactly what an OMOP / flat-table
+consumer loads and can't drift out of sync with the exporters.
+
+**Design honesty — visit ordering is reported, not asserted.** The task listed
+"visit dates ordered" as a temporal check, but tracing `generator_numerics.
+generate_visits` / `_generate_visit_date` shows each visit date is drawn
+*independently* (`rng.randint(0, 365)` back from a fixed reference) and never
+sorted — so within-patient visits are frequently out of chronological order *by
+design*. Asserting ordering would flag a modeling choice as a defect, so
+`visit_order_report` exposes the ordered-fraction as an **informational**
+statistic only. What *is* invariant (and is asserted) is that every lab/
+measurement date falls inside the observation-period span, because a lab's
+`date_recorded` is always its own visit's date.
+
+**Why.** Tiers 1–3 proved the data was *exportable*; nothing proved it was
+*statistically faithful*. A silent regression that decoupled, say, diabetes from
+glucose would pass every prior test yet destroy the dataset's utility. This is
+the first check that would catch it.
+
+**How verified (incl. ground rule 5).** `tests/test_fidelity.py` (18 tests). The
+correlation statistic itself is verified against **constructed reference cases**,
+not "it ran": `pearson_correlation` returns `+1.0` on perfectly-correlated,
+`-1.0` on anti-correlated, `~0` (|r|<0.15) on an independently-constructed pair,
+and `None` on a zero-variance/degenerate input. Only then is it trusted to judge
+the engine: on a 150-patient seed-7 cohort the diabetes→Glucose coupling shows a
++78.9 mg/dL shift (r≈0.81), CKD→Creatinine and hyperlipidemia→LDL both shift up
+past their engine floors, and a 60-patient sepsis cohort lifts mean WBC to ≈15
+(leukocytosis range). Temporal checks: a generated cohort is clean (0
+violations); hand-built patients with `onset_age > age` and with a lab date
+outside the visit span are each **flagged** (fires), while a valid hand-built
+patient is **not** (no false positive). New module, so the suite fails before
+(ImportError) and passes after. Full suite: 361 passed, 7 skipped — no
+regressions.
+
+**Limitations.** These are *internal-consistency* checks against the engine's own
+generative model, not a claim of real-world epidemiological validity (the engine
+does not model, e.g., treatment lowering a diagnosed patient's lab back into
+range). Correlations are marginal/point-biserial, not adjusted for confounders.
+The linked-pair list mirrors `CONDITION_LAB_MODIFIERS`; if that table grows, this
+list must be kept in step (they live with cross-referencing comments).
+
+## Step 2 — Clinical-plausibility rules (`hipaasynth/validation/validator.py`)
+
+**What.** Two new detection rules alongside the existing `AGE_RESTRICTED_CONDITIONS`
+rule, plus a combined `check_clinical_plausibility` / cohort-level
+`find_clinical_plausibility_issues`:
+
+- **Lab-vs-diagnosis consistency** (`check_lab_diagnosis_consistency`). New
+  `LAB_DIAGNOSIS_FLOORS` table: `chronic_kidney_disease→Creatinine ≥ 1.05`,
+  `hyperlipidemia→LDL ≥ 160`, `sepsis→WBC ≥ 11`. These are the *hard* lower
+  bounds the engine's `max(baseline, elevated_draw)` couplings guarantee (draws
+  `U(1.05,1.25)`, `U(160,260)`, `U(11,19)`), so a patient carrying the diagnosis
+  with the coupled lab *below* the floor is an internal contradiction — only
+  possible in a corrupted / hand-edited / externally-merged record. The rule
+  flags it.
+- **Medication-timeline plausibility** (`check_medication_timeline`). Flags a
+  patient that carries a medication but has **no visit** to anchor a drug-exposure
+  date (which would export an OMOP `drug_exposure` row with a NULL
+  `drug_exposure_start_date`).
+
+**Design — detection, not mutation.** Unlike the age rule (which drops a wrong
+condition during generation), a lab-vs-diagnosis contradiction has no single
+obvious repair — discard the lab or the diagnosis? — so these rules *return
+findings* and leave the record untouched, letting the caller decide. This also
+means zero behavioral change for the 373-test suite (engine-generated patients
+never trip them).
+
+**Traced, not assumed — the medication-timeline "gap" is largely already handled
+upstream.** Per the task's instruction to trace the generators first: the core
+`Medication` schema carries only `name` and `active` (no start/stop/onset field),
+the anchor-rooted population pipeline attaches **no** medications at all, and in
+the OMOP exporter a drug exposure's date is pinned to the patient's earliest
+visit (`drug_exposure_start_date == end_date`, a single-day exposure inside the
+observation-period span). So a true medication *timeline* (start/stop ordering,
+overlap with a diagnosis window) is **not modeled anywhere** and is plausible by
+construction where it does exist. Rather than fabricate a timeline check with
+nothing to check, the rule covers the one honest remaining invariant (a
+medication needs a visit to anchor its exposure date), and this limitation is
+recorded explicitly here instead of as a false gap.
+
+**Why.** The validator previously enforced exactly one clinical rule (age-
+restricted conditions). Lab-vs-diagnosis contradictions and un-anchorable
+medications are the next most likely integrity defects to reach an exporter or a
+fairness audit; catching them here is cheap and non-destructive.
+
+**How verified.** `tests/test_validator_plausibility.py` (12 tests). Each rule has
+a *fires* test on a constructed implausible record (CKD + creatinine 0.7,
+hyperlipidemia + LDL 90, sepsis + WBC 6, medication + zero visits) and a *no-
+false-positive* test (at/above floor; low creatinine with no CKD diagnosis;
+diabetes + normal glucose — deliberately excluded because the glucose modifier
+has no hard floor; medication with a visit). A 200-patient seed-11 default cohort
+and a 60-patient sepsis cohort both produce **zero** findings, confirming the
+engine never trips its own rules. New functions, so the tests fail before
+(ImportError) and pass after. Full suite: 373 passed, 7 skipped — no regressions.
+
+**Limitations.** `type2_diabetes→Glucose` has no hard floor to assert (the
+diabetic draw `max(baseline, N(164,40))` can leave a normal baseline in place),
+so that coupling is covered *statistically* by step 1's
+`linked_lab_correlations`, not as a per-patient hard rule. Medication *timeline*
+ordering remains unmodeled (see above).
+
+## Step 3 — Downstream-utility probe (`hipaasynth/validation/utility_probe.py`)
+
+**What.** A "train on synthetic" probe: it trains a minimal baseline classifier
+on a generated cohort to predict a ground-truth condition (default
+`type2_diabetes`) from patient features `[age, bmi, mean Glucose, mean
+Creatinine, mean LDL, mean WBC]`, and reports test-set **accuracy**, **ROC-AUC**,
+and **lift over the majority-class baseline**. `downstream_utility_probe` returns
+a serializable `UtilityProbeResult`.
+
+**Pure-Python, no new dependency (chosen deliberately).** The learner is a
+hand-rolled logistic regression (full-batch gradient descent on z-scored
+features) with a tie-aware rank-sum (Mann–Whitney) ROC-AUC. The task allowed a
+new optional dependency (sklearn) but preferred a hand-rolled minimal
+implementation where honestly adequate — for a *signal-existence* probe (the goal
+is "can a baseline learner recover the label at all?", not model quality) it is,
+and keeping the validation core stdlib-only is worth more than a marginally
+better classifier. This is stated in the module docstring.
+
+**Why.** Tiers 1–3 proved the data was exportable and (step 1) statistically
+faithful; nothing proved it was *learnable*. If the engine's feature→label
+couplings didn't survive round-tripping through the exported table, a model
+trained on the synthetic cohort would do no better than guessing — this probe is
+the first check that the signal is recoverable end-to-end.
+
+**How verified (incl. ground rule 5).** `tests/test_utility_probe.py` (12 tests).
+The probe's two moving parts are each verified against **constructed reference
+cases** before the probe is trusted:
+  - `roc_auc` → `1.0` on perfectly-separated scores, `0.0` on inverted, exactly
+    `0.5` on all-tied scores (average-rank handling), `None` on a single class.
+  - the logistic learner → recovers a linearly-separable toy dataset perfectly,
+    and on **pure noise** (random features, random labels) produces AUC within
+    0.15 of 0.5 — i.e. it does *not* manufacture signal, so a high AUC on the
+    real cohort is meaningful.
+Then, end-to-end on a 400-patient seed-21 cohort (diabetes prevalence ≈13.5%):
+test ROC-AUC ≈ **0.99**, accuracy ≈ **0.97** vs. a majority-class baseline of
+≈0.84 (lift ≈ +0.12) — strong evidence the diabetes signal is learnable. The
+probe is deterministic (same cohort + seed → identical result) and fails loud on
+a single-class target or a <10-patient cohort. New module: tests fail before
+(ImportError), pass after. Full suite: 385 passed, 7 skipped — no regressions.
+
+**Limitations.** This proves *signal exists*, not that the synthetic data has
+real-world predictive validity or that a model trained on it transfers to real
+patients (a genuine train-on-synthetic-test-on-real study is out of scope with no
+real data present). The learner is intentionally minimal (no regularization
+sweep, no cross-validation, single train/test split); the AUC is a
+signal-existence indicator, not a benchmarked model score. The high AUC partly
+reflects that the *same* engine couplings generate both features and label — that
+is exactly the round-trip this probe is meant to confirm, not a real-world claim.
+
+## Step 4 — Audit-stability metrics: concept drift, uncertainty, sensitivity (`hipaasynth/dif/stability.py`)
+
+**What.** A new **cohort-level** layer on top of the existing fairness passport /
+`summarize_cohort` roll-up, answering *"how trustworthy are the audit's own
+numbers?"* — **all three** requested metrics were honestly definable, so all
+three are implemented (none skipped):
+
+- **Concept drift** (`concept_drift`) — per-metric shift of a cohort fairness
+  statistic (`dcs_mean`, `isg_mean`, `lfdi_mean`, `saf_mean`,
+  `overall_pass_rate`) between two cohort generations produced with **different
+  seeds** but the same config. Each result carries `drift = comparison −
+  baseline` and a `drifted` flag when `|drift|` exceeds a threshold. Answers "is
+  my verdict an artifact of one lucky seed?"
+- **Uncertainty** (`bootstrap_uncertainty`) — because the engine is
+  **deterministic per seed**, there is no run-to-run noise to average; the honest
+  remaining uncertainty is *estimator* uncertainty. So uncertainty is defined as
+  **bootstrap resampling** of the passports (with replacement): resample the
+  cohort N times, recompute the metric each time, report the bootstrap standard
+  error and a 95% percentile CI. (This "define it honestly before implementing"
+  step is exactly what the task asked for.)
+- **Sensitivity** (`threshold_sensitivity`) — the *local* sensitivity of a
+  pass-rate to its pass/fail **threshold**, by central finite difference:
+  recompute the pass rate at `threshold ± δ` from the stored per-patient metric
+  values (no re-audit) and return `d(pass_rate)/d(threshold)`. A large magnitude
+  means the verdict is fragile at that operating point.
+
+`stability_report` bundles all three (with a `to_markdown`), exported from
+`hipaasynth.dif`.
+
+**Design — cohort layer, sealed passport untouched.** These operate on lists of
+`FairnessPassport` and never modify the per-patient passport or its
+`content_sha256` seal, so the existing byte-stability guarantee
+(`test_polymorphic_fidelity.py` — identical `content_sha256()` across runs) still
+holds. Read `metrics.py` and `report.py` in full first; the frozen
+`PolymorphicMetrics` and its seal payload are deliberately not extended.
+
+**Why.** The audit previously reported point metrics with per-patient CIs
+(`CohortFairnessSummary`) but nothing about whether the *conclusion* is stable:
+would a different seed flip it? how uncertain is the pass rate? how fragile is it
+to the threshold? These three metrics make the audit's own reliability legible —
+the reporting half of "validation, fidelity, and **reporting**".
+
+**How verified (incl. ground rule 5).** `tests/test_stability.py` (14 tests). Each
+metric is checked against a **constructed reference case with a known answer**,
+using hand-built passports so inputs (and the correct outputs) are fully
+controlled:
+  - *Concept drift* — identical cohorts → drift exactly 0 (not flagged); an
+    all-pass vs. all-fail pair → drift exactly −1.0 (flagged); a 10/10-vs-9/10
+    pair → drift −0.1, correctly *below* a 0.15 threshold (not flagged).
+  - *Uncertainty* — a 100-passport cohort at pass-rate 0.5 gives bootstrap
+    SE ≈ **0.051**, matching the analytic binomial `sqrt(p(1−p)/n) = 0.05` within
+    0.01; a constant cohort gives SE exactly 0 and a collapsed CI; deterministic
+    given the seed.
+  - *Sensitivity* — a cohort of 60 patients at DCS 0.90 and 40 at 0.82 with base
+    threshold 0.85 ± 0.05 gives pass rates 1.0 / 0.6 / 0.6 and slope exactly
+    **−4.0**, matching the hand-computed value; DCS sensitivity is proven ≤ 0 for
+    any cohort (raising a `≥`-threshold can only lose passers).
+Two end-to-end tests run a **real** `run_audit`: a biased vs. fair model on the
+same cohort config shows large flagged drift (`overall_pass_rate` drift > 0.5),
+while the same biased model across two seeds shows **no** flagged drift. New
+module: tests fail before (ImportError), pass after. Full suite: **399 passed, 7
+skipped** — no regressions, and the sealed-passport hash tests still pass.
+
+**Limitations.** Concept drift compares exactly two generations; it flags a shift,
+it does not model a drift *trend* over many generations. Bootstrap uncertainty
+captures finite-cohort sampling variability only — it cannot represent
+uncertainty the deterministic engine has by construction removed (e.g. model or
+label noise that isn't present). Threshold sensitivity is a *local* derivative at
+one operating point, not a global robustness guarantee; it also does not perturb
+the generated data itself (a data-perturbation sensitivity would require
+re-auditing perturbed cohorts and is a heavier, separate build).
 
 ---
 

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<!--
+  HipAAsynth — Synthetic health data fairness testing for invisible populations.
+  Copyright (C) 2026 HipAAsynth Contributors. Licensed under the GNU AGPL v3+.
+
+  Static, dependency-free web client for the HipAAsynth REST API. Served by the
+  stdlib http.server in hipaasynth/api.py at GET / (same origin as the API, so no
+  CORS). Pure HTML + CSS + vanilla JS — no build step, no framework, no CDN. It
+  is a thin client: every capability list and every cohort comes from the API
+  (/formats, /scenarios, /generate, /viz/*). All records are synthetic — no PHI.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HipAAsynth — Synthetic Cohort Generator</title>
+  <style>
+    :root {
+      --bg: #0f1720; --panel: #172231; --panel2: #1e2c3e; --ink: #e6edf5;
+      --muted: #9fb0c3; --line: #2c3d52; --accent: #4c8bf5; --accent2: #2f6fd6;
+      --ok: #3fb950; --bad: #f85149; --chip: #24344a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    header {
+      padding: 20px 24px; border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #142033, #0f1720);
+    }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
+    header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 24px; display: grid;
+      grid-template-columns: 340px 1fr; gap: 24px; }
+    @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 18px; }
+    .panel h2 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase;
+      letter-spacing: .8px; color: var(--muted); }
+    label { display: block; margin: 12px 0 4px; font-size: 13px; color: var(--muted); }
+    select, input {
+      width: 100%; padding: 9px 10px; background: var(--panel2); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 8px; font-size: 14px;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btns { display: flex; gap: 10px; margin-top: 18px; }
+    button {
+      flex: 1; padding: 10px 12px; border: 0; border-radius: 8px; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #fff; background: var(--accent);
+    }
+    button.secondary { background: var(--chip); color: var(--ink); border: 1px solid var(--line); }
+    button:hover:not(:disabled) { background: var(--accent2); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    #status { min-height: 20px; margin: 4px 0 12px; font-size: 13px; }
+    #status.ok { color: var(--ok); } #status.err { color: var(--bad); }
+    .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
+    .kv dt { color: var(--muted); } .kv dd { margin: 0; }
+    pre { background: #0b1119; border: 1px solid var(--line); border-radius: 8px;
+      padding: 12px; overflow: auto; max-height: 320px; font-size: 12px; }
+    .viz { margin-top: 14px; overflow-x: auto; }
+    .viz svg { max-width: 100%; height: auto; }
+    .scenario-desc { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+    .tag { display: inline-block; background: var(--chip); border: 1px solid var(--line);
+      border-radius: 6px; padding: 1px 7px; font-size: 11px; color: var(--muted); }
+    footer { color: var(--muted); font-size: 12px; text-align: center; padding: 18px; }
+    .empty { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HipAAsynth · Synthetic Cohort Generator</h1>
+    <p>Pick a module, population profile and size, then generate or download a cohort.
+       Every record is synthetic — no PHI. <span class="tag" id="engineTag">engine …</span></p>
+  </header>
+
+  <div class="wrap">
+    <form class="panel" id="form" autocomplete="off">
+      <h2>Configuration</h2>
+
+      <label for="scenario">Scenario (shortcut)</label>
+      <select id="scenario" name="scenario">
+        <option value="">— none (choose module + profile below) —</option>
+      </select>
+      <div class="scenario-desc" id="scenarioDesc"></div>
+
+      <label for="module">Decision module</label>
+      <select id="module" name="module"></select>
+
+      <label for="profile">Population profile</label>
+      <select id="profile" name="profile">
+        <option value="">(engine default)</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label for="count">Cohort size</label>
+          <input id="count" name="count" type="number" min="1" value="100" />
+        </div>
+        <div>
+          <label for="seed">Seed</label>
+          <input id="seed" name="seed" type="number" min="0" value="42" />
+        </div>
+      </div>
+
+      <label for="format">Download format</label>
+      <select id="format" name="format"></select>
+
+      <div class="btns">
+        <button type="submit" id="genBtn">Generate &amp; preview</button>
+        <button type="button" class="secondary" id="dlBtn">Download</button>
+      </div>
+      <div class="hint" id="maxHint"></div>
+    </form>
+
+    <section class="panel">
+      <h2>Result</h2>
+      <div id="status">Loading capabilities…</div>
+      <div id="result"><p class="empty">No cohort generated yet.</p></div>
+      <div class="viz" id="viz"></div>
+    </section>
+  </div>
+
+  <footer>HipAAsynth REST client · AGPL-3.0 · all data synthetic</footer>
+
+  <script>
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    let SCENARIOS = {};
+
+    function setStatus(msg, kind) {
+      const el = $("status"); el.textContent = msg; el.className = kind || "";
+    }
+
+    function opt(value, label) {
+      const o = document.createElement("option");
+      o.value = value; o.textContent = label; return o;
+    }
+
+    // Build the /generate query string from the current form state.
+    function currentParams() {
+      const p = new URLSearchParams();
+      const scenario = $("scenario").value;
+      if (scenario) {
+        p.set("scenario", scenario);
+      } else {
+        p.set("module", $("module").value);
+        if ($("profile").value) p.set("profile", $("profile").value);
+      }
+      p.set("count", $("count").value);
+      p.set("seed", $("seed").value);
+      return p;
+    }
+
+    async function loadCapabilities() {
+      const [fmts, scns, health] = await Promise.all([
+        fetch("/formats").then((r) => r.json()),
+        fetch("/scenarios").then((r) => (r.ok ? r.json() : { scenarios: [] })).catch(() => ({ scenarios: [] })),
+        fetch("/health").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+      ]);
+      $("engineTag").textContent = health.engine_version ? "engine " + health.engine_version : "engine";
+      // modules
+      const mod = $("module");
+      (fmts.modules || []).forEach((m) => mod.appendChild(opt(m, m)));
+      // profiles
+      const prof = $("profile");
+      (fmts.profiles || []).forEach((p) => prof.appendChild(opt(p, p)));
+      // formats
+      const fmt = $("format");
+      (fmts.formats || []).forEach((f) => fmt.appendChild(opt(f, f)));
+      $("maxHint").textContent = "Max cohort size: " + (fmts.max_count || "?") + " patients per request.";
+      $("count").max = fmts.max_count || "";
+      // scenarios
+      const scnSel = $("scenario");
+      (scns.scenarios || []).forEach((s) => {
+        SCENARIOS[s.name] = s;
+        scnSel.appendChild(opt(s.name, s.label || s.name));
+      });
+      setStatus("Ready. " + (fmts.modules || []).length + " modules, " +
+                (fmts.profiles || []).length + " profiles, " +
+                (scns.scenarios || []).length + " scenarios.", "ok");
+    }
+
+    // When a scenario is picked, reflect its module/profile into the selects and
+    // lock them (the scenario is the single source of truth); clearing unlocks.
+    function onScenarioChange() {
+      const name = $("scenario").value;
+      const desc = $("scenarioDesc");
+      const mod = $("module"), prof = $("profile");
+      if (name && SCENARIOS[name]) {
+        const s = SCENARIOS[name];
+        mod.value = s.module; prof.value = s.profile || "";
+        mod.disabled = true; prof.disabled = true;
+        desc.textContent = s.description || "";
+      } else {
+        mod.disabled = false; prof.disabled = false;
+        desc.textContent = "";
+      }
+    }
+
+    async function generate(ev) {
+      ev.preventDefault();
+      $("genBtn").disabled = true;
+      setStatus("Generating…");
+      try {
+        const p = currentParams(); p.set("format", "json");
+        const resp = await fetch("/generate?" + p.toString());
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: resp.statusText }));
+          throw new Error(err.error || ("HTTP " + resp.status));
+        }
+        const patients = await resp.json();
+        renderResult(patients, p);
+        setStatus("Generated " + patients.length + " synthetic patients.", "ok");
+        await loadViz(p);
+      } catch (e) {
+        setStatus("Error: " + e.message, "err");
+      } finally {
+        $("genBtn").disabled = false;
+      }
+    }
+
+    function renderResult(patients, params) {
+      const n = patients.length;
+      const first = patients[0];
+      // The module/profile selects reflect the resolved values (a scenario locks
+      // them to its blueprint), so read them for an accurate summary.
+      const scenario = params.get("scenario");
+      const modLabel = $("module").value + (scenario ? " (scenario: " + scenario + ")" : "");
+      const html = [
+        '<dl class="kv">',
+        "<dt>Patients</dt><dd id='patientCount'>" + n + "</dd>",
+        "<dt>Module</dt><dd>" + escapeHtml(modLabel) + "</dd>",
+        "<dt>Profile</dt><dd>" + escapeHtml($("profile").value || "(default)") + "</dd>",
+        "<dt>Seed</dt><dd>" + escapeHtml(params.get("seed")) + "</dd>",
+        "</dl>",
+        "<label>First patient (sample)</label>",
+        "<pre id='sample'>" + escapeHtml(JSON.stringify(first, null, 2)) + "</pre>",
+      ].join("");
+      $("result").innerHTML = html;
+    }
+
+    // Load the server-rendered SVGs (population distribution + a demo fairness
+    // heatmap) for the same params. The fairness panel is a *demonstration* audit
+    // against a built-in mock model, capped in size — it is not an audit of any
+    // real model.
+    async function loadViz(params) {
+      const vp = new URLSearchParams(params); vp.delete("format");
+      $("viz").innerHTML = "";
+      try {
+        const resp = await fetch("/viz/demographics?" + vp.toString());
+        if (resp.ok) {
+          $("viz").innerHTML += "<label>Population distribution</label>" + (await resp.text());
+        }
+      } catch { /* leave demographics out */ }
+      // Fairness heatmap: demo audit with a mock biased model (bounded count).
+      const count = parseInt($("count").value, 10) || 0;
+      if (count > 0 && count <= 300) {
+        try {
+          const fp = new URLSearchParams(vp); fp.set("model", "biased");
+          const fresp = await fetch("/viz/fairness?" + fp.toString());
+          if (fresp.ok) {
+            $("viz").innerHTML +=
+              "<label>Fairness heatmap — demo audit (mock biased model)</label>" +
+              (await fresp.text());
+          }
+        } catch { /* leave fairness out */ }
+      }
+    }
+
+    async function download() {
+      const p = currentParams();
+      const fmt = $("format").value; p.set("format", fmt);
+      setStatus("Requesting " + fmt + " download…");
+      try {
+        const resp = await fetch("/generate?" + p.toString());
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: resp.statusText }));
+          throw new Error(err.error || ("HTTP " + resp.status));
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "cohort." + fmtExt(fmt);
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        setStatus("Downloaded cohort." + fmtExt(fmt), "ok");
+      } catch (e) {
+        setStatus("Error: " + e.message, "err");
+      }
+    }
+
+    function fmtExt(fmt) {
+      return { "json": "json", "csv": "csv", "fhir-bundle": "json",
+               "ndjson": "ndjson", "omop": "json", "parquet": "parquet" }[fmt] || "txt";
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    $("form").addEventListener("submit", generate);
+    $("dlBtn").addEventListener("click", download);
+    $("scenario").addEventListener("change", onScenarioChange);
+    loadCapabilities().catch((e) => setStatus("Failed to load capabilities: " + e.message, "err"));
+  </script>
+</body>
+</html>

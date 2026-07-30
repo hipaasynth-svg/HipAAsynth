@@ -62,7 +62,11 @@ _PROJECT_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def _validate_identifier(value: str, kind: str, pattern=_ID_RE) -> str:
-    if not value or not pattern.match(value):
+    # ``fullmatch`` (not ``match``): Python's ``$`` matches just before a trailing
+    # newline, so ``pattern.match("person\n")`` succeeds and a control character
+    # smuggles into the generated DDL. ``fullmatch`` anchors to the true
+    # end-of-string and rejects a trailing newline.
+    if not value or not pattern.fullmatch(value):
         raise ValueError(f"invalid BigQuery {kind}: {value!r}")
     return value
 
