@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("pandas")
+pandas = pytest.importorskip("pandas")
 pytest.importorskip("pyarrow")
 pytest.importorskip("yaml")
 
@@ -132,7 +132,13 @@ class TestScoreAndFrames:
 
     def test_predictions_frame_dtypes(self):
         pred = build_predictions(_cohort(10), OUD_PROFILE)
-        assert pred["patient_id"].dtype == object
+        # Assert the property, not the spelling. Under pandas 2 a `.astype(str)`
+        # column lands as `object`; pandas 3 gives it the real `str` dtype. Both
+        # serialize to a parquet string column, and the parquet file — not this
+        # in-memory frame — is what Seismometer actually consumes, so pinning
+        # `== object` here only pinned the pandas version (issue #87).
+        assert pandas.api.types.is_string_dtype(pred["patient_id"])
+        assert all(isinstance(v, str) for v in pred["patient_id"])
         assert str(pred["PredictTime"].dtype).startswith("datetime64")
         assert str(pred["ModelScore"].dtype) == "float64"
         assert str(pred["age"].dtype) == "int64"
