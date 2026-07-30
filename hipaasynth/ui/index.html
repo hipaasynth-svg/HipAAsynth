@@ -263,6 +263,8 @@
           if (fresp.ok) {
             $("viz").innerHTML +=
               "<label>Fairness heatmap — demo audit (mock biased model)</label>" +
+              "<p class=\"hint\">This is a demonstration audit against a built-in " +
+              "mock model. It is not an audit of any real model.</p>" +
               (await fresp.text());
           }
         } catch { /* leave fairness out */ }
