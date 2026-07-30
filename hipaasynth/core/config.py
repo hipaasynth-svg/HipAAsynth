@@ -26,7 +26,12 @@ from datetime import date
 from typing import Optional
 
 # Version constants — single source of truth for the entire codebase.
-ENGINE_VERSION      = "1.3.0"
+#
+# ENGINE_VERSION is sealed into every FairnessPassport (see dif/report.py), so a
+# third party re-running a cohort uses it to confirm which engine produced the
+# result. It must therefore track the distribution version in pyproject.toml.
+# tests/test_version_consistency.py asserts the two stay equal.
+ENGINE_VERSION      = "1.4.0"
 SCHEMA_VERSION      = "1.1.0"
 ADVERSARIAL_VERSION = "1.0.0"
 
