@@ -20,6 +20,7 @@ from hipaasynth.dif.report import (
     FairnessPassport,
     per_form_error_rates,
     summarize_cohort,
+    write_passport_bundle,
 )
 from hipaasynth.dif.stability import (
     BootstrapUncertainty,
@@ -39,6 +40,7 @@ __all__ = [
     "run_audit",
     "summarize_cohort",
     "per_form_error_rates",
+    "write_passport_bundle",
     "ConceptDriftResult",
     "BootstrapUncertainty",
     "ThresholdSensitivity",
