@@ -28,12 +28,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 from hipaasynth.polymorphic.metrics import PolymorphicMetrics
+
+PathLike = Union[str, Path]
 
 
 @dataclass
@@ -484,3 +488,134 @@ def _recommendations(metrics: PolymorphicMetrics) -> List[str]:
             "as documentation practices and patient populations evolve."
         )
     return recs
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Passport bundle export — the readable deliverable for a full audit run.
+# ─────────────────────────────────────────────────────────────────────────────
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9_.-]")
+
+
+def _safe_filename_stem(patient_id: str) -> str:
+    """Sanitize a patient_id into a filesystem-safe filename stem.
+
+    Engine-generated patient_ids (``SYN-xxxxxxxx``) are already safe; this is
+    defense-in-depth for any caller-constructed :class:`FairnessPassport`
+    (e.g. in tests, or a future non-engine model source) so an unusual
+    patient_id can never be interpreted as a path.
+    """
+    cleaned = _UNSAFE_FILENAME_CHARS.sub("_", patient_id.strip())
+    if not cleaned:
+        raise ValueError(f"patient_id {patient_id!r} has no safe characters for a filename")
+    return cleaned
+
+
+def write_passport_bundle(
+    passports: List[FairnessPassport],
+    output_dir: PathLike,
+    *,
+    summary: Optional[CohortFairnessSummary] = None,
+) -> Dict[str, Any]:
+    """Write a cohort of passports to disk as linked, human-readable reports.
+
+    This is the delivered artifact for a full audit run: every patient's own
+    :meth:`FairnessPassport.to_markdown` report, plus one cohort-level
+    :class:`CohortFairnessSummary` report that indexes and links to every one
+    of them, so a reviewer can go from the aggregate finding straight to the
+    specific patient who exposed it.
+
+    Layout::
+
+        {output_dir}/summary.md           -- CohortFairnessSummary.to_markdown()
+                                              plus a table linking every patient
+        {output_dir}/patients/{id}.md     -- each patient's own FairnessPassport,
+                                              with a backlink to summary.md
+
+    Args:
+        passports: the cohort's passports (one per patient), e.g. the return
+            value of :func:`hipaasynth.dif.framework.run_audit`.
+        output_dir: directory to write into (created if absent).
+        summary: a precomputed :class:`CohortFairnessSummary`. If omitted, one
+            is computed via :func:`summarize_cohort`. If given, it must
+            describe exactly this cohort (``summary.n == len(passports)``) --
+            passing a summary for a different cohort is rejected rather than
+            silently producing a report that disagrees with its own index.
+
+    Returns:
+        dict with ``summary_path`` (Path), ``patient_paths`` (dict of
+        patient_id -> Path), and ``n`` (int, the cohort size written).
+
+    Raises:
+        ValueError: an empty cohort, duplicate patient_ids (each would
+            silently overwrite the previous patient's file), or a ``summary``
+            that does not match the given ``passports``.
+        RuntimeError: any I/O error, consistent with the other exporters
+            (:func:`hipaasynth.exporters.exporters.export_fhir_ndjson`,
+            :func:`hipaasynth.exporters.omop.export_omop`) -- fails loud rather
+            than leaving a partial bundle.
+    """
+    if not passports:
+        raise ValueError("cannot write a passport bundle for an empty cohort")
+
+    seen_ids: set = set()
+    for p in passports:
+        if p.patient_id in seen_ids:
+            raise ValueError(
+                f"duplicate patient_id {p.patient_id!r} in passports -- each file "
+                "would silently overwrite the previous patient's report"
+            )
+        seen_ids.add(p.patient_id)
+
+    if summary is None:
+        summary = summarize_cohort(passports)
+    elif summary.n != len(passports):
+        raise ValueError(
+            f"summary.n ({summary.n}) does not match len(passports) ({len(passports)}) -- "
+            "the summary must describe exactly the cohort being written, or the "
+            "index and the aggregate report would disagree with each other"
+        )
+
+    out = Path(output_dir)
+    patients_dir = out / "patients"
+    try:
+        patients_dir.mkdir(parents=True, exist_ok=True)
+
+        patient_paths: Dict[str, Path] = {}
+        index_rows: List[tuple] = []
+        for p in passports:
+            stem = _safe_filename_stem(p.patient_id)
+            rel_path = f"patients/{stem}.md"
+            path = out / rel_path
+            verdict = "PASS" if p.passed() else "FAIL"
+            body = (
+                p.to_markdown()
+                + "\n\n---\n\n[← back to cohort summary](../summary.md)\n"
+            )
+            path.write_text(body, encoding="utf-8")
+            patient_paths[p.patient_id] = path
+            index_rows.append((p.patient_id, verdict, rel_path))
+
+        index_rows.sort(key=lambda row: row[0])
+        index_table = "\n".join(
+            f"| {pid} | {verdict} | [{pid}]({rel_path}) |"
+            for pid, verdict, rel_path in index_rows
+        )
+        summary_body = (
+            summary.to_markdown()
+            + "\n\n## Per-Patient Passports\n\n"
+            + "Every patient audited in this cohort, linked to their full "
+            "individual report:\n\n"
+            + "| Patient | Result | Report |\n|---|---|---|\n"
+            + index_table
+            + "\n"
+        )
+        summary_path = out / "summary.md"
+        summary_path.write_text(summary_body, encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"Failed to write passport bundle: {output_dir}") from exc
+
+    return {
+        "summary_path": summary_path,
+        "patient_paths": patient_paths,
+        "n": len(passports),
+    }
