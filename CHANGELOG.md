@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `hipaasynth.dif.write_passport_bundle()` — the readable deliverable for a
+  full DIF audit run. `run_audit()` already returned one `FairnessPassport`
+  per patient, each with a full `to_markdown()` report, but nothing wrote a
+  cohort's worth of them to disk as a linked, reviewable bundle. This writes
+  `summary.md` (the `CohortFairnessSummary`, indexed with a PASS/FAIL table
+  linking every patient) plus `patients/{id}.md` per patient (each linking
+  back to the summary), so a reviewer can go from the aggregate finding
+  straight to the specific patient who exposed it. Rejects an empty cohort,
+  duplicate `patient_id`s (each would silently overwrite the previous
+  patient's file), and a caller-supplied `summary` that doesn't match the
+  given passports, rather than writing a bundle whose index disagrees with
+  itself.
+
 ## [1.4.0] — 2026-07-30
 
 Interoperability and access. Earlier releases exposed the engine as an
@@ -73,6 +90,30 @@ engine by commit rather than by the recorded version.
   the current version. They were previously independent literals.
 - The CI zero-dependency check uses a per-file allowlist, so the stdlib-only
   guarantee is enforced per module rather than waived wholesale.
+- **`hipaasynth.validation` has a public surface.** It re-exports the validator,
+  fidelity and utility-probe APIs. Its `__init__.py` was previously empty, so
+  `fidelity` and `utility_probe` were reachable only by full module path and had
+  no caller anywhere in the tree. `Cohort.fidelity()` and `Cohort.utility()` on
+  the SDK expose the same statistics next to the existing `Cohort.validate()`.
+- **CI exercises the optional capabilities.** A second `capabilities` job
+  installs the `test-full` extra (which pulls `parquet`, `duckdb`,
+  `test-browser` and `examples`), installs Chromium, and fails if *any* test
+  reports skipped — parsed from the JUnit XML rather than scraped from stdout.
+  The original job still installs only `[dev]`; its skips are intentional and
+  are what prove the core needs no third-party packages. Before this, 11 tests
+  skipped on every run, including every DuckDB and headless-browser test, so
+  the capabilities they exist to prove were never regression-checked.
+- **The README documents the non-Python surfaces** — CLI, REST API, SDK, web UI,
+  scenario blueprints, cohort checks and optional extras — with
+  `tests/test_readme_surfaces.py` guarding that the documented commands and
+  endpoints keep matching the code. It previously described only the Python
+  import path, leaving the audience Tier 5 was built for with no entry point.
+- **The synthetic-data and mock-model disclaimers are now enforced by tests.**
+  `tests/test_disclaimer_consistency.py` covers `ui/index.html` and the API
+  responses, and the fairness heatmap carries its disclaimer inside the SVG
+  itself, so the notice travels with the image if it is saved and reused
+  elsewhere. The disclaimers were correct but unguarded, and the web UI is the
+  surface whose audience is least able to infer the caveat.
 
 ### Fixed
 
@@ -88,15 +129,24 @@ engine by commit rather than by the recorded version.
   scripts use `QUOTE_NONE`, matching the fix already applied to
   `vocabulary/validate.py`; bare quotes in `concept_name` no longer swallow
   subsequent rows.
+- **Seismometer adapter dtype assertion under pandas 3** — a test asserted
+  `patient_id` had `object` dtype, but pandas 3 gives `.astype(str)` columns a
+  real `str` dtype (PDEP-14). It now asserts the property rather than the
+  spelling, via `pandas.api.types.is_string_dtype`, which holds on pandas 2 and
+  3. The failure had been carried as "pre-existing" while the module skipped
+  for want of pandas, so it never actually ran — exactly the blind spot the new
+  capabilities job closes.
 
 ### Known limitations
 
 - The `Dockerfile` has not been verified by a real `docker build`; its tests are
   static checks on file contents (tracked in #91).
-- Tier 4 validation modules are not yet exported from
-  `hipaasynth.validation` or wired to the CLI/API/SDK (tracked in #88).
-- DuckDB, Parquet and Playwright tests are skipped unless those packages are
-  installed; CI does not currently install them (tracked in #87).
+- The NOOA orchestrator example has no end-to-end runner: it cannot go from a
+  preregistered plan through generation and audit to a rendered card, it never
+  calls the engine itself, and its LLM-authored narrative has no groundedness
+  check against the source passport. Pydantic constrains the *shape* of that
+  output (a plan cannot name a profile that does not exist); it does not
+  constrain the prose (tracked in #98).
 - `GET /viz/fairness` runs a built-in mock model. It demonstrates the heatmap;
   it does not audit any real system.
 - OMOP `concept_id`s remain partially ATHENA-verified; validate against a pinned

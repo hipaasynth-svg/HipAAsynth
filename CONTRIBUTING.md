@@ -82,11 +82,33 @@ Bug fixes and test coverage improvements are always welcome. If a test is failin
 Run the full suite before submitting:
 
 ```bash
+pip install -e ".[dev]"
 python -m pytest
 black --check .
 ruff check .
 mypy hipaasynth/
 ```
+
+### Running *everything*
+
+`.[dev]` deliberately installs no optional capability, which mirrors CI's
+stdlib-only job and proves the engine core needs nothing external. The trade-off
+is that the tests gated on an optional dependency **skip silently** — you will see
+something like `437 passed, 12 skipped` and it looks like a clean full run.
+
+Those skips hide entire files. To actually run all of them:
+
+```bash
+pip install -e ".[test-full]"
+python -m playwright install chromium   # browser binary; pip ships only the driver
+python -m pytest
+```
+
+That unlocks the DuckDB connector, Parquet export, the example scripts, and the
+headless-Chromium drive of the web UI — 64 further tests. CI runs this as the
+`capabilities` job and **fails if anything skips**, so if you add a test behind a
+new optional dependency, add that dependency to the `test-full` extra in
+`pyproject.toml` or CI will go red.
 
 ---
 

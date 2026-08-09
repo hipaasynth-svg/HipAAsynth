@@ -98,6 +98,12 @@ API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
 _VIZ_MODELS = ("biased", "fair", "sdoh")
 # Bound the demo DIF audit: it renders 7 forms per patient, so keep it cheap.
 VIZ_FAIRNESS_MAX_COUNT = 300
+# Stamped into every /viz/fairness SVG. The endpoint has no model-under-test, so
+# the heatmap can only ever be a demonstration; this travels with the image once
+# it is saved or pasted somewhere that no longer shows the surrounding page.
+VIZ_FAIRNESS_MOCK_NOTE = (
+    "Demonstration audit of a built-in mock model — not an audit of any real model."
+)
 # Network safety: cap on-demand cohort size unless the operator raises it.
 DEFAULT_MAX_COUNT = 10_000
 # Hard cap on a POST body. A legitimate /generate body is a tiny JSON object
@@ -514,7 +520,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             dif_cfg = DIFConfig(
                 device_name=f"Demo {model_name} model", device_version="0.0.0")
             passports = run_audit(models[model_name](), generate_patients, cfg, dif_cfg)
-            svg = fairness_heatmap_svg(passports)
+            # Stamp the caveat into the image itself. This endpoint can only ever
+            # audit a built-in mock, and the SVG outlives the page that served it.
+            svg = fairness_heatmap_svg(passports, note=VIZ_FAIRNESS_MOCK_NOTE)
         except ApiError as err:
             return self._send_api_error(err)
         except ValueError as err:

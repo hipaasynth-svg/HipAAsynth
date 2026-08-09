@@ -97,12 +97,135 @@ This is a structural answer to the most important question in third-party auditi
 
 ---
 
-## Quick start
+## Quick start — no Python required
+
+You do not have to write Python to use the engine. Install it, start the server,
+open a browser:
+
+```bash
+git clone https://github.com/hipaasynth-svg/HipAAsynth.git
+cd HipAAsynth
+pip install -e .
+python -m hipaasynth.api
+```
+
+Then open **<http://127.0.0.1:8000>**. Pick a module, a population profile and a
+cohort size; preview the cohort, download it in any supported format, and see the
+population distribution charted.
+
+> HipAAsynth is not on PyPI — install from a clone (above) or straight from git
+> with `pip install git+https://github.com/hipaasynth-svg/HipAAsynth.git`.
+
+The UI also renders a **fairness heatmap**. Read the label on it: that panel is a
+*demonstration* audit run against a built-in **mock** model, so you can see what
+the output looks like. It is **not** an audit of any real model — a stateless HTTP
+request has no model under test. To audit your own model, use the Python API
+below.
+
+---
+
+## Every way in
+
+The same engine sits behind all five surfaces. Pick whichever fits.
+
+| Surface | For | One-line example |
+|---|---|---|
+| **Web UI** | Non-programmers | `python -m hipaasynth.api` → <http://127.0.0.1:8000> |
+| **CLI** | Scripts, pipelines, air-gapped runs | `hipaasynth --scenario tribal_stroke --count 200 --format csv --out ./out` |
+| **Python SDK** | Notebooks, analysis | `hipaasynth.generate(count=200, seed=42, module="stroke")` |
+| **REST API** | Any language, any tool | `curl "http://127.0.0.1:8000/generate?count=100&format=csv"` |
+| **Docker** | Deployment | `docker compose up --build` → API on port 8000 |
+
+### Python SDK
+
+```python
+import hipaasynth
+
+cohort = hipaasynth.generate(count=200, seed=42, module="stroke")
+cohort.to_fhir_bundle("cohort.json")   # or .to_csv(), .to_omop(), .to_parquet(), ...
+
+cohort.validate()    # structural FHIR check
+cohort.fidelity()    # are the cohort's statistics plausible?
+cohort.utility()     # is the signal actually learnable?
+```
+
+### REST API
+
+Served by `python -m hipaasynth.api` (stdlib `http.server`, no framework):
+
+| Endpoint | Returns |
+|---|---|
+| `GET /` | the web UI |
+| `GET /health` | `{"status": "ok", "engine_version": ...}` |
+| `GET /formats` | supported formats, modules, profile + scenario names |
+| `GET /scenarios` | the named scenario blueprints |
+| `GET\|POST /generate` | a cohort (`json`, `csv`, `fhir-bundle`, `ndjson`, `omop`, `parquet`) |
+| `GET /viz/demographics` | SVG of the cohort's age/sex/ethnicity distribution |
+| `GET /viz/fairness` | SVG heatmap from a **demo audit of a mock model** (see above) |
+
+`ndjson` is streamed with chunked transfer, so large cohorts never buffer in memory.
+
+### DuckDB
+
+```bash
+pip install -e ".[duckdb]"
+```
+
+```python
+from hipaasynth.connectors import duckdb
+duckdb.load(cohort, "cohort.duckdb", mode="omop")   # or mode="flat"
+```
+
+`hipaasynth.connectors.bigquery` generates BigQuery DDL, load SQL and `bq` CLI
+text. It is a **SQL generator only** — it opens no connection and needs no
+credentials.
+
+---
+
+## Scenario blueprints
+
+A scenario is a named `module` + `profile` shortcut, usable from the CLI
+(`--scenario`), the API (`?scenario=`), and the web UI's dropdown. Eight ship:
+
+| Scenario | Module | Profile | For |
+|---|---|---|---|
+| `us_baseline_sepsis` | sepsis | us_default | US national reference baseline (ACS/NHANES) |
+| `fabry_baseline` | fabry | us_default | Rare-condition screening against a general US population |
+| `tribal_sepsis` | sepsis | nd_tribal_region_a | Northern Plains tribal / IHS service area, air-gapped context |
+| `tribal_stroke` | stroke | nd_tribal_region_a | Same population, acute-stroke decision support (ICU age bands) |
+| `rural_nd_dka` | dka | minot_nd | Rural upper-Midwest, high diabetes burden |
+| `urban_nd_sepsis` | sepsis | fargo_nd | Urban safety-net contrast to the rural ND scenarios |
+| `karachi_dka` | dka | karachi_pakistan | LMIC urban; stresses limited-English/low-literacy forms |
+| `lagos_sepsis` | sepsis | lagos_nigeria | Sub-Saharan LMIC; community-health-worker forms |
+
+`GET /scenarios` returns the same list with full descriptions and default sizes.
+
+---
+
+## Optional extras
+
+The engine core is **pure standard library**. Every extra below is optional and
+lazily imported, so nothing is pulled in until you use that feature.
+
+| Extra | Unlocks |
+|---|---|
+| `.[parquet]` | Parquet export (`cohort.to_parquet()`, `--format parquet`) |
+| `.[duckdb]` | The DuckDB warehouse connector |
+| `.[fhir]` | `fhir.resources`-backed FHIR support |
+| `.[seismometer]` | Epic Seismometer fairness reports (`examples/seismometer/`) |
+| `.[dev]` | pytest, black, ruff, mypy, pre-commit |
+| `.[test-browser]` | Playwright, for the headless-browser UI tests |
+| `.[examples]` | Third-party deps of the `examples/` scripts |
+| `.[test-full]` | Everything above needed to run the suite with zero skips |
+
+---
+
+## Quick start — Python
 
 ```bash
 pip install -e .
 python -c "from hipaasynth.dif import run_audit; print('OK')"
-python -m pytest -q          # 54 passing — verify the install end-to-end
+python -m pytest -q          # verify the install end-to-end
 ```
 
 Run a full fairness audit:
@@ -161,6 +284,20 @@ python -m pytest          # full suite
 python -m pytest --cov    # with coverage (floor enforced in pyproject.toml)
 ```
 
+Tests gated on an optional dependency **skip silently** under a plain `.[dev]`
+install, so `python -m pytest` can report a clean run while whole files never
+execute. To run everything (DuckDB, Parquet, the example scripts and the
+headless-browser UI drive):
+
+```bash
+pip install -e ".[test-full]"
+python -m playwright install chromium
+python -m pytest
+```
+
+CI runs both: a stdlib-only job proving the core needs no dependencies, and a
+`capabilities` job that installs everything and fails if any test skips.
+
 ---
 
 ## Architecture, security & compliance docs
@@ -184,6 +321,8 @@ linting, and secret scanning (`.pre-commit-config.yaml`).
 ```bash
 pip install -e '.[fhir]'
 ```
+
+See [Optional extras](#optional-extras) for the full list.
 
 ---
 

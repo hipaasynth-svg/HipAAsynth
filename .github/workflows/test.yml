@@ -83,3 +83,66 @@ jobs:
               exit(1)
           print('Zero external dependencies: PASS')
           "
+
+  capabilities:
+    # The `test` job above installs only `.[dev]`, which is deliberate: it proves
+    # the engine core needs no third-party packages. The cost is that every test
+    # gated on an optional dependency SKIPS there, so CI could never regression-
+    # detect the capabilities those tests exist to prove — DuckDB loads, Parquet
+    # export, and the headless-browser drive of the web UI (issue #87).
+    #
+    # This job is the other half: install everything, run the same suite, and fail
+    # if anything skips. It does not replace the stdlib-only job — it complements it.
+    name: capabilities (all optional deps)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install package with every optional capability
+        run: pip install -e ".[test-full]"
+
+      - name: Install Chromium for the browser tests
+        # Only the driver comes from pip; this fetches the actual browser binary.
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run the full suite
+        run: python -m pytest -v -rs --junitxml=capabilities.xml
+
+      - name: Fail if any test skipped
+        # A skip here is the exact failure mode this job exists to prevent: a
+        # capability test that silently does not run and therefore guards nothing.
+        run: |
+          python -c "
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse('capabilities.xml').getroot()
+          suites = root.findall('testsuite') or [root]
+          skipped = []
+          for suite in suites:
+              for case in suite.iter('testcase'):
+                  mark = case.find('skipped')
+                  if mark is not None:
+                      skipped.append((
+                          case.get('classname', ''),
+                          case.get('name', ''),
+                          mark.get('message', ''),
+                      ))
+          if skipped:
+              print(f'{len(skipped)} test(s) SKIPPED in the capabilities job:')
+              for cls, name, msg in skipped:
+                  print(f'  - {cls}::{name}')
+                  print(f'      {msg}')
+              print()
+              print('This job installs .[test-full] so that nothing skips. A skip here')
+              print('means CI is not exercising that capability (issue #87).')
+              print('Fix: add the missing dependency to the [test-full] extra in')
+              print('pyproject.toml. If the skip is genuinely unavoidable (a real')
+              print('platform constraint), document why and allowlist it in this step.')
+              sys.exit(1)
+          print('No skips: every optional-capability test actually ran.')
+          "
