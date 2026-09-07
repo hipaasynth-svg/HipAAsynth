@@ -52,12 +52,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
 import re
+import sys
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+# Code version of *this orchestrator*, distinct from the engine's ENGINE_VERSION.
+# It is sealed into a run's plan anchor and environment manifest so a plan hash
+# identifies the exact orchestrator build that produced it, not only the plan
+# contents (issue #98, item 3).
+ORCHESTRATOR_VERSION = "1.0.0"
 
 # The production runtime supplies the real NOOA Agent base
 # (``nooa`` == NVIDIA-labs Object-Oriented Agents; Python >= 3.12). That base is
@@ -184,12 +193,64 @@ class FairnessPassportSummary(BaseModel):
 
 
 class RunSummary(BaseModel):
+    """Outcome of validating a single :class:`PopulationSpec` (one cohort).
+
+    A cohort has ``spec.n`` patients, so an audit yields ``n`` per-patient
+    passports. ``passports`` holds all of them; ``passport`` is kept as the first
+    one for backward compatibility with callers that expect a single value.
+    ``artifact_paths`` records where this cohort's card and JSON were written.
+    """
     run_id: str
     status: str                          # "completed" | "failed"
     population_spec: PopulationSpec
     passport: Optional[FairnessPassportSummary] = None
+    passports: List[FairnessPassportSummary] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     log: List[str] = Field(default_factory=list)
+    artifact_paths: Dict[str, str] = Field(default_factory=dict)
+
+
+class EnvironmentManifest(BaseModel):
+    """Everything needed to identify the build that produced a run.
+
+    Written alongside the artifacts and folded into the plan anchor so two runs
+    against different engine or orchestrator builds cannot collide on the same
+    hash (issue #98, item 3/4).
+    """
+    python_version: str
+    platform: str
+    engine_version: Optional[str] = None
+    form_engine_version: Optional[str] = None
+    orchestrator_version: str = ORCHESTRATOR_VERSION
+    packages: Dict[str, str] = Field(default_factory=dict)
+    created_at: str
+
+    def anchor_payload(self) -> Dict[str, Any]:
+        """The subset of the manifest that identifies the build (no wall-clock)."""
+        return {
+            "python_version": self.python_version,
+            "engine_version": self.engine_version,
+            "form_engine_version": self.form_engine_version,
+            "orchestrator_version": self.orchestrator_version,
+        }
+
+
+class PlanRun(BaseModel):
+    """Result of :meth:`HipAAsynthAgent.run_validation` over a whole plan.
+
+    ``status`` is ``"completed"`` when every population produced a passport,
+    ``"partial"`` when some failed, ``"failed"`` when none succeeded.
+    ``artifact_paths`` maps a stable name (``plan``, ``manifest``, ``checkpoint``,
+    ``run``) to the file that a third party reads to reproduce the run.
+    """
+    run_id: str
+    status: str
+    plan: ExperimentPlan
+    run_anchor_sha256: str
+    manifest: EnvironmentManifest
+    summaries: List[RunSummary] = Field(default_factory=list)
+    log: List[str] = Field(default_factory=list)
+    artifact_paths: Dict[str, str] = Field(default_factory=dict)
 
 
 class Interpretation(BaseModel):
@@ -301,8 +362,18 @@ class HipAAsynthAgent(Agent):
         digest = hashlib.sha256(payload.encode()).hexdigest()
         return int(digest[:8], 16)  # first 4 bytes -> 32-bit unsigned int
 
-    def anchor_plan(self, plan: ExperimentPlan) -> str:
-        """SHA-256 anchor over a canonical ExperimentPlan."""
+    def anchor_plan(
+        self, plan: ExperimentPlan, build: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """SHA-256 anchor over a canonical ExperimentPlan.
+
+        When ``build`` is given (e.g. :meth:`EnvironmentManifest.anchor_payload`),
+        the engine version, orchestrator version, and Python version are folded
+        into the hash so two runs of the *same plan* against *different builds*
+        do not collide on one anchor (issue #98, item 3). ``build=None``
+        preserves the original plan-only hash, so ``design_experiment`` and any
+        existing anchor stay byte-for-byte unchanged.
+        """
         canonical = {
             "run_id": plan.run_id,
             "description": plan.description,
@@ -318,6 +389,8 @@ class HipAAsynthAgent(Agent):
             ],
             "model_under_test": plan.model_under_test,
         }
+        if build is not None:
+            canonical["build"] = build
         payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -473,9 +546,462 @@ class HipAAsynthAgent(Agent):
             status=status,
             population_spec=spec,
             passport=passport,
+            passports=[passport] if passport is not None else [],
             errors=errors,
             log=log or [],
         )
+
+    # ------------------------------------------------------------------
+    # End-to-end validation run (issue #98)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _now() -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _log(self, log: List[str], message: str) -> None:
+        """Append a timestamped entry to a run/step log (issue #98, item 5)."""
+        log.append(f"{self._now()} {message}")
+
+    def environment_manifest(self) -> EnvironmentManifest:
+        """Capture the build that is about to produce a run (issue #98, item 4).
+
+        Engine/form-engine versions are read from the engine when it is
+        importable; under the standalone pydantic fallback they stay ``None`` and
+        the manifest still identifies the Python + orchestrator build.
+        """
+        engine_version: Optional[str] = None
+        form_engine_version: Optional[str] = None
+        try:  # pragma: no cover - trivially exercised when the engine is present
+            from hipaasynth.core.config import ENGINE_VERSION
+            from hipaasynth.polymorphic.forms import FORM_ENGINE_VERSION
+
+            engine_version = ENGINE_VERSION
+            form_engine_version = FORM_ENGINE_VERSION
+        except Exception:  # pragma: no cover - the engine-absent path
+            pass
+
+        packages: Dict[str, str] = {}
+        try:
+            from importlib.metadata import PackageNotFoundError, version
+
+            for pkg in ("hipaasynth", "pydantic"):
+                try:
+                    packages[pkg] = version(pkg)
+                except PackageNotFoundError:
+                    continue
+        except Exception:  # pragma: no cover - importlib.metadata always present on 3.8+
+            pass
+
+        return EnvironmentManifest(
+            python_version=platform.python_version(),
+            platform=platform.platform(),
+            engine_version=engine_version,
+            form_engine_version=form_engine_version,
+            packages=packages,
+            created_at=self._now(),
+        )
+
+    def _spec_to_gen_config(self, spec: PopulationSpec) -> Any:
+        """Build a real engine ``GenerationConfig`` from a zero-PHI spec.
+
+        Mirrors ``hipaasynth.sdk.generate``: the profile supplies sex ratio,
+        ethnicity weights, and age bands; ``module`` becomes the
+        ``required_condition`` so every synthetic patient carries the condition
+        under test. The engine is imported lazily so the deterministic layer
+        stays importable without it (module design contract).
+        """
+        import hipaasynth
+        from hipaasynth.core.config import GenerationConfig
+        from hipaasynth.core.profile_loader import load_population_profile
+
+        profiles_dir = Path(hipaasynth.__file__).resolve().parent / "profiles"
+        profile_path = profiles_dir / f"{spec.profile.value}.json"
+        if not profile_path.is_file():
+            raise FileNotFoundError(
+                f"bundled profile {spec.profile.value!r} not found at {profile_path}"
+            )
+        profile_data = load_population_profile(str(profile_path))
+        return GenerationConfig(
+            patient_count=spec.n,
+            seed=spec.seed,
+            required_condition=spec.module.value,
+            sex_ratio_female=profile_data["sex_ratio_female"],
+            ethnicity_weights=profile_data["ethnicity_weights"],
+            age_band_weights=profile_data.get("age_band_weights"),
+            population_profile_path=str(profile_path),
+            profile_name=profile_data["profile_name"],
+        )
+
+    @staticmethod
+    def _spec_key(index: int, spec: PopulationSpec) -> str:
+        """Stable identity of a population within a plan, for checkpoint matching."""
+        canonical = json.dumps(
+            {
+                "i": index,
+                "profile": spec.profile.value,
+                "module": spec.module.value,
+                "n": spec.n,
+                "seed": spec.seed,
+                "label": spec.label,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+    def run_validation(
+        self,
+        plan: ExperimentPlan,
+        model: Any,
+        *,
+        output_dir: Any,
+        dif_config: Any = None,
+        resume: bool = True,
+        generate_fn: Optional[Callable[[Any], Any]] = None,
+        audit_fn: Optional[Callable[..., Any]] = None,
+    ) -> PlanRun:
+        """Drive a whole plan from preregistration to signed cards (issue #98).
+
+        For every :class:`PopulationSpec` in ``plan`` this runs the real engine
+        chain — generate → audit → adapt → card — and writes reproducible
+        artifacts under ``output_dir``::
+
+            output_dir/
+              plan.json                     the preregistered plan (+ run anchor)
+              manifest.json                 the build that produced this run
+              checkpoint.json               per-population resume state
+              run.json                      the full PlanRun
+              populations/NN_profile_module/
+                summary.md                  the cohort fairness card (the deliverable)
+                patients/<id>.md            each patient's own passport card
+                passports.json              the adapted FairnessPassportSummary list
+
+        Args:
+            plan: a plan from ``design_experiment`` (or hand-built).
+            model: any object with ``predict(patient, form) -> bool | DecisionResult``.
+            output_dir: run directory (created if absent).
+            dif_config: optional ``hipaasynth.dif.framework.DIFConfig``.
+            resume: reuse a matching ``checkpoint.json`` and skip completed
+                populations instead of regenerating them (issue #98, item 5).
+            generate_fn / audit_fn: injectable engine entry points; default to
+                ``generate_patients`` / ``run_audit``. Provided for tests and for
+                running against a patched engine.
+
+        Returns:
+            PlanRun: the run's status, per-population summaries, log, and the
+            paths of every artifact written.
+        """
+        try:
+            from hipaasynth.dif.framework import run_audit as _run_audit
+            from hipaasynth.dif.report import write_passport_bundle  # noqa: F401 (engine presence check)
+            from hipaasynth.pipelines.population_pipeline import (
+                generate_patients as _generate_patients,
+            )
+        except Exception as exc:  # pragma: no cover - engine-absent path
+            raise RuntimeError(
+                "run_validation requires the hipaasynth engine to be installed "
+                "(it drives generate_patients + run_audit). Install the package "
+                "to run an end-to-end validation."
+            ) from exc
+
+        generate_fn = generate_fn or _generate_patients
+        audit_fn = audit_fn or _run_audit
+
+        out = Path(output_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        populations_dir = out / "populations"
+        populations_dir.mkdir(exist_ok=True)
+
+        log: List[str] = []
+        manifest = self.environment_manifest()
+        run_anchor = self.anchor_plan(plan, build=manifest.anchor_payload())
+        self._log(
+            log,
+            f"run {plan.run_id!r} started: {len(plan.populations)} population(s), "
+            f"engine={manifest.engine_version}, orchestrator={manifest.orchestrator_version}, "
+            f"anchor={run_anchor[:12]}…",
+        )
+
+        # Persist the preregistered plan (with its run anchor) and the manifest up
+        # front, so even an interrupted run leaves a reproducible record.
+        plan_path = out / "plan.json"
+        anchored_plan = plan.model_copy(update={"plan_hash": run_anchor})
+        plan_path.write_text(anchored_plan.model_dump_json(indent=2), encoding="utf-8")
+        manifest_path = out / "manifest.json"
+        manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+
+        checkpoint_path = out / "checkpoint.json"
+        completed = self._load_checkpoint(checkpoint_path, run_anchor, resume, log)
+
+        summaries: List[RunSummary] = []
+        for i, spec in enumerate(plan.populations):
+            key = self._spec_key(i, spec)
+            if key in completed:
+                summary = RunSummary.model_validate(completed[key])
+                self._log(
+                    log,
+                    f"population {i} ({spec.profile.value}/{spec.module.value}) "
+                    "skipped — already completed (resumed from checkpoint)",
+                )
+                summaries.append(summary)
+                continue
+
+            summary = self._run_one_population(
+                run_id=plan.run_id,
+                index=i,
+                spec=spec,
+                model=model,
+                populations_dir=populations_dir,
+                dif_config=dif_config,
+                generate_fn=generate_fn,
+                audit_fn=audit_fn,
+                log=log,
+            )
+            summaries.append(summary)
+            if summary.status == "completed":
+                completed[key] = summary.model_dump(mode="json")
+                self._write_checkpoint(checkpoint_path, plan.run_id, run_anchor, completed)
+
+        n_ok = sum(1 for s in summaries if s.status == "completed")
+        if n_ok == len(summaries):
+            status = "completed"
+        elif n_ok == 0:
+            status = "failed"
+        else:
+            status = "partial"
+        self._log(log, f"run {plan.run_id!r} {status}: {n_ok}/{len(summaries)} population(s) ok")
+
+        artifact_paths = {
+            "plan": str(plan_path),
+            "manifest": str(manifest_path),
+            "checkpoint": str(checkpoint_path),
+            "run": str(out / "run.json"),
+        }
+        run = PlanRun(
+            run_id=plan.run_id,
+            status=status,
+            plan=anchored_plan,
+            run_anchor_sha256=run_anchor,
+            manifest=manifest,
+            summaries=summaries,
+            log=log,
+            artifact_paths=artifact_paths,
+        )
+        (out / "run.json").write_text(run.model_dump_json(indent=2), encoding="utf-8")
+        return run
+
+    def _run_one_population(
+        self,
+        *,
+        run_id: str,
+        index: int,
+        spec: PopulationSpec,
+        model: Any,
+        populations_dir: Path,
+        dif_config: Any,
+        generate_fn: Callable[[Any], Any],
+        audit_fn: Callable[..., Any],
+        log: List[str],
+    ) -> RunSummary:
+        """Run generate → audit → adapt → card for one population spec."""
+        step_log: List[str] = []
+        label = f"{spec.profile.value}/{spec.module.value} n={spec.n}"
+
+        phi_reasons = self.zero_phi_reasons(spec)
+        if phi_reasons:
+            msg = f"population {index} ({label}) refused: zero-PHI screen failed: {'; '.join(phi_reasons)}"
+            self._log(log, msg)
+            self._log(step_log, msg)
+            return RunSummary(
+                run_id=run_id, status="failed", population_spec=spec,
+                errors=phi_reasons, log=step_log,
+            )
+
+        from hipaasynth.dif.report import write_passport_bundle
+
+        spec_dir = populations_dir / f"{index:02d}_{spec.profile.value}_{spec.module.value}"
+        try:
+            self._log(step_log, f"population {index} ({label}) generating + auditing")
+            gen_config = self._spec_to_gen_config(spec)
+            engine_passports = audit_fn(model, generate_fn, gen_config, dif_config)
+            if not engine_passports:
+                raise ValueError("audit produced no passports (empty cohort?)")
+
+            generated_at = self._now()
+            passport_summaries = [
+                self.from_engine_passport(ep, run_id=run_id, spec=spec, generated_at=generated_at)
+                for ep in engine_passports
+            ]
+            self._log(
+                step_log,
+                f"population {index} ({label}) audited {len(engine_passports)} patient(s); "
+                f"{sum(1 for ep in engine_passports if ep.passed())} passed",
+            )
+
+            # Render the deliverable card(s) from the real engine passports, then
+            # record the adapted summaries next to them.
+            bundle = write_passport_bundle(engine_passports, spec_dir)
+            passports_json = spec_dir / "passports.json"
+            passports_json.write_text(
+                json.dumps([s.model_dump(mode="json") for s in passport_summaries], indent=2),
+                encoding="utf-8",
+            )
+            artifact_paths = {
+                "card": str(bundle["summary_path"]),
+                "passports": str(passports_json),
+                "patients_dir": str(spec_dir / "patients"),
+            }
+            self._log(step_log, f"population {index} ({label}) wrote card {bundle['summary_path']}")
+            self._log(log, f"population {index} ({label}) completed → {bundle['summary_path']}")
+
+            return RunSummary(
+                run_id=run_id,
+                status="completed",
+                population_spec=spec,
+                passport=passport_summaries[0],
+                passports=passport_summaries,
+                log=step_log,
+                artifact_paths=artifact_paths,
+            )
+        except Exception as exc:  # a failed population must not abort the plan
+            msg = f"population {index} ({label}) failed: {type(exc).__name__}: {exc}"
+            self._log(log, msg)
+            self._log(step_log, msg)
+            return RunSummary(
+                run_id=run_id, status="failed", population_spec=spec,
+                errors=[str(exc)], log=step_log,
+            )
+
+    def _load_checkpoint(
+        self, path: Path, run_anchor: str, resume: bool, log: List[str]
+    ) -> Dict[str, Any]:
+        """Load resumable per-population state, or start clean.
+
+        A checkpoint is reused only when ``resume`` is True and it was written for
+        the same run anchor (same plan + same build); a stale checkpoint is
+        ignored rather than mixing results across builds.
+        """
+        if not resume or not path.is_file():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            self._log(log, "checkpoint unreadable — starting fresh")
+            return {}
+        if data.get("run_anchor") != run_anchor:
+            self._log(log, "checkpoint anchor mismatch (plan or build changed) — starting fresh")
+            return {}
+        completed = data.get("completed", {})
+        self._log(log, f"resuming from checkpoint: {len(completed)} population(s) already done")
+        return completed
+
+    def _write_checkpoint(
+        self, path: Path, run_id: str, run_anchor: str, completed: Dict[str, Any]
+    ) -> None:
+        payload = {"run_id": run_id, "run_anchor": run_anchor, "completed": completed}
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    # ------------------------------------------------------------------
+    # Groundedness — assert an interpretation cites only what the passport holds
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _collect_floats(node: Any, out: List[float]) -> None:
+        """Recursively gather every numeric leaf under ``node``."""
+        if isinstance(node, bool):
+            return
+        if isinstance(node, (int, float)):
+            out.append(float(node))
+        elif isinstance(node, dict):
+            for v in node.values():
+                HipAAsynthAgent._collect_floats(v, out)
+        elif isinstance(node, (list, tuple)):
+            for v in node:
+                HipAAsynthAgent._collect_floats(v, out)
+
+    def groundedness_violations(
+        self, interpretation: Interpretation, summary: FairnessPassportSummary
+    ) -> List[str]:
+        """Return the ways ``interpretation`` cites something not in ``summary``.
+
+        An empty list means every form name, metric name, and decimal number in
+        the interpretation is present in the source passport (issue #98, item 6).
+        This is a deterministic groundedness check on otherwise free-text LLM
+        output: it does not verify the *prose*, but it makes fabricating a form,
+        a metric, or a numeric value fail loudly instead of reading as fact.
+
+        Checks:
+          * every key in ``form_level_notes`` is one of the seven forms *and* is
+            present in the passport (a decision, or a refused/unparseable form);
+          * every key in ``metric_notes`` is one of the four metrics present in
+            the passport;
+          * every decimal number (e.g. ``0.92``) written anywhere in the
+            interpretation matches, at the precision written, a numeric value the
+            passport actually records.
+        """
+        violations: List[str] = []
+        valid_forms = {f.value for f in DocumentationForm}
+        present_forms = (
+            {k.value for k in summary.per_form_decisions}
+            | {f.value for f in summary.refused_forms}
+            | {f.value for f in summary.unparseable_forms}
+        )
+        for key in interpretation.form_level_notes:
+            if key not in valid_forms:
+                violations.append(f"form_level_notes cites unknown form {key!r}")
+            elif key not in present_forms:
+                violations.append(
+                    f"form_level_notes cites form {key!r} that is absent from the passport"
+                )
+
+        valid_metrics = {m.value for m in FairnessMetric}
+        present_metrics = {m.value for m in summary.metrics}
+        for key in interpretation.metric_notes:
+            if key not in valid_metrics:
+                violations.append(f"metric_notes cites unknown metric {key!r}")
+            elif key not in present_metrics:
+                violations.append(
+                    f"metric_notes cites metric {key!r} that is absent from the passport"
+                )
+
+        grounded: List[float] = []
+        self._collect_floats(list(summary.metrics.values()), grounded)
+
+        def _is_grounded(token: str) -> bool:
+            ndigits = len(token.split(".")[1])
+            target = round(float(token), ndigits)
+            return any(round(g, ndigits) == target for g in grounded)
+
+        texts: List[str] = [interpretation.summary]
+        texts.extend(interpretation.form_level_notes.values())
+        texts.extend(interpretation.metric_notes.values())
+        texts.extend(interpretation.caveats)
+        seen: set = set()
+        for text in texts:
+            for token in re.findall(r"\d+\.\d+", text):
+                if token in seen:
+                    continue
+                seen.add(token)
+                if not _is_grounded(token):
+                    violations.append(
+                        f"cites numeric value {token} not present in the passport metrics"
+                    )
+        return violations
+
+    def assert_grounded(
+        self, interpretation: Interpretation, summary: FairnessPassportSummary
+    ) -> None:
+        """Raise ``ValueError`` if ``interpretation`` is not grounded in ``summary``.
+
+        The loud counterpart to :meth:`groundedness_violations`, for callers that
+        want an ungrounded interpretation to fail rather than be returned.
+        """
+        violations = self.groundedness_violations(interpretation, summary)
+        if violations:
+            raise ValueError(
+                "interpretation is not grounded in its passport: " + "; ".join(violations)
+            )
 
     # ------------------------------------------------------------------
     # Agentic methods

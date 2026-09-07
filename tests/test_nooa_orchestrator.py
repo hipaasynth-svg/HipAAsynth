@@ -224,3 +224,216 @@ def test_interpretation_accepts_string_keyed_notes():
     # str-Enum equality/hash means the enum member still matches a plain key.
     assert DocumentationForm.FHIR_STRUCTURED in interp.form_level_notes
     assert FairnessMetric.DCS in interp.metric_notes
+
+
+# --- anchor_plan: build info seals the engine/orchestrator build (issue #98) -
+
+def _plan(agent, populations):
+    from nooa_validation_orchestrator import ExperimentPlan
+
+    return ExperimentPlan(
+        run_id="run-1",
+        description="unit-test plan",
+        populations=populations,
+        created_at=agent._now(),
+    )
+
+
+def test_anchor_plan_build_changes_hash_but_default_is_unchanged(agent):
+    plan = _plan(agent, [_spec(label="clean", seed=7)])
+    plain = agent.anchor_plan(plan)
+    # Same call twice with no build → identical (backward-compatible, plan-only).
+    assert plain == agent.anchor_plan(plan)
+    # Folding a build in changes the hash, and different builds differ.
+    with_build = agent.anchor_plan(plan, build={"engine_version": "1.4.0"})
+    other_build = agent.anchor_plan(plan, build={"engine_version": "9.9.9"})
+    assert with_build != plain
+    assert with_build != other_build
+
+
+def test_environment_manifest_records_engine_build(agent):
+    manifest = agent.environment_manifest()
+    # The engine is importable in the test env, so its version is captured.
+    assert manifest.engine_version is not None
+    assert manifest.orchestrator_version
+    assert manifest.python_version
+    # anchor_payload excludes the wall-clock timestamp (build identity only).
+    assert "created_at" not in manifest.anchor_payload()
+
+
+# --- run_validation: full plan → generate → audit → card (issue #98) ---------
+#
+# These exercise the real engine chain with the in-repo MockFairModel, so they
+# assert the orchestrator actually drives generate_patients + run_audit and
+# writes reproducible artifacts — the gap issue #98 was opened for.
+
+@pytest.fixture()
+def fair_model():
+    from hipaasynth.dif.model_interface import MockFairModel
+
+    return MockFairModel()
+
+
+def test_run_validation_end_to_end_writes_artifacts(agent, fair_model, tmp_path):
+    from nooa_validation_orchestrator import PlanRun
+
+    plan = _plan(
+        agent,
+        [
+            PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
+                           n=3, seed=101, label="rural-stroke"),
+            PopulationSpec(profile=PopulationProfile.FARGO_ND, module=ClinicalModule.SEPSIS,
+                           n=2, seed=202, label="aging-sepsis"),
+        ],
+    )
+    run = agent.run_validation(plan, fair_model, output_dir=tmp_path)
+
+    assert run.status == "completed"
+    assert [s.status for s in run.summaries] == ["completed", "completed"]
+    # One passport per generated patient, adapted from the real engine passport.
+    assert len(run.summaries[0].passports) == 3
+    assert len(run.summaries[1].passports) == 2
+
+    # The run anchor covers the build, and the persisted plan carries it.
+    assert run.plan.plan_hash == run.run_anchor_sha256
+    assert run.run_anchor_sha256 != agent.anchor_plan(plan)  # build folded in
+
+    # Run-level artifacts exist on disk.
+    for name in ("plan.json", "manifest.json", "checkpoint.json", "run.json"):
+        assert (tmp_path / name).is_file()
+    # Each population wrote a card, per-patient passports, and adapted JSON.
+    for sub, n in (("00_minot_nd_stroke", 3), ("01_fargo_nd_sepsis", 2)):
+        pop = tmp_path / "populations" / sub
+        assert (pop / "summary.md").is_file()
+        assert (pop / "passports.json").is_file()
+        assert len(list((pop / "patients").glob("*.md"))) == n
+
+    # The debug log is populated (issue #98, item 5), not left empty.
+    assert run.log
+    assert any("started" in line for line in run.log)
+    assert run.summaries[0].log
+
+    # PlanRun serializes and round-trips from its own artifact.
+    reloaded = PlanRun.model_validate_json((tmp_path / "run.json").read_text())
+    assert reloaded.run_anchor_sha256 == run.run_anchor_sha256
+
+
+def test_run_validation_resumes_and_skips_completed(agent, fair_model, tmp_path):
+    plan = _plan(
+        agent,
+        [PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
+                        n=2, seed=1, label="clean")],
+    )
+    agent.run_validation(plan, fair_model, output_dir=tmp_path)
+    card = tmp_path / "populations" / "00_minot_nd_stroke" / "summary.md"
+    first_mtime = card.stat().st_mtime_ns
+
+    # A second run over the same dir must reuse the checkpoint, not regenerate.
+    run2 = agent.run_validation(plan, fair_model, output_dir=tmp_path)
+    assert run2.status == "completed"
+    assert any("resuming from checkpoint" in line for line in run2.log)
+    assert any("skipped" in line for line in run2.log)
+    assert card.stat().st_mtime_ns == first_mtime  # untouched
+
+
+def test_run_validation_resume_false_ignores_checkpoint(agent, fair_model, tmp_path):
+    plan = _plan(
+        agent,
+        [PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
+                        n=2, seed=1, label="clean")],
+    )
+    agent.run_validation(plan, fair_model, output_dir=tmp_path)
+    run2 = agent.run_validation(plan, fair_model, output_dir=tmp_path, resume=False)
+    assert not any("resuming from checkpoint" in line for line in run2.log)
+    assert run2.summaries[0].status == "completed"
+
+
+def test_run_validation_refuses_phi_spec_and_marks_partial(agent, fair_model, tmp_path):
+    plan = _plan(
+        agent,
+        [
+            PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
+                           n=2, seed=1, label="clean"),
+            PopulationSpec(profile=PopulationProfile.FARGO_ND, module=ClinicalModule.SEPSIS,
+                           n=2, seed=2, label="John Doe MRN 12345"),
+        ],
+    )
+    run = agent.run_validation(plan, fair_model, output_dir=tmp_path)
+    assert run.status == "partial"
+    ok, bad = run.summaries
+    assert ok.status == "completed"
+    assert bad.status == "failed"
+    assert bad.errors  # zero-PHI reasons recorded
+    # The refused population never produced a card.
+    assert not (tmp_path / "populations" / "01_fargo_nd_sepsis").exists()
+
+
+# --- groundedness validator (issue #98, item 6) ------------------------------
+
+def _real_summary(agent, fair_model, tmp_path):
+    plan = _plan(
+        agent,
+        [PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
+                        n=2, seed=9, label="clean")],
+    )
+    run = agent.run_validation(plan, fair_model, output_dir=tmp_path)
+    return run.summaries[0].passports[0]
+
+
+def test_groundedness_accepts_grounded_interpretation(agent, fair_model, tmp_path):
+    from nooa_validation_orchestrator import Interpretation
+
+    summary = _real_summary(agent, fair_model, tmp_path)
+    dcs = summary.metrics[FairnessMetric.DCS]["value"]
+    interp = Interpretation(
+        run_id=summary.run_id,
+        summary=f"Decision consistency was {dcs:.3f} across the seven forms.",
+        form_level_notes={"FHIR_STRUCTURED": "consistent decision"},
+        metric_notes={"DCS": "within threshold"},
+    )
+    assert agent.groundedness_violations(interp, summary) == []
+
+
+def test_groundedness_flags_unknown_form_metric_and_number(agent, fair_model, tmp_path):
+    from nooa_validation_orchestrator import Interpretation
+
+    summary = _real_summary(agent, fair_model, tmp_path)
+    interp = Interpretation(
+        run_id=summary.run_id,
+        summary="The model scored 0.42 overall.",  # fabricated value
+        form_level_notes={"MADE_UP_FORM": "x"},     # not one of the seven
+        metric_notes={"ZZZ": "y"},                  # not one of the four
+    )
+    violations = agent.groundedness_violations(interp, summary)
+    assert any("unknown form" in v for v in violations)
+    assert any("unknown metric" in v for v in violations)
+    assert any("0.42" in v for v in violations)
+    with pytest.raises(ValueError):
+        agent.assert_grounded(interp, summary)
+
+
+def test_groundedness_flags_valid_form_absent_from_passport(agent):
+    from nooa_validation_orchestrator import (
+        FairnessPassportSummary,
+        Interpretation,
+        PopulationSpec,
+    )
+
+    spec = _spec(label="clean")
+    # A summary that only recorded one form.
+    summary = FairnessPassportSummary(
+        run_id="r",
+        anchor_sha256="x",
+        population_spec=spec,
+        per_form_decisions={DocumentationForm.FHIR_STRUCTURED: True},
+        metrics={FairnessMetric.DCS: {"value": 0.90, "pass": True}},
+        generated_at="2026-07-28T00:00:00Z",
+    )
+    # LEP_TRANSLATED is a real form, but this passport never recorded it.
+    interp = Interpretation(
+        run_id="r",
+        summary="ok",
+        form_level_notes={"LEP_TRANSLATED": "no decision"},
+    )
+    violations = agent.groundedness_violations(interp, summary)
+    assert any("absent from the passport" in v for v in violations)

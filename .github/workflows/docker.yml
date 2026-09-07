@@ -1,0 +1,112 @@
+# Docker image build + smoke test (issue #91, item 1).
+#
+# The Dockerfile, .dockerignore and docker-compose.yml were merged without ever
+# being built: no Docker daemon existed in the authoring sandbox, so
+# tests/test_docker.py is only a *static* guard on the file text. This job is the
+# missing dynamic half — it runs on a GitHub-hosted runner (Docker is available
+# there), actually builds the image, runs the container, and proves the API and
+# the Dockerfile HEALTHCHECK work against a real image.
+name: Docker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "pyproject.toml"
+      - "hipaasynth/**"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "pyproject.toml"
+      - "hipaasynth/**"
+      - ".github/workflows/docker.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke-test:
+    name: build image, run container, hit the API
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        run: docker build -t hipaasynth-api:ci .
+
+      - name: Run the container
+        # Same invocation the Dockerfile documents: publish 8000 and let the
+        # ENTRYPOINT+CMD bind 0.0.0.0. The HEALTHCHECK baked into the image runs
+        # on its own interval; we assert it below.
+        run: docker run -d --name hipaasynth-api -p 8000:8000 hipaasynth-api:ci
+
+      - name: Wait for the API to answer /health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
+              echo "API is up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not become reachable within 30s"
+          exit 1
+
+      - name: GET /health returns ok + engine_version
+        run: |
+          body="$(curl -fsS http://127.0.0.1:8000/health)"
+          echo "health: $body"
+          echo "$body" | python -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d.get('status') == 'ok', d
+          assert d.get('engine_version'), 'missing engine_version'
+          print('health OK:', d)
+          "
+
+      - name: GET /generate returns a non-empty synthetic cohort
+        run: |
+          body="$(curl -fsS 'http://127.0.0.1:8000/generate?count=5&module=stroke')"
+          echo "$body" | python -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          # Default format is JSON: a list of synthetic patient records.
+          patients = data['patients'] if isinstance(data, dict) and 'patients' in data else data
+          assert isinstance(patients, list), type(patients)
+          assert len(patients) == 5, f'expected 5 patients, got {len(patients)}'
+          print('generate OK:', len(patients), 'patients')
+          "
+
+      - name: Docker HEALTHCHECK reaches 'healthy'
+        # The image declares a HEALTHCHECK (python hitting /health). Give Docker
+        # up to ~40s (start-period 5s + a few 30s-interval probes can't be forced,
+        # so we poll the reported status) to mark the container healthy.
+        run: |
+          for i in $(seq 1 40); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' hipaasynth-api 2>/dev/null || echo unknown)"
+            echo "healthcheck status: $status"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            if [ "$status" = "unhealthy" ]; then
+              echo "container reported unhealthy"
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "HEALTHCHECK did not reach 'healthy' in time"
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs hipaasynth-api || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f hipaasynth-api || true
