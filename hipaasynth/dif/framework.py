@@ -38,6 +38,8 @@ class DIFConfig:
     isg_threshold: float = 0.15
     lfdi_threshold: float = 0.20
     saf_threshold: float = 0.20
+    # Minimum share of forms decided correctly; 0.0 disables the floor.
+    accuracy_threshold: float = 0.85
     # Information-availability axis for the polymorphic forms (audit finding F1).
     information_mode: str = INFO_MODE_SAME_FACTS
 
@@ -79,6 +81,7 @@ def run_audit(
         isg_threshold=dif_config.isg_threshold,
         lfdi_threshold=dif_config.lfdi_threshold,
         saf_threshold=dif_config.saf_threshold,
+        accuracy_threshold=dif_config.accuracy_threshold,
     )
 
     # Generation anchor hash seals the passport back to the exact cohort.
