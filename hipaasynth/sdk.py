@@ -69,7 +69,7 @@ from hipaasynth.validation import (
 # Canonical decision-module → GenerationConfig.required_condition map. The REST
 # API imports this so the two surfaces never drift.
 MODULES: dict[str, Optional[str]] = {
-    "sepsis": None,  # engine default
+    "sepsis": "sepsis",
     "stroke": "stroke",
     "dka": "dka",
     "fabry": "fabry",
@@ -130,7 +130,7 @@ class Cohort:
 
     def __repr__(self) -> str:
         module = next((k for k, v in MODULES.items()
-                       if v == self.config.required_condition), "sepsis")
+                       if v == self.config.required_condition), None)
         return (f"<Cohort n={len(self.patients)} seed={self.config.seed} "
                 f"module={module!r}>")
 
