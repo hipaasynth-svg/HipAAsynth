@@ -172,3 +172,22 @@ def test_ui_download_triggers_download(server, browser):
     download = dl_info.value
     assert download.suggested_filename == "cohort.csv"
     page.close()
+
+
+@pytest.mark.parametrize("width", [1280, 390])
+def test_ui_has_no_horizontal_overflow_after_a_run(server, browser, width):
+    """A generated cohort must not stretch the page sideways (desktop or phone).
+
+    The results column was ``1fr`` (implicit min-width: auto), so the JSON preview
+    and SVGs widened the page to ~2096px at 1280 and ~1612px at 390.
+    """
+    page = browser.new_page(viewport={"width": width, "height": 900})
+    page.goto(server, wait_until="networkidle")
+    page.wait_for_selector("#status.ok", timeout=10_000)
+    page.fill("#count", "20")
+    page.click("#genBtn")
+    page.wait_for_selector("#patientCount", timeout=15_000)
+    page.wait_for_function("document.querySelectorAll('#viz svg').length >= 2",
+                           timeout=15_000)
+    assert page.evaluate("document.documentElement.scrollWidth") <= width
+    page.close()
