@@ -330,9 +330,10 @@ class Evaluator:
     def __init__(self, threshold=None):
         self.threshold = threshold
         self.cache: dict[str, str] = {}
-        self.total       = 0
+        self.total       = 0   # slices evaluated (ground truth defined)
         self.correct     = 0
         self.unparseable = 0
+        self.skipped     = 0   # slices with no patient dict or no supported condition
 
     def evaluate(self, timelines: list, model_fn, debug: bool = False) -> list[dict]:
         """
@@ -354,14 +355,13 @@ class Evaluator:
             One failure dict per disagreement or unparseable response.
         """
         failures = []
-        self.total = self.correct = self.unparseable = 0
+        self.total = self.correct = self.unparseable = self.skipped = 0
 
         for p in timelines:
             for t in p["timeline"]:
-                self.total += 1
-
                 patient_dict = t.get("_patient_dict")
                 if patient_dict is None:
+                    self.skipped += 1
                     continue
 
                 condition    = _detect_condition(patient_dict)
@@ -372,7 +372,12 @@ class Evaluator:
                 )
 
                 if ground_truth is None:
+                    self.skipped += 1
                     continue
+
+                # Only slices with a defined ground truth count toward accuracy;
+                # skipped slices used to be counted and dragged accuracy down.
+                self.total += 1
 
                 prompt = _build_prompt(patient_dict, condition)
                 raw    = self._predict(prompt, model_fn, debug)
