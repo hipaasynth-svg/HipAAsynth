@@ -242,6 +242,10 @@ class Cohort:
         return Path(path)
 
 
+# Seed range shared with the REST API (api.py parse_generate_request).
+SEED_MAX = 2**32 - 1
+
+
 def generate(
     count: int = 100,
     seed: int = 42,
@@ -255,8 +259,9 @@ def generate(
     """Generate a synthetic cohort and return a :class:`Cohort`.
 
     Args:
-        count: number of patients (>= 1).
-        seed: RNG seed — the same seed always reproduces the same cohort.
+        count: number of patients (an int >= 1).
+        seed: RNG seed, an int in 0..2**32-1 (the REST API's range) — the same
+            seed always reproduces the same cohort.
         module: decision module — one of :data:`MODULES`
             (``sepsis`` (default), ``stroke``, ``dka``, ``fabry``).
         profile: a bundled profile name (see :func:`available_profiles`) or a path
@@ -267,6 +272,14 @@ def generate(
     Returns:
         Cohort: the generated patients plus the resolved ``GenerationConfig``.
     """
+    if isinstance(count, bool) or not isinstance(count, int):
+        raise TypeError(f"count must be an integer, got {count!r} ({type(count).__name__})")
+    if count < 1:
+        raise ValueError(f"count must be >= 1, got {count}")
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise TypeError(f"seed must be an integer, got {seed!r} ({type(seed).__name__})")
+    if not 0 <= seed <= SEED_MAX:
+        raise ValueError(f"seed must be between 0 and {SEED_MAX}, got {seed}")
     if module not in MODULES:
         raise ValueError(
             f"unknown module {module!r}; choose one of: {', '.join(MODULES)}"
