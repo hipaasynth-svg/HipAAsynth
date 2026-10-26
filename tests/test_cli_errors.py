@@ -74,8 +74,9 @@ def test_bundled_profile_name_works(tmp_path):
 
 
 def test_bundled_name_and_path_give_identical_output(tmp_path):
-    import hipaasynth
     from pathlib import Path
+
+    import hipaasynth
 
     path = Path(hipaasynth.__file__).resolve().parent / "profiles" / "minot_nd.json"
     main(["--profile", "minot_nd", "--count", "3", "--out", str(tmp_path / "a")])
