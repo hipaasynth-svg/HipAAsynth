@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import logging
 import math
 import sys
@@ -717,13 +718,20 @@ def load_canonical(patients_json: Optional[str | Path], results_csv: Optional[st
 
 
 def _infer_module(df) -> Optional[str]:
-    """Best-effort module inference from a cohort_label / conditions column."""
+    """Best-effort module inference from a module / cohort_label column.
+
+    Matches whole tokens (labels look like ``us_oud_calibration``), not
+    substrings: "cloud_export" must not become "oud" and "plasma_study" must not
+    become "sma". A value naming more than one module is ambiguous and yields
+    None (the caller then asks for an explicit module) rather than whichever
+    PROFILES key happened to come first.
+    """
     for col in ("module", "cohort_label"):
         if col in df.columns and len(df):
-            val = str(df[col].iloc[0]).lower()
-            for key in PROFILES:
-                if key in val:
-                    return key
+            tokens = set(re.split(r"[^a-z0-9]+", str(df[col].iloc[0]).lower()))
+            matches = [key for key in PROFILES if key in tokens]
+            if len(matches) == 1:
+                return matches[0]
     return None
 
 
