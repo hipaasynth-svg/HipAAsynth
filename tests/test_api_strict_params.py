@@ -93,7 +93,7 @@ def test_unsupported_methods_get_json_405(server, method):
 
 
 def test_unsupported_method_on_unknown_route_is_json_404(server):
-    status, headers, body = _request(server + "/nope", "DELETE")
+    status, _headers, body = _request(server + "/nope", "DELETE")
     assert status == 404 and json.loads(body)["status"] == 404
 
 
