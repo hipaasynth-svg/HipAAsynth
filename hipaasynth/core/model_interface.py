@@ -47,6 +47,31 @@ class ModelInterface(ABC):
         raise NotImplementedError
 
 
+def validate_model_score(value: Any, where: str) -> float:
+    """Return ``value`` as a float if it is a usable model score, else raise.
+
+    PSF (SDI) and CC (CDI) are ratios of mean scores, so a score must be a
+    finite, non-negative real number. ``bool`` is rejected (it is an ``int``
+    subclass but not a score), as are ``None``, strings and NaN/inf, which used
+    to be summed silently or turned into SDI/CDI 0.0 (FAIL) without explanation.
+    Scores above 1 are allowed: the interface says scores are only *typically*
+    in [0, 1], and a ratio of means is scale-free.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        if type(value).__name__ not in ("float64", "float32", "int64", "int32"):
+            raise TypeError(
+                f"model.evaluate() returned {value!r} ({type(value).__name__}) for {where}; "
+                "expected a finite, non-negative number"
+            )
+    score = float(value)
+    if not math.isfinite(score) or score < 0:
+        raise ValueError(
+            f"model.evaluate() returned {value!r} for {where}; "
+            "expected a finite, non-negative number"
+        )
+    return score
+
+
 class MockClinicalModel(ModelInterface):
     """
     Concrete mock model that scores records based on clinical field completeness.
