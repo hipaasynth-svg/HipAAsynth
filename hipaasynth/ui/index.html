@@ -32,10 +32,13 @@
     header h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
     header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
     .wrap { max-width: 1040px; margin: 0 auto; padding: 24px; display: grid;
-      grid-template-columns: 340px 1fr; gap: 24px; }
-    @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+      grid-template-columns: 340px minmax(0, 1fr); gap: 24px; }
+    @media (max-width: 820px) { .wrap { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+    /* min-width: 0 lets grid items shrink below their content's width, so a
+       long line in the JSON preview or an SVG scrolls inside its panel instead
+       of stretching the whole page sideways. */
     .panel { background: var(--panel); border: 1px solid var(--line);
-      border-radius: 12px; padding: 18px; }
+      border-radius: 12px; padding: 18px; min-width: 0; }
     .panel h2 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase;
       letter-spacing: .8px; color: var(--muted); }
     label { display: block; margin: 12px 0 4px; font-size: 13px; color: var(--muted); }
