@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — output-affecting (read before upgrading)
+
+These fixes change what the engine produces for the same inputs. Outputs
+generated with this code are not comparable with outputs from 1.4.0. Re-run any
+cohort or audit you need to compare, and re-issue any Fairness Passport that has
+to be reproduced.
+
+- **Cohorts generated with a population profile change** (#109). The patient-ID
+  anchor used to include the profile file's path, so the same profile and seed
+  produced different patients depending on which folder the file was in. The
+  anchor now uses a SHA-256 fingerprint of the profile's contents. A profile now
+  gives the same cohort wherever it lives, but every profiled cohort, and its
+  fingerprint, differs from 1.4.0. A passport issued under 1.4.0 for a profiled
+  run cannot be reproduced with this code.
+- **Axis 6 (PSF) and Axis 7 (CC) results change once, then stay put** (#108).
+  They were seeded with Python's per-process salted `hash()`, so they changed on
+  every run. They now use `stable_seed_from_id`, so the same inputs give the same
+  results in every process. Any earlier PSF/CC number was one draw from a
+  changing distribution, so don't treat it as a baseline.
+- **A consistently wrong model now fails the passport** (#111). DCS, ISG, LFDI
+  and SAF measure consistency across forms, so a model that answered "no" for
+  every true case passed them. A new accuracy check (default floor **0.85**,
+  `DIFConfig.accuracy_threshold`) is now part of the overall verdict. Models that
+  flag everyone or miss everyone will see new FAILs. The built-in mock models'
+  verdicts and seals are unchanged.
+- **Rural and tribal profiles now produce rural patients** (#107). The rural flag
+  was read from the profile's *name* rather than its `rural` field, so those
+  profiles produced 0% rural patients. Rural-dependent fields in profiled
+  observation modules change.
+- **`module="sepsis"` now produces sepsis patients** (#106). It produced none,
+  through the SDK, API, web demo and four scenarios.
+
+### Fixed
+
+- DIF rejects non-boolean predictions (`None`, `"no"`) instead of counting them
+  as decisions, and warns when a cohort has no positive cases (#110).
+- PSF and CC reject NaN, negative, `None` and string scores, and zero-size runs
+  (#112).
+- CLI: one-line errors instead of tracebacks, bundled profile names accepted by
+  `--profile`, and the API's seed range enforced (#113).
+- SDK: `count` and `seed` validated against the same range as the API (#114).
+- API: unknown query or body parameters are rejected (`modul=stroke` used to
+  return a sepsis cohort with HTTP 200), and unsupported methods get a JSON 405
+  (#115).
+- Axis 5: accuracy counts only the slices that were evaluated (skipped slices
+  were scored as wrong), and Axis 5 now has tests (#116).
+- `examples/rare_disease_demo.py` generates Fabry patients rather than CKD, so the
+  biased model now fails, as the README says (#117).
+- Browser UI tests find Chromium under the newer `chrome-linux64` layout instead
+  of silently skipping (#118).
+- The Seismometer adapter infers the module from whole label tokens, so
+  `cloud_export` is no longer read as OUD (#119).
+- The web UI no longer scrolls sideways after a run (#120).
+
 ### Added
 
 - `hipaasynth.dif.write_passport_bundle()` — the readable deliverable for a
