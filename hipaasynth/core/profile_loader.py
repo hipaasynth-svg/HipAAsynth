@@ -155,3 +155,27 @@ def load_population_profile(path: str) -> dict:
         data["sex_ratio_female"] = sex_ratio
 
     return data
+
+
+def profile_rurality(profile: Any) -> "bool | None":
+    """Return whether a resolved population profile describes a rural population.
+
+    The profile's own boolean ``rural`` field is authoritative (the bundled
+    tribal and Minot profiles set ``"rural": true``; Lagos sets ``false``).
+    Profiles without that field fall back to the legacy check for the word
+    "rural" in ``profile_name``. Returns ``None`` when no profile is loaded, or
+    when the profile has neither a ``rural`` flag nor a ``profile_name``, so each
+    module keeps its own fallback (and its RNG draw) exactly as before.
+
+    Pure function: it never draws from an RNG, so callers' draw order is
+    unchanged.
+    """
+    if not isinstance(profile, dict) or not profile:
+        return None
+    flag = profile.get("rural")
+    if isinstance(flag, bool):
+        return flag
+    name = str(profile.get("profile_name") or "").lower()
+    if not name:
+        return None
+    return "rural" in name

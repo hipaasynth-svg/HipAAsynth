@@ -38,7 +38,7 @@ Transition consistency (continuity bias)
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from hipaasynth.core.model_interface import ModelInterface
+from hipaasynth.core.model_interface import ModelInterface, validate_model_score
 from hipaasynth.cc.generator import CCGenerator, CONTINUITY_PROFILES
 
 
@@ -52,6 +52,12 @@ class CCConfig:
     cdi_threshold: float = 0.80
     model_name: str = "Unnamed Model"
     model_version: str = "0.0.0"
+
+    def __post_init__(self) -> None:
+        for name in ("n_per_profile", "n_matched_pairs"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be an integer >= 1, got {value!r}")
 
 
 @dataclass
@@ -136,7 +142,10 @@ class CCAudit:
 
         for profile in CONTINUITY_PROFILES:
             patients = cohort[profile]
-            scores = [model.evaluate(p) for p in patients]
+            scores = [
+                validate_model_score(model.evaluate(p), f"CC {profile}, patient {i}")
+                for i, p in enumerate(patients)
+            ]
             raw_scores[profile] = scores
             per_profile_scores[profile] = _mean(scores)
 
@@ -151,8 +160,10 @@ class CCAudit:
         for pair_idx in range(config.n_matched_pairs):
             pair_seed = config.seed + pair_idx + 1
             pair = gen.generate_matched_pair(base_seed=pair_seed)
-            score_a = model.evaluate(pair["PROFILE_A"])
-            score_d = model.evaluate(pair["PROFILE_D"])
+            score_a = validate_model_score(
+                model.evaluate(pair["PROFILE_A"]), f"CC matched pair {pair_idx} (PROFILE_A)")
+            score_d = validate_model_score(
+                model.evaluate(pair["PROFILE_D"]), f"CC matched pair {pair_idx} (PROFILE_D)")
             transition_deltas.append(round(score_a - score_d, 4))
 
         mean_delta = _mean(transition_deltas)
