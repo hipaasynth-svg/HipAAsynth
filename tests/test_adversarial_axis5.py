@@ -117,9 +117,13 @@ def test_missingness_never_removes_ground_truth_and_is_deterministic(sepsis_time
 
 
 def test_missingness_does_not_mutate_the_input(sepsis_timelines):
-    before = copy.deepcopy(sepsis_timelines[0]["timeline"][0]["_patient_dict"])
-    PerturbationEngine().apply_missingness(copy.deepcopy(sepsis_timelines), 0.2)
-    assert sepsis_timelines[0]["timeline"][0]["_patient_dict"] == before
+    # apply_missingness rebinds each state's _patient_dict to a nulled deep
+    # copy (documented in-place behaviour); the original dict must survive.
+    original = sepsis_timelines[0]["timeline"][0]["_patient_dict"]
+    before = copy.deepcopy(original)
+    PerturbationEngine().apply_missingness(sepsis_timelines, 0.2)
+    assert sepsis_timelines[0]["timeline"][0]["_patient_dict"] is not original
+    assert original == before
 
 
 def test_reducer_shrinks_a_failure_set_to_at_most_ten(sepsis_timelines):
