@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import math
 from typing import Any
+from hipaasynth.core.profile_loader import profile_rurality
 
 FABRY_OBSERVATION_VERSION = "fabry_generator_v1_screen"
 
@@ -113,11 +114,8 @@ def build_fabry_observations(
 
     profile = getattr(cfg, "_resolved_profile", None) or {}
     profile_name = str(profile.get("profile_name", "")).lower() if isinstance(profile, dict) else ""
-    if "rural" in profile_name:
-        rural = True
-    elif profile_name:
-        rural = False
-    else:
+    rural = profile_rurality(profile)
+    if rural is None:
         rural = rng.random() < 0.17
 
     if not has_context:
