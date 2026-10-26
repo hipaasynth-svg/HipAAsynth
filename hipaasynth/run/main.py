@@ -24,6 +24,7 @@ same filenames as before. Tier 2 adds ``--format`` (one or more of
 structural FHIR validator over the generated cohort) purely additively.
 """
 import argparse
+import sys
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -44,18 +45,44 @@ from hipaasynth.scenarios import (
     available_scenarios,
     get_scenario,
 )
-from hipaasynth.sdk import MODULES
+from hipaasynth.sdk import MODULES, available_profiles
+from hipaasynth.sdk import _resolve_profile as resolve_profile
 
 # Supported --format values, in a stable order for deterministic output.
 FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "parquet", "omop")
 
+# Same seed range the REST API enforces (api.py parse_generate_request).
+SEED_MAX = 2**32 - 1
+
+
+def _count_arg(text):
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
+    return value
+
+
+def _seed_arg(text):
+    value = int(text)
+    if not 0 <= value <= SEED_MAX:
+        raise argparse.ArgumentTypeError(f"must be between 0 and {SEED_MAX}, got {value}")
+    return value
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description="Generate synthetic healthcare cohorts")
     parser.add_argument("--demo", action="store_true")
-    parser.add_argument("--count", type=int, default=2000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--out", type=str, default="output")
-    parser.add_argument("--profile", type=str, default=None)
+    parser.add_argument("--count", type=_count_arg, default=2000,
+                        help="Patients to generate (>= 1; default %(default)s).")
+    parser.add_argument("--seed", type=_seed_arg, default=42,
+                        help=f"RNG seed, 0..{SEED_MAX} (default %(default)s).")
+    parser.add_argument("--out", type=str, default="output",
+                        help="Output directory (default %(default)s).")
+    parser.add_argument(
+        "--profile", type=str, default=None,
+        help="Population profile: a bundled name (" + " ".join(available_profiles())
+             + ") or a path to a profile JSON file.",
+    )
     parser.add_argument(
         "--module", choices=list(MODULES), default=None, metavar="MODULE",
         help="Decision module whose condition to require: " + " ".join(MODULES) + ". "
@@ -155,6 +182,11 @@ def _resolve_scenario_args(args, parser):
     """
     module = args.module
     profile_path = args.profile
+    if profile_path is not None and not args.scenario:
+        try:
+            profile_path = resolve_profile(profile_path)
+        except ValueError as err:
+            parser.error(str(err))
     if args.scenario:
         if args.module or args.profile:
             parser.error(
@@ -179,13 +211,27 @@ def main(argv=None):
         output_dir = Path(args.out) / f"demo_{timestamp}"
     else:
         output_dir = Path(args.out)
+    if output_dir.exists() and not output_dir.is_dir():
+        parser.error(f"--out {str(output_dir)!r} exists and is not a directory")
+    profile_data = None
+    if profile_path is not None:
+        try:
+            profile_data = load_population_profile(profile_path)
+        except (ValueError, OSError) as err:  # ProfileError and JSONDecodeError are ValueErrors
+            parser.error(f"cannot load profile {profile_path!r}: {err}")
+    try:
+        return _generate_and_export(args, module, profile_path, profile_data, output_dir)
+    except (ValueError, OSError, ImportError) as err:
+        print(f"hipaasynth: error: {err}", file=sys.stderr)
+        return 1
+
+
+def _generate_and_export(args, module, profile_path, profile_data, output_dir):
     output_dir.mkdir(parents=True, exist_ok=True)
     print("\n" + "=" * 50)
     print(f"HIPAASYNTH ENGINE v{ENGINE_VERSION}")
     print("=" * 50)
-    profile_data = None
-    if profile_path is not None:
-        profile_data = load_population_profile(profile_path)
+    if profile_data is not None:
         print(f"  Profile: {profile_data['profile_name']}")
     if module is not None:
         print(f"  Module : {module}")

@@ -16,6 +16,7 @@
 
 """DIF audit framework — public entry point for polymorphic fairness testing."""
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
@@ -38,6 +39,8 @@ class DIFConfig:
     isg_threshold: float = 0.15
     lfdi_threshold: float = 0.20
     saf_threshold: float = 0.20
+    # Minimum share of forms decided correctly; 0.0 disables the floor.
+    accuracy_threshold: float = 0.85
     # Information-availability axis for the polymorphic forms (audit finding F1).
     information_mode: str = INFO_MODE_SAME_FACTS
 
@@ -79,6 +82,7 @@ def run_audit(
         isg_threshold=dif_config.isg_threshold,
         lfdi_threshold=dif_config.lfdi_threshold,
         saf_threshold=dif_config.saf_threshold,
+        accuracy_threshold=dif_config.accuracy_threshold,
     )
 
     # Generation anchor hash seals the passport back to the exact cohort.
@@ -106,9 +110,9 @@ def run_audit(
                 elif result.decision is None:
                     unparseable_forms.append(form_name)
                 else:
-                    decisions[form_name] = bool(result.decision)
+                    decisions[form_name] = _as_decision(result.decision, form_name)
             else:
-                decisions[form_name] = bool(result)
+                decisions[form_name] = _as_decision(result, form_name)
 
         gt = _ground_truth(patient)
         metrics = metric_calc.calculate(decisions, gt)
@@ -131,4 +135,36 @@ def run_audit(
         )
         passports.append(passport)
 
+    if passports and not any(p.ground_truth for p in passports):
+        warnings.warn(
+            "DIF audit: no patient in this cohort has a positive ground truth "
+            "(sepsis_flag / stroke_flag / dka_flag / fabry_referral_flag), so "
+            "under-triage cannot be detected and a model that never flags anyone "
+            "will pass. Generate the cohort with required_condition set to "
+            "'sepsis', 'stroke', 'dka' or 'fabry'.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     return passports
+
+
+def _as_decision(value: Any, form_name: str) -> bool:
+    """Accept only a real boolean decision; never coerce other values.
+
+    ``bool(None)`` is ``False`` ("do not treat") and ``bool("no")`` is ``True``,
+    so silently coercing a malformed prediction would fabricate a triage call.
+    NumPy booleans are accepted. Anything else is a contract violation: return
+    a ``bool``, or a :class:`DecisionResult` with ``decision=None`` for an
+    unparseable answer / ``refused=True`` for a refusal.
+    """
+    if isinstance(value, bool):
+        return value
+    if type(value).__name__ == "bool_":  # numpy.bool_, without importing numpy
+        return bool(value)
+    raise TypeError(
+        f"model.predict() returned {value!r} ({type(value).__name__}) for form "
+        f"{form_name!r}; expected bool or DecisionResult. Wrap unparseable answers "
+        "as DecisionResult(decision=None, ...) and refusals as "
+        "DecisionResult(refused=True, ...)."
+    )
