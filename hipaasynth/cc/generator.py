@@ -59,6 +59,8 @@ additional completeness bonus in the mock models.
 import random
 from typing import Any, Dict, List, Optional
 
+from hipaasynth.core.hashing import stable_seed_from_id
+
 CONTINUITY_PROFILES: List[str] = ["PROFILE_A", "PROFILE_B", "PROFILE_C", "PROFILE_D"]
 
 # ── Demographics ─────────────────────────────────────────────────────────────
@@ -252,7 +254,7 @@ class CCGenerator:
                 f"Unknown continuity profile {profile!r}. "
                 f"Choose from {CONTINUITY_PROFILES}."
             )
-        profile_seed = self._seed ^ hash(profile) & 0xFFFFFFFF
+        profile_seed = self._seed ^ stable_seed_from_id(profile)
         rng = random.Random(profile_seed)
         return [self._build(rng, i, profile) for i in range(n)]
 
@@ -295,7 +297,7 @@ class CCGenerator:
 
         result: Dict[str, Dict[str, Any]] = {}
         for profile in CONTINUITY_PROFILES:
-            clin_rng = random.Random(base_seed ^ hash(profile) & 0xFFFFFFFF)
+            clin_rng = random.Random(base_seed ^ stable_seed_from_id(profile))
             ins_opts = _INSURANCE_BY_PROFILE[profile]
             ins_wts = _INSURANCE_WEIGHTS_BY_PROFILE[profile]
             insurance = _weighted_choice(clin_rng, ins_opts, ins_wts)

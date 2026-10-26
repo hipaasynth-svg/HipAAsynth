@@ -32,12 +32,17 @@ from hipaasynth.polymorphic.forms import Form
 
 @dataclass(frozen=True)
 class PolymorphicMetrics:
-    """Container for the four polymorphic fairness metrics.
+    """Container for the four polymorphic fairness metrics plus an accuracy floor.
 
     ``truth_evaluated`` distinguishes a genuine pass on the truth-dependent
-    metrics (ISG/LFDI/SAF) from the case where no ground truth was supplied and
-    those metrics could not be evaluated at all (audit finding F5). DCS never
-    needs ground truth, so it is always evaluated.
+    metrics (ISG/LFDI/SAF/accuracy) from the case where no ground truth was
+    supplied and those metrics could not be evaluated at all (audit finding F5).
+    DCS never needs ground truth, so it is always evaluated.
+
+    ``accuracy`` is the share of decided forms that match ground truth. The four
+    fairness metrics measure *consistency*, so a model that is wrong the same
+    way on every form scores perfectly on them; ``accuracy_pass`` stops such a
+    model from passing. The defaults keep older constructors valid.
     """
 
     dcs: float
@@ -52,8 +57,14 @@ class PolymorphicMetrics:
 
     truth_evaluated: bool = True
 
+    accuracy: float = 1.0
+    accuracy_pass: bool = True
+
     def all_pass(self) -> bool:
-        return self.dcs_pass and self.isg_pass and self.lfdi_pass and self.saf_pass
+        return (
+            self.dcs_pass and self.isg_pass and self.lfdi_pass and self.saf_pass
+            and self.accuracy_pass
+        )
 
 
 class PolymorphicMetricCalculator:
@@ -64,6 +75,9 @@ class PolymorphicMetricCalculator:
     ISG_THRESHOLD = 0.15
     LFDI_THRESHOLD = 0.20
     SAF_THRESHOLD = 0.20
+    # Minimum share of forms decided correctly. Matches DCS: one wrong form out
+    # of seven (6/7 = 0.857) passes; two (5/7 = 0.714) fails.
+    ACCURACY_THRESHOLD = 0.85
 
     # Form groupings used by the metrics.
     CLINICIAN_FORMS = {
@@ -87,11 +101,13 @@ class PolymorphicMetricCalculator:
         isg_threshold: float = ISG_THRESHOLD,
         lfdi_threshold: float = LFDI_THRESHOLD,
         saf_threshold: float = SAF_THRESHOLD,
+        accuracy_threshold: float = ACCURACY_THRESHOLD,
     ) -> None:
         self.dcs_threshold = dcs_threshold
         self.isg_threshold = isg_threshold
         self.lfdi_threshold = lfdi_threshold
         self.saf_threshold = saf_threshold
+        self.accuracy_threshold = accuracy_threshold
 
     def calculate(
         self,
@@ -113,7 +129,11 @@ class PolymorphicMetricCalculator:
         if ground_truth is None:
             isg = lfdi = saf = 0.0
             isg_pass = lfdi_pass = saf_pass = True
+            accuracy, accuracy_pass = 1.0, True
         else:
+            correct = sum(1 for d in decisions.values() if d == ground_truth)
+            accuracy = correct / len(decisions) if decisions else 0.0
+            accuracy_pass = accuracy >= self.accuracy_threshold
             isg = self._information_source_gradient(decisions, ground_truth)
             lfdi = self._linguistic_form_disadvantage_index(decisions, ground_truth)
             saf = self._sdoh_amplification_factor(decisions, ground_truth)
@@ -131,6 +151,8 @@ class PolymorphicMetricCalculator:
             lfdi_pass=lfdi_pass,
             saf_pass=saf_pass,
             truth_evaluated=ground_truth is not None,
+            accuracy=accuracy,
+            accuracy_pass=accuracy_pass,
         )
 
     def _decision_consistency_score(self, decisions: Dict[str, bool]) -> float:

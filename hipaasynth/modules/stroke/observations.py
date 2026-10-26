@@ -83,6 +83,7 @@ CALIBRATION NOTES (v1.0.3 — internal review 2026 [12]):
 from __future__ import annotations
 import math
 from typing import Any
+from hipaasynth.core.profile_loader import profile_rurality
 
 
 def _clamp(value: float, low: float, high: float, digits: int = 1) -> float:
@@ -183,11 +184,8 @@ def build_stroke_observations(
         profile_name = str(profile.get('profile_name', '')).lower()
     else:
         profile_name = ''
-    if 'rural' in profile_name:
-        rural = True
-    elif profile_name:
-        rural = False
-    else:
+    rural = profile_rurality(profile)
+    if rural is None:
         rural = rng.random() < 0.17
 
     has_stroke   = (getattr(cfg, 'required_condition', None) == 'stroke') \
