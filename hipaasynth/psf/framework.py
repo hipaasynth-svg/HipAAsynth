@@ -37,7 +37,7 @@ Demographic-sparsity interaction
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from hipaasynth.core.model_interface import ModelInterface
+from hipaasynth.core.model_interface import ModelInterface, validate_model_score
 from hipaasynth.psf.generator import PSFGenerator, SPARSITY_LEVELS
 
 
@@ -50,6 +50,11 @@ class PSFConfig:
     sdi_threshold: float = 0.80
     model_name: str = "Unnamed Model"
     model_version: str = "0.0.0"
+
+    def __post_init__(self) -> None:
+        if isinstance(self.n_per_level, bool) or not isinstance(self.n_per_level, int) \
+                or self.n_per_level < 1:
+            raise ValueError(f"n_per_level must be an integer >= 1, got {self.n_per_level!r}")
 
 
 @dataclass
@@ -128,7 +133,10 @@ class PSFAudit:
 
         for level in SPARSITY_LEVELS:
             patients = cohort[level]
-            scores = [model.evaluate(p) for p in patients]
+            scores = [
+                validate_model_score(model.evaluate(p), f"PSF level {level}, patient {i}")
+                for i, p in enumerate(patients)
+            ]
             raw_scores[level] = scores
             per_level_scores[level] = _mean(scores)
 

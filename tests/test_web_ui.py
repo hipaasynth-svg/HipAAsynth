@@ -46,10 +46,18 @@ def server():
 
 
 def _chromium_executable() -> str | None:
-    """Locate the sandbox's bundled Chromium (Playwright's own copy may be absent)."""
+    """Locate the sandbox's bundled Chromium (Playwright's own copy may be absent).
+
+    Newer Playwright browser builds unpack into ``chrome-linux64`` /
+    ``chrome-headless-shell-linux64`` instead of ``chrome-linux``; without those
+    patterns the lookup missed an installed browser and the UI tests skipped.
+    """
     for pattern in (
         "/opt/pw-browsers/chromium-*/chrome-linux/chrome",
+        "/opt/pw-browsers/chromium-*/chrome-linux64/chrome",
         "/opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell",
+        "/opt/pw-browsers/chromium_headless_shell-*/chrome-headless-shell-linux64/"
+        "chrome-headless-shell",
     ):
         hits = sorted(glob.glob(pattern))
         if hits:

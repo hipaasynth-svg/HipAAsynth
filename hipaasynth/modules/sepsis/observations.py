@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import math
 from typing import Any
+from hipaasynth.core.profile_loader import profile_rurality
 
 
 def _clamp(value: float, low: float, high: float, digits: int = 1):
@@ -219,8 +220,7 @@ def build_sepsis_observations(*, rng, demographics, anthropometrics, conditions,
     age_group = "65_plus" if age >= 65 else "18_64"
     profile = getattr(cfg, "_resolved_profile", None) or {}
     region_label = profile.get("profile_name") if isinstance(profile, dict) else None
-    profile_name = str(region_label or '').lower()
-    rural = 'rural' in profile_name
+    rural = bool(profile_rurality(profile))
 
     has_sepsis = (cfg.required_condition == "sepsis") or ("sepsis" in names)
     diabetes = "type2_diabetes" in names

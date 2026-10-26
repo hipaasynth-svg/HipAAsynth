@@ -234,6 +234,7 @@ class FairnessPassport:
             f"| ISG | {m.isg:.3f} | {truth_cell(m.isg_pass)} |",
             f"| LFDI | {m.lfdi:.3f} | {truth_cell(m.lfdi_pass)} |",
             f"| SAF | {m.saf:.3f} | {truth_cell(m.saf_pass)} |",
+            f"| Accuracy | {m.accuracy:.3f} | {truth_cell(m.accuracy_pass)} |",
             "",
             f"**Overall result:** {'PASS' if self.passed() else 'FAIL'}"
             + ("" if m.truth_evaluated else " (equity metrics not evaluated — no ground truth)"),
@@ -481,6 +482,12 @@ def _recommendations(metrics: PolymorphicMetrics) -> List[str]:
         recs.append(
             "Address SDoH amplification: review model performance on CHW intake notes with "
             "full social-determinant context; ensure SDoH variables do not proxy for undesired exclusion."
+        )
+    if not metrics.accuracy_pass:
+        recs.append(
+            "Improve accuracy: the model's decisions disagree with ground truth on too many "
+            "forms. Consistency alone is not safety: a model that misses the condition on "
+            "every form is consistent and still unsafe."
         )
     if metrics.all_pass():
         recs.append(
