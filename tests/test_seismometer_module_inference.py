@@ -29,7 +29,7 @@ import pytest
 pandas = pytest.importorskip("pandas")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples" / "seismometer"))
 
-from seismometer_adapter import PROFILES, _infer_module  # noqa: E402
+from seismometer_adapter import PROFILES, _infer_module
 
 
 def _infer(label, col="cohort_label"):
