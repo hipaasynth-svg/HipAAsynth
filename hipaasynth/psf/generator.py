@@ -57,6 +57,8 @@ demographic-sparsity interaction bias in ScoredMockModel.
 import random
 from typing import Any, Dict, List
 
+from hipaasynth.core.hashing import stable_seed_from_id
+
 # Ordered from least complete (S1) to most complete (S7).
 SPARSITY_LEVELS: List[str] = ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]
 
@@ -211,7 +213,7 @@ class PSFGenerator:
 
         # Derive a level-specific seed so that generating S1 vs S7 populations
         # with the same seed still produces the same base demographics.
-        level_seed = self._seed ^ hash(sparsity_level) & 0xFFFFFFFF
+        level_seed = self._seed ^ stable_seed_from_id(sparsity_level)
         rng = random.Random(level_seed)
 
         patients = []
