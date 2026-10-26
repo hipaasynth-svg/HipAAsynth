@@ -36,6 +36,8 @@ PROOF OF RANDOMNESS PATH:
 No module creates its own RNG. No raw seed touches random.Random().
 """
 
+import hashlib
+import json
 import random
 
 from hipaasynth.core.anchor import Anchor
@@ -65,6 +67,23 @@ PIPELINE_MODULE_VERSION = "v1.0"
 _POPULATION_NAMESPACE = "population"
 
 
+def _profile_fingerprint(path) -> str:
+    """Identify a population profile by its contents, not its location.
+
+    The anchor is the root of every patient seed, so it must not depend on where
+    the profile file happens to live: the same profile must yield the same cohort
+    on any machine, in any install location, from a bundled name or a copied
+    path. Uses the SHA-256 of the profile's canonical JSON (sorted keys, compact
+    separators), so whitespace and line endings don't matter either.
+    """
+    if not path:
+        return "none"
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    canonical = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _build_anchor(cfg: GenerationConfig) -> Anchor:
     """
     Build the SHA256 anchor from config.
@@ -79,7 +98,7 @@ def _build_anchor(cfg: GenerationConfig) -> Anchor:
             "age_min": cfg.age_min,
             "age_max": cfg.age_max,
             "pipeline": "population",
-            "profile": cfg.population_profile_path or "none",
+            "profile": _profile_fingerprint(cfg.population_profile_path),
         },
         modules={
             "population_pipeline": PIPELINE_MODULE_VERSION,

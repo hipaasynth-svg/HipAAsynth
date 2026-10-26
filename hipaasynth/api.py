@@ -307,8 +307,31 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         "/viz/fairness": {"GET"},
     }
 
+    # Query/body parameters each route understands. Anything else is rejected,
+    # so a typo such as ``modul=stroke`` cannot silently fall back to defaults.
+    # ``format`` is tolerated on the viz routes (it has no effect there).
+    _GENERATE_PARAMS = frozenset({"count", "seed", "format", "module", "profile", "scenario"})
+    _ROUTE_PARAMS = {
+        "/generate": _GENERATE_PARAMS,
+        "/viz/demographics": _GENERATE_PARAMS,
+        "/viz/fairness": _GENERATE_PARAMS | {"model"},
+    }
+
     def log_message(self, *args):  # keep the test/console output quiet by default
         pass
+
+    def _reject_unknown_params(self, route: str, params: dict) -> bool:
+        """Send a 400 and return True if ``params`` has a key ``route`` does not accept."""
+        allowed = self._ROUTE_PARAMS[route]
+        unknown = sorted(str(k) for k in params if k not in allowed)
+        if not unknown:
+            return False
+        self._send_api_error(ApiError(
+            400,
+            f"unknown parameter(s) for {route}: {', '.join(unknown)}; "
+            f"supported: {', '.join(sorted(allowed))}",
+        ))
+        return True
 
     # ── response helpers ─────────────────────────────────────────────────────
     def _send_bytes(self, status: int, ctype: str, body: bytes):
@@ -371,10 +394,18 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": f"not found: {route}", "status": 404})
             return True
         if method not in self._ROUTES[route]:
+            allow = ", ".join(sorted(self._ROUTES[route]))
+            body = json.dumps({
+                "error": f"method {method} not allowed for {route}; allowed: {allow}",
+                "status": 405,
+            }).encode("utf-8")
             self.send_response(405)
-            self.send_header("Allow", ", ".join(sorted(self._ROUTES[route])))
-            self.send_header("Content-Length", "0")
+            self.send_header("Allow", allow)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
+            if method != "HEAD":
+                self.wfile.write(body)
             return True
         return False
 
@@ -398,6 +429,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         if route == "/scenarios":
             return self._send_json(200, {"scenarios": scenario_summaries()})
         params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+        if self._reject_unknown_params(route, params):
+            return
         if route == "/viz/demographics":
             return self._handle_viz_demographics(params)
         if route == "/viz/fairness":
@@ -440,11 +473,20 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
                 body_params = {k: v[0] for k, v in parse_qs(raw.decode("utf-8")).items()}
         query_params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
         params = {**query_params, **body_params}  # body overrides query
+        if self._reject_unknown_params(route, params):
+            return
         return self._handle_generate(params)
 
     def do_HEAD(self):
         # Allow HEAD on GET routes; reuse do_GET's dispatch with no body written.
         self.do_GET()
+
+    def _unsupported_method(self):
+        """PUT/PATCH/DELETE/OPTIONS: JSON 404/405 instead of http.server's HTML 501."""
+        route, _ = self._route()
+        self._method_guard(route, self.command)
+
+    do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _unsupported_method
 
     # ── core ─────────────────────────────────────────────────────────────────
     def _handle_generate(self, params: dict):

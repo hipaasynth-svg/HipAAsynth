@@ -35,7 +35,7 @@ def main() -> None:
         seed=42,
         age_min=18,
         age_max=90,
-        required_condition="chronic_kidney_disease",
+        required_condition="fabry",
         sex_ratio_female=0.5,
         ethnicity_weights=None,
         include_visits=True,
