@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<!--
+  HipAAsynth — Synthetic health data fairness testing for invisible populations.
+  Copyright (C) 2026 HipAAsynth Contributors. Licensed under the GNU AGPL v3+.
+
+  The 7AAST page: pick what the model does, try a demo model or test your own
+  model by file, read the report, save it. Served at GET /7aast by
+  hipaasynth/api.py (start it with `hipaasynth ui`). Pure HTML + CSS + vanilla
+  JS: no build step, no framework, no CDN. Everything runs on the machine that
+  serves this page; the server never calls a model or loads code.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HipAAsynth 7AAST</title>
+  <style>
+    :root {
+      --bg: #f6f8fa; --panel: #fff; --ink: #1b1f24; --muted: #57606a; --line: #d0d7de;
+      --accent: #0969da; --accent2: #0550ae; --ok: #1a7f37; --bad: #cf222e; --warn: #9a6700;
+      --field: #fff; --chip: #eaeef2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #9198a1; --line: #30363d;
+        --accent: #2f81f7; --accent2: #1f6feb; --ok: #3fb950; --bad: #f85149; --warn: #d29922;
+        --field: #0d1117; --chip: #21262d; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { padding: 20px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    header .in, main { max-width: 920px; margin: 0 auto; }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 6px 0 0; color: var(--muted); }
+    header a { color: var(--accent); }
+    main { padding: 20px 16px 48px; }
+    section.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+      padding: 18px; margin-bottom: 16px; min-width: 0; }
+    h2 { margin: 0 0 4px; font-size: 16px; }
+    h2 .n { display: inline-block; width: 24px; height: 24px; border-radius: 12px; background: var(--accent);
+      color: #fff; text-align: center; font-size: 13px; line-height: 24px; margin-right: 8px; }
+    .sub { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
+    label { display: block; margin: 12px 0 4px; font-size: 14px; font-weight: 600; }
+    .help { font-weight: 400; color: var(--muted); font-size: 13px; }
+    select, input[type=number], input[type=text] { width: 100%; padding: 8px 10px; font-size: 14px;
+      background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; }
+    .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+    .choice { display: block; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+      cursor: pointer; margin: 0; font-weight: 400; }
+    .choice:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .choice b { display: block; }
+    .choice span { color: var(--muted); font-size: 13px; }
+    .choice input { margin: 0 6px 0 0; }
+    .hidden { display: none !important; }
+    ol.steps { padding-left: 20px; margin: 8px 0; }
+    ol.steps li { margin: 8px 0; }
+    button { padding: 10px 16px; border: 0; border-radius: 6px; cursor: pointer; font-size: 15px;
+      font-weight: 600; color: #fff; background: var(--accent); }
+    button:hover:not(:disabled) { background: var(--accent2); }
+    button.secondary { background: var(--chip); color: var(--ink); border: 1px solid var(--line); }
+    button:disabled { opacity: .55; cursor: wait; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+    details { margin-top: 12px; }
+    summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+    #status { margin: 10px 0 0; font-size: 14px; min-height: 21px; }
+    #status.err { color: var(--bad); } #status.ok { color: var(--ok); }
+    .verdict { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .badge { color: #fff; font-weight: 700; padding: 4px 12px; border-radius: 14px; }
+    .PASS { background: var(--ok); } .FAIL { background: var(--bad); } .INCONCLUSIVE { background: var(--warn); }
+    .hash { font-family: ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere;
+      color: var(--muted); }
+    iframe { width: 100%; border: 1px solid var(--line); border-radius: 8px; min-height: 600px;
+      background: #fff; margin-top: 12px; }
+    footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16px 24px; }
+  </style>
+</head>
+<body>
+<header><div class="in">
+  <h1>HipAAsynth · 7AAST model stress test</h1>
+  <p>Check whether a clinical AI model catches the condition it is meant to catch, on synthetic
+     patients built to include the people real data leaves out. Everything runs on this computer.
+     <a href="/">Synthetic cohort generator</a></p>
+</div></header>
+<main>
+  <section class="card">
+    <h2><span class="n">1</span>What does the model do?</h2>
+    <p class="sub">This decides which cases the model is shown and how its answers are read.</p>
+    <div class="grid">
+      <div>
+        <label for="condition">Condition it looks for</label>
+        <select id="condition">
+          <option value="sepsis">Sepsis</option>
+          <option value="stroke">Stroke</option>
+          <option value="dka">Diabetic ketoacidosis (DKA)</option>
+          <option value="fabry">Fabry disease</option>
+        </select>
+      </div>
+      <div>
+        <label for="output">What it answers</label>
+        <select id="output">
+          <option value="binary">Yes or no</option>
+          <option value="score">A risk score</option>
+          <option value="ordinal">A level (for example triage 1 to 5)</option>
+          <option value="ranked">A ranked list of diagnoses</option>
+          <option value="text">Free text (for example a chatbot)</option>
+        </select>
+      </div>
+    </div>
+    <label>What it reads</label>
+    <div class="choices">
+      <label class="choice"><input type="radio" name="input" value="text" checked />
+        <b>Written notes</b><span>Clinician notes, triage notes, patient messages. Gets every check.</span></label>
+      <label class="choice"><input type="radio" name="input" value="record" />
+        <b>Structured records</b><span>Vitals, labs and history as data fields (JSON).</span></label>
+    </div>
+    <div id="scoreOpts" class="grid hidden">
+      <div><label for="threshold">Alert threshold <span class="help">the cutoff you use in practice</span></label>
+        <input id="threshold" type="number" step="any" placeholder="e.g. 6" /></div>
+      <div><label><input id="lowerIsPositive" type="checkbox" /> Lower scores mean more likely</label></div>
+    </div>
+    <div id="ordinalOpts" class="hidden">
+      <label for="acuteLevels">Levels that count as "yes" <span class="help">comma separated, e.g. 1,2</span></label>
+      <input id="acuteLevels" type="text" placeholder="1,2" />
+    </div>
+    <div id="rankedOpts" class="hidden">
+      <label for="k">How deep in the list counts <span class="help">e.g. 3 = top three</span></label>
+      <input id="k" type="number" min="1" value="3" />
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">2</span>Which model?</h2>
+    <div class="choices">
+      <label class="choice"><input type="radio" name="source" value="demo" checked />
+        <b>Try a demo model</b><span>Built-in models to see how the test works. Not clinical tools.</span></label>
+      <label class="choice"><input type="radio" name="source" value="file" />
+        <b>Test my model with files</b><span>No integration: download cases, run them through your model, upload the answers.</span></label>
+    </div>
+    <div id="demoOpts">
+      <label for="demo">Demo model</label>
+      <select id="demo">
+        <option value="demo_guideline">Follows the guideline (should mostly pass)</option>
+        <option value="demo_biased">Biased on purpose (should fail some checks)</option>
+      </select>
+      <p class="sub" style="margin-top:8px">Demo models answer yes or no, so "What it answers" is set to yes or no.</p>
+    </div>
+    <div id="fileOpts" class="hidden">
+      <ol class="steps">
+        <li><b>Download the cases.</b> You get <code>cases.jsonl</code> (one case per line) and
+          <code>cases_answers.csv</code> (a <code>case_id</code> and an empty <code>answer</code> column).
+          <div class="actions"><button id="exportBtn" class="secondary" type="button">Download cases</button></div></li>
+        <li><b>Run every case through your model</b> the way you normally do (inside the EHR, a batch job,
+          a vendor portal) and write its answer next to the case id. Yes or no answers can be yes/no,
+          true/false or 1/0; scores are numbers; a blank answer means the model declined.</li>
+        <li><b>Upload the filled-in answers file</b> (<code>.csv</code> or <code>.jsonl</code>).
+          <input id="answersFile" type="file" accept=".csv,.jsonl" style="margin-top:8px" /></li>
+      </ol>
+      <p class="sub">Keep the settings below the same for downloading and running, or the cases will not match.</p>
+      <label for="modelName">Model name for the report</label>
+      <input id="modelName" type="text" placeholder="e.g. Vendor sepsis alert v3" />
+    </div>
+    <details>
+      <summary>More settings</summary>
+      <div class="grid">
+        <div><label for="n">Synthetic patients <span class="help">more = narrower intervals, slower</span></label>
+          <input id="n" type="number" min="10" max="1000" value="200" /></div>
+        <div><label for="seed">Seed <span class="help">same seed = same patients</span></label>
+          <input id="seed" type="number" min="0" value="42" /></div>
+        <div><label for="prevalence">Share of true cases</label>
+          <input id="prevalence" type="number" min="0.05" max="0.95" step="0.05" value="0.5" /></div>
+        <div><label for="profile">Population</label>
+          <select id="profile"><option value="">Default</option></select></div>
+        <div><label for="deployment">Real-world prevalence <span class="help">optional, for a positive predictive value estimate</span></label>
+          <input id="deployment" type="number" min="0" max="1" step="any" placeholder="e.g. 0.02" /></div>
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">3</span>Run the test</h2>
+    <div class="actions"><button id="runBtn" type="button">Run 7AAST</button></div>
+    <p id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="results" class="card hidden">
+    <h2>Report</h2>
+    <div class="verdict"><span id="overall" class="badge"></span><span id="overallText"></span></div>
+    <div class="actions">
+      <button id="saveHtml" type="button">Save report (.html)</button>
+      <button id="saveJson" class="secondary" type="button">Save data (.json)</button>
+    </div>
+    <p class="sub" style="margin-top:12px">Report hash, to keep somewhere safe so anyone can check later that
+      the report was not changed (<code>hipaasynth 7aast verify report.html</code>):</p>
+    <div id="hash" class="hash"></div>
+    <iframe id="reportFrame" title="7AAST report" sandbox="allow-same-origin"></iframe>
+  </section>
+</main>
+<footer>HipAAsynth · AGPL-3.0 · all patients synthetic · a stress test, not a certification</footer>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const radio = (name) => document.querySelector(`input[name=${name}]:checked`).value;
+let last = null;
+
+function setStatus(text, kind) {
+  $("status").textContent = text;
+  $("status").className = kind || "";
+}
+
+function refresh() {
+  const demo = radio("source") === "demo";
+  if (demo) $("output").value = "binary";
+  $("output").disabled = demo;
+  const out = $("output").value;
+  $("scoreOpts").classList.toggle("hidden", out !== "score");
+  $("ordinalOpts").classList.toggle("hidden", out !== "ordinal");
+  $("rankedOpts").classList.toggle("hidden", out !== "ranked");
+  $("demoOpts").classList.toggle("hidden", !demo);
+  $("fileOpts").classList.toggle("hidden", demo);
+}
+document.querySelectorAll("input[name=source], input[name=input], #output")
+  .forEach((el) => el.addEventListener("change", refresh));
+
+function settings() {
+  const s = {
+    condition: $("condition").value,
+    input: radio("input"),
+    n: Number($("n").value),
+    seed: Number($("seed").value),
+    prevalence: Number($("prevalence").value),
+  };
+  if ($("profile").value) s.profile = $("profile").value;
+  return s;
+}
+
+async function post(path, body) {
+  const resp = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json().catch(() => ({ error: `server answered ${resp.status}` }));
+  if (!resp.ok) throw new Error(data.error || `server answered ${resp.status}`);
+  return data;
+}
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function busy(button, message, work) {
+  document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  setStatus(message);
+  try {
+    await work();
+  } catch (err) {
+    setStatus(err.message, "err");
+  } finally {
+    document.querySelectorAll("button").forEach((b) => (b.disabled = false));
+  }
+}
+
+$("exportBtn").addEventListener("click", () => busy($("exportBtn"), "Building the cases…", async () => {
+  const data = await post("/7aast/export", settings());
+  download("cases.jsonl", data.cases_jsonl, "application/x-ndjson");
+  download("cases_answers.csv", data.answers_csv, "text/csv");
+  setStatus(`Downloaded ${data.cases} cases and the answers template.`, "ok");
+}));
+
+$("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few seconds to a minute.", async () => {
+  const body = settings();
+  if (radio("source") === "demo") {
+    body.demo = $("demo").value;
+  } else {
+    const file = $("answersFile").files[0];
+    if (!file) throw new Error("Upload the filled-in answers file first (step 2).");
+    body.answers = await file.text();
+    body.answers_format = file.name.toLowerCase().endsWith(".jsonl") ? "jsonl" : "csv";
+    body.output = $("output").value;
+    if ($("modelName").value.trim()) body.name = $("modelName").value.trim();
+    if (body.output === "score") {
+      if ($("threshold").value === "") throw new Error("Enter the alert threshold for a score model.");
+      body.threshold = Number($("threshold").value);
+      body.lower_is_positive = $("lowerIsPositive").checked;
+    }
+    if (body.output === "ordinal") body.acute_levels = $("acuteLevels").value;
+    if (body.output === "ranked") body.k = Number($("k").value);
+  }
+  if ($("deployment").value !== "") body.deployment_prevalence = Number($("deployment").value);
+  last = await post("/7aast", body);
+  show(last);
+}));
+
+const MEANING = {
+  PASS: "Every check with a pass mark passed. Read the descriptive checks too.",
+  FAIL: "At least one check failed. The report below says which and why.",
+  INCONCLUSIVE: "No check failed, but some could not be decided. More patients may settle them.",
+};
+
+function show(result) {
+  const overall = result.document.results.overall;
+  $("overall").textContent = overall;
+  $("overall").className = `badge ${overall}`;
+  $("overallText").textContent = MEANING[overall] || "";
+  $("hash").textContent = result.document.chain.report;
+  const frame = $("reportFrame");
+  frame.onload = () => {
+    try { frame.style.height = frame.contentDocument.documentElement.scrollHeight + 24 + "px"; } catch (e) {}
+  };
+  frame.srcdoc = result.html;
+  $("results").classList.remove("hidden");
+  setStatus("Done.", "ok");
+  $("results").scrollIntoView({ behavior: "smooth" });
+}
+
+$("saveHtml").addEventListener("click", () => last && download("7aast-report.html", last.html, "text/html"));
+$("saveJson").addEventListener("click", () => last &&
+  download("7aast-report.json", JSON.stringify(last.document, null, 2) + "\n", "application/json"));
+
+fetch("/formats").then((r) => r.json()).then((f) => {
+  for (const name of f.profiles || []) {
+    $("profile").appendChild(Object.assign(document.createElement("option"), { value: name, textContent: name }));
+  }
+}).catch(() => {});
+refresh();
+</script>
+</body>
+</html>
