@@ -7,37 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed — output-affecting (read before upgrading)
+### Changed
 
-These fixes change what the engine produces for the same inputs. Outputs
-generated with this code are not comparable with outputs from 1.4.0. Re-run any
-cohort or audit you need to compare, and re-issue any Fairness Passport that has
-to be reproduced.
+These fixes change output for the same inputs.
 
-- **Cohorts generated with a population profile change** (#109). The patient-ID
-  anchor used to include the profile file's path, so the same profile and seed
-  produced different patients depending on which folder the file was in. The
-  anchor now uses a SHA-256 fingerprint of the profile's contents. A profile now
-  gives the same cohort wherever it lives, but every profiled cohort, and its
-  fingerprint, differs from 1.4.0. A passport issued under 1.4.0 for a profiled
-  run cannot be reproduced with this code.
-- **Axis 6 (PSF) and Axis 7 (CC) results change once, then stay put** (#108).
-  They were seeded with Python's per-process salted `hash()`, so they changed on
-  every run. They now use `stable_seed_from_id`, so the same inputs give the same
-  results in every process. Any earlier PSF/CC number was one draw from a
-  changing distribution, so don't treat it as a baseline.
-- **A consistently wrong model now fails the passport** (#111). DCS, ISG, LFDI
-  and SAF measure consistency across forms, so a model that answered "no" for
-  every true case passed them. A new accuracy check (default floor **0.85**,
-  `DIFConfig.accuracy_threshold`) is now part of the overall verdict. Models that
-  flag everyone or miss everyone will see new FAILs. The built-in mock models'
-  verdicts and seals are unchanged.
-- **Rural and tribal profiles now produce rural patients** (#107). The rural flag
-  was read from the profile's *name* rather than its `rural` field, so those
-  profiles produced 0% rural patients. Rural-dependent fields in profiled
-  observation modules change.
-- **`module="sepsis"` now produces sepsis patients** (#106). It produced none,
-  through the SDK, API, web demo and four scenarios.
+- Profiled cohorts no longer depend on where the profile file is saved. The
+  patient-ID anchor uses a SHA-256 fingerprint of the profile's contents, not its
+  path (#109).
+- Axis 6 (PSF) and Axis 7 (CC) results are reproducible across processes. They
+  are seeded with `stable_seed_from_id` instead of Python's salted `hash()`
+  (#108).
+- The DIF verdict includes an accuracy floor (default 0.85,
+  `DIFConfig.accuracy_threshold`), so a model that is consistently wrong fails
+  (#111).
+- Rural and tribal profiles produce rural patients. The rural flag is read from
+  the profile's `rural` field, not its name (#107).
+- `module="sepsis"` produces sepsis patients (#106).
 
 ### Fixed
 
