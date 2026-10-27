@@ -83,6 +83,8 @@ FUTURE_FIELDS: frozenset[str] = frozenset(
         "mrs_90day",
         "alpha_gal_a_activity",
         "precipitant",
+        "hours_to_icu",
+        "hours_to_vasopressors",
     }
 )
 
@@ -96,13 +98,21 @@ GENERATOR_FIELDS: frozenset[str] = frozenset(
         "dm_htn_ckd_stack_flag",
         "altered_mental_status_only_flag",
         "sex_x_linked_note",
+        "mimic_type",
+        "observation_hook_version",
+        "unsupported_fields_emitted_as_null",
+        "source_visit_id",
+        "source_visit_date",
     }
 )
 
 #: Every observation key a blinded case never shows.
 HIDDEN_OBSERVATION_FIELDS: frozenset[str] = ANSWER_FIELDS | FUTURE_FIELDS | GENERATOR_FIELDS
 
-#: Neutral wording for a visit whose diagnosis is the answer.
+#: Neutral wording for a visit diagnosis a blinded case may not show. The current
+#: visit's diagnosis is unknown at the decision moment, and generated true cases
+#: carry the target diagnosis on every visit, so a blinded case masks them all;
+#: chronic conditions stay visible in the condition list.
 MASKED_DIAGNOSIS = "a new health concern"
 
 
@@ -139,9 +149,9 @@ def blind_record(record: dict[str, Any]) -> dict[str, Any]:
     """Return a blinded, decision-time copy of a ``Patient.to_dict()`` record.
 
     The input is not modified. Decision-target conditions are removed, every
-    visit's target diagnosis is masked, and hidden observation fields are
-    dropped (see :data:`HIDDEN_OBSERVATION_FIELDS`). The seed is dropped too: it
-    identifies the generator draw, not the patient.
+    visit diagnosis is masked (see :data:`MASKED_DIAGNOSIS`), and hidden
+    observation fields are dropped (see :data:`HIDDEN_OBSERVATION_FIELDS`). The
+    seed is dropped too: it identifies the generator draw, not the patient.
     """
     out = copy.deepcopy(record)
     demographics = out.get("demographics")
@@ -152,6 +162,6 @@ def blind_record(record: dict[str, Any]) -> dict[str, Any]:
     ]
     for visit in out.get("visits", []) or []:
         if "primary_diagnosis" in visit:
-            visit["primary_diagnosis"] = mask_diagnosis(visit["primary_diagnosis"])
+            visit["primary_diagnosis"] = MASKED_DIAGNOSIS
     out["observations"] = visible_observations(record.get("observations"))
     return out

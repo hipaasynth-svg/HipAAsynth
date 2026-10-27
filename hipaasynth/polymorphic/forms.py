@@ -49,8 +49,8 @@ from typing import Any, Optional
 from hipaasynth.core.schema import Patient
 from hipaasynth.exporters.exporters import _patient_to_fhir
 from hipaasynth.polymorphic.blinding import (
+    MASKED_DIAGNOSIS,
     is_decision_target,
-    mask_diagnosis,
     visible_observations,
 )
 from hipaasynth.polymorphic.facts import (
@@ -192,8 +192,9 @@ class PolymorphicFormEngine:
 
     def _shown_visit(self, patient: Patient) -> dict[str, Any]:
         visit = self._recent_visit(patient)
-        if self._blinded:
-            visit = {**visit, "diagnosis": mask_diagnosis(visit["diagnosis"])}
+        if self._blinded and visit["diagnosis"] != "none":
+            # The current visit's diagnosis is not known at the decision moment.
+            visit = {**visit, "diagnosis": MASKED_DIAGNOSIS}
         return visit
 
     def _acuity(self, obs: dict[str, Any]) -> str:
@@ -800,7 +801,7 @@ def symptom_sentences(obs: dict[str, Any], person: str) -> str:
 def _blind_fhir_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Blind a FHIR resource list and add the decision-time measurements.
 
-    Decision-target Conditions are dropped, Encounter reasons are masked, and
+    Decision-target Conditions are dropped, every Encounter reason is masked, and
     each decision-time measurement becomes a text-coded Observation so the
     structured form carries the same facts as the narrative forms.
     """
@@ -822,7 +823,7 @@ def _blind_fhir_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any
                 for value in reason.get("value", []):
                     concept = value.get("concept", {})
                     if "text" in concept:
-                        concept["text"] = mask_diagnosis(concept["text"])
+                        concept["text"] = MASKED_DIAGNOSIS
         out.append(resource)
     return out
 

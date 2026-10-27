@@ -198,7 +198,7 @@ def test_blind_record_hides_the_answer_and_the_future(cond):
     assert not (set(obs) & (ANSWER_FIELDS | FUTURE_FIELDS | GENERATOR_FIELDS))
     assert not any(k.endswith("_observation_version") for k in obs)
     assert cond not in [c["name"] for c in blinded["conditions"]]
-    assert all(v["primary_diagnosis"] != cond for v in blinded["visits"])
+    assert all(v["primary_diagnosis"] == MASKED_DIAGNOSIS for v in blinded["visits"])
     assert "seed" not in blinded["demographics"]
     assert cond not in json.dumps(blinded["conditions"]).lower()
 
