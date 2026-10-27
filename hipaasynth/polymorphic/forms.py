@@ -605,6 +605,10 @@ _BLINDED_MEASURES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("anticoagulant_use", "Anticoagulant use", ""),
         ("prior_ich", "Prior intracranial hemorrhage", ""),
         ("recent_surgery", "Recent major surgery", ""),
+        # Stroke-mimic discriminators (set by hipaasynth.decision_cohort).
+        ("seizure_at_onset", "Seizure at onset", ""),
+        ("migraine_history", "History of migraine", ""),
+        ("forehead_weakness", "Forehead weakness on the affected side", ""),
     ),
     "dka_flag": (
         ("glucose_mg_dl", "Glucose", "mg/dL"),
@@ -720,6 +724,26 @@ _SYMPTOM_TEXT: dict[str, dict[str, str]] = {
         "second": "You do not sweat much.",
         "third": "They sweat very little.",
     },
+    "shaky": {
+        "first": "I feel shaky and sweaty.",
+        "second": "You feel shaky. You are sweating.",
+        "third": "They are shaky and sweating.",
+    },
+    "seizure": {
+        "first": "Someone saw me shaking all over before this started.",
+        "second": "Someone saw you shaking all over before this.",
+        "third": "Someone saw them shaking all over before this started.",
+    },
+    "usual_headache": {
+        "first": "I get bad headaches like this sometimes.",
+        "second": "You get bad headaches like this sometimes.",
+        "third": "They get bad headaches like this sometimes.",
+    },
+    "whole_face": {
+        "first": "My whole face droops on one side, even my forehead.",
+        "second": "Your whole face droops on one side, even your forehead.",
+        "third": "Their whole face droops on one side, even the forehead.",
+    },
     "family": {
         "first": "Others in my family have the same problems.",
         "second": "Others in your family have the same problems.",
@@ -761,14 +785,23 @@ def _symptom_keys(obs: dict[str, Any]) -> list[str]:
     if obs.get("altered_mental_status_only_flag") or obs.get("mental_status") in (
         "altered",
         "confused",
+        "drowsy",
         "obtunded",
+        "stupor",
         "stuporous",
         "comatose",
     ):
         keys.append("confused")
     nihss = _num(obs, "nihss_score")
     if nihss is not None and nihss >= 1:
-        keys.append("face_speech")
+        keys.append("whole_face" if obs.get("forehead_weakness") else "face_speech")
+    low_glucose = _num(obs, "glucose_admission")
+    if low_glucose is not None and low_glucose < 60:
+        keys.append("shaky")
+    if obs.get("seizure_at_onset"):
+        keys.append("seizure")
+    if obs.get("migraine_history"):
+        keys.append("usual_headache")
     glucose = _num(obs, "glucose_mg_dl")
     if glucose is not None and glucose >= 250:
         keys.append("thirst")
