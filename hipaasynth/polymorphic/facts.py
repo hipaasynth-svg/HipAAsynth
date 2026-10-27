@@ -46,6 +46,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from hipaasynth.polymorphic.blinding import DECISION_TARGET_CONDITIONS
+
 
 def humanize(name: str) -> str:
     """Turn a snake_case condition name into human words (``copd`` stays as-is)."""
@@ -101,13 +103,17 @@ def _condition_present(low_text: str, condition: str) -> bool:
     return raw in low_text or human in low_text
 
 
-def extract_fact_set(patient: Any) -> ClinicalFactSet:
+def extract_fact_set(patient: Any, *, blinded: bool = False) -> ClinicalFactSet:
     """Build the canonical :class:`ClinicalFactSet` for ``patient``.
 
     Acute status is read from the observation bundle (``sepsis_flag`` /
     ``stroke_flag`` / ``dka_flag`` / ``fabry_referral_flag``) so it is consistent
     with the acuity a form renders. Labs are taken from the most recent visit —
     the same visit the form builders render.
+
+    With ``blinded=True`` the decision-target conditions are left out of
+    ``active_conditions``: blinded forms deliberately do not name them, so they
+    are not facts the form is expected to carry.
     """
     obs = patient.observations or {}
     acute_type: Optional[str] = None
@@ -126,7 +132,13 @@ def extract_fact_set(patient: Any) -> ClinicalFactSet:
             labs.append((lab.lab_name, lab.value))
     labs.sort(key=lambda kv: kv[0])
 
-    active_conditions = tuple(sorted(c.name for c in patient.conditions if c.active))
+    active_conditions = tuple(
+        sorted(
+            c.name
+            for c in patient.conditions
+            if c.active and not (blinded and c.name in DECISION_TARGET_CONDITIONS)
+        )
+    )
 
     return ClinicalFactSet(
         patient_id=patient.demographics.patient_id,

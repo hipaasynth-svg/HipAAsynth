@@ -48,6 +48,11 @@ from typing import Any, Optional
 
 from hipaasynth.core.schema import Patient
 from hipaasynth.exporters.exporters import _patient_to_fhir
+from hipaasynth.polymorphic.blinding import (
+    MASKED_DIAGNOSIS,
+    is_decision_target,
+    visible_observations,
+)
 from hipaasynth.polymorphic.facts import (
     ALWAYS_PRESENT_CATEGORIES,
     OMISSIBLE_CATEGORIES,
@@ -65,7 +70,13 @@ FORM_ENGINE_VERSION = "poly_v2_sealed"
 # Information-availability modes (audit finding F1).
 INFO_MODE_SAME_FACTS = "same_facts"
 INFO_MODE_REALISTIC_MISSINGNESS = "realistic_missingness"
-INFORMATION_MODES = (INFO_MODE_SAME_FACTS, INFO_MODE_REALISTIC_MISSINGNESS)
+# Blinded, decision-time presentation: every form carries what a clinician has
+# at the moment of decision and never the answer (no decision-target diagnosis,
+# screen result, label or future fact; see polymorphic/blinding.py). Symptoms
+# are described from the patient's measurements, not from the ground truth, so
+# a clinical mimic with the same readings reads the same way.
+INFO_MODE_BLINDED = "blinded_decision_time"
+INFORMATION_MODES = (INFO_MODE_SAME_FACTS, INFO_MODE_REALISTIC_MISSINGNESS, INFO_MODE_BLINDED)
 
 
 class Form(str, Enum):
@@ -96,7 +107,9 @@ class PolymorphicFormEngine:
     Args:
         information_mode: ``same_facts`` (default) makes every form encode every
             fact; ``realistic_missingness`` lets patient/LEP/CHW forms omit
-            numeric labs, with the omission measured and reported.
+            numeric labs, with the omission measured and reported;
+            ``blinded_decision_time`` encodes every decision-time fact in every
+            form but never the answer (see :data:`INFO_MODE_BLINDED`).
         profile: Optional population-profile dict; drives locale-specific SDoH
             base rates for the CHW form.
     """
@@ -127,7 +140,7 @@ class PolymorphicFormEngine:
                 ``realistic_missingness`` mode).
         """
         form = Form(form)
-        facts = extract_fact_set(patient)
+        facts = extract_fact_set(patient, blinded=self._blinded)
         include_labs = self._include_labs(form)
 
         builder = {
@@ -161,9 +174,31 @@ class PolymorphicFormEngine:
 
     def _include_labs(self, form: Form) -> bool:
         """Whether ``form`` renders numeric labs under the active mode."""
-        if self.information_mode == INFO_MODE_SAME_FACTS:
+        if self.information_mode in (INFO_MODE_SAME_FACTS, INFO_MODE_BLINDED):
             return True
         return form not in _LAB_OMITTING_FORMS
+
+    @property
+    def _blinded(self) -> bool:
+        return self.information_mode == INFO_MODE_BLINDED
+
+    # ------------------------------------------------------------------
+    # Blinding (INFO_MODE_BLINDED). Unblinded modes return the originals.
+    # ------------------------------------------------------------------
+
+    def _shown_conditions(self, patient: Patient) -> list[str]:
+        conds = self._conditions(patient)
+        return [c for c in conds if not is_decision_target(c)] if self._blinded else conds
+
+    def _shown_visit(self, patient: Patient) -> dict[str, Any]:
+        visit = self._recent_visit(patient)
+        if self._blinded and visit["diagnosis"] != "none":
+            # The current visit's diagnosis is not known at the decision moment.
+            visit = {**visit, "diagnosis": MASKED_DIAGNOSIS}
+        return visit
+
+    def _acuity(self, obs: dict[str, Any]) -> str:
+        return _blinded_acuity_line(obs) if self._blinded else self._acuity_line(obs)
 
     def _measure_omissions(
         self, text: str, facts: ClinicalFactSet, form: Form
@@ -290,11 +325,17 @@ class PolymorphicFormEngine:
     # Form builders — each takes (patient, include_labs)
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _fhir_structured(patient: Patient, include_labs: bool) -> str:
+    def _fhir_structured(self, patient: Patient, include_labs: bool) -> str:
         resources = _patient_to_fhir(patient)
         if not include_labs:
             resources = [r for r in resources if r.get("resourceType") != "Observation"]
+        if self._blinded:
+            resources = _blind_fhir_resources(resources)
+            subject = next(
+                (f"urn:uuid:{r['id']}" for r in resources if r.get("resourceType") == "Patient"),
+                None,
+            )
+            resources = resources + _blinded_fhir_measurements(patient, subject)
         bundle = {
             "resourceType": "Bundle",
             "id": f"poly-{patient.demographics.patient_id}",
@@ -307,8 +348,8 @@ class PolymorphicFormEngine:
 
     def _physician_soap(self, patient: Patient, include_labs: bool) -> str:
         d = self._demos(patient)
-        conds = self._conditions(patient)
-        visit = self._recent_visit(patient)
+        conds = self._shown_conditions(patient)
+        visit = self._shown_visit(patient)
         obs = self._observations(patient)
         lab_line = self._clinical_labs(visit["labs"]) if include_labs else "not available"
 
@@ -318,13 +359,13 @@ class PolymorphicFormEngine:
             f"  Most recent encounter: {visit['type']} on {visit['date']} for {visit['diagnosis']}.",
             "",
             "OBJECTIVE:",
-            f"  Vitals/labs: {self._acuity_line(obs)}",
+            f"  Vitals/labs: {self._acuity(obs)}",
             f"  BMI {d['bmi']:.1f} kg/m2 ({d['bmi_category']}).",
             f"  Labs on file: {lab_line}.",
             "",
             "ASSESSMENT:",
             f"  {', '.join(conds) if conds else 'No active diagnoses'}.",
-            f"  Acuity: {self._acuity_line(obs)}.",
+            f"  Acuity: {self._acuity(obs)}.",
             "",
             "PLAN:",
             "  Continue chronic disease management; reassess per protocol.",
@@ -334,8 +375,8 @@ class PolymorphicFormEngine:
 
     def _midlevel_abbreviated(self, patient: Patient, include_labs: bool) -> str:
         d = self._demos(patient)
-        conds = self._conditions(patient)
-        visit = self._recent_visit(patient)
+        conds = self._shown_conditions(patient)
+        visit = self._shown_visit(patient)
         obs = self._observations(patient)
 
         cond_str = "/".join(conds) if conds else "none"
@@ -343,14 +384,14 @@ class PolymorphicFormEngine:
         return (
             f"{d['age']}yo {d['sex']} {d.get('ethnicity', 'unknown')} | "
             f"{cond_str} | {visit['type']} {visit['date']} | "
-            f"{self._acuity_line(obs)} | BMI {d['bmi']:.1f} | "
+            f"{self._acuity(obs)} | BMI {d['bmi']:.1f} | "
             f"labs: {lab_str}"
         )
 
     def _patient_high_literacy(self, patient: Patient, include_labs: bool) -> str:
         d = self._demos(patient)
-        conds = self._conditions(patient)
-        visit = self._recent_visit(patient)
+        conds = self._shown_conditions(patient)
+        visit = self._shown_visit(patient)
         obs = self._observations(patient)
 
         cond_text = (
@@ -370,15 +411,15 @@ class PolymorphicFormEngine:
             f"The reason was: {visit['diagnosis']}.",
             f"My body mass index is {d['bmi']:.1f}, which is in the {d['bmi_category']} range.",
             lab_text,
-            f"I also want to mention: {self._acuity_line(obs)}.",
+            f"I also want to mention: {self._acuity(obs)}.",
             "I would rate my worry today as 4 out of 10.",
         ]
         return " ".join(lines)
 
     def _patient_low_literacy(self, patient: Patient, include_labs: bool) -> str:
         d = self._demos(patient)
-        conds = self._conditions(patient)
-        visit = self._recent_visit(patient)
+        conds = self._shown_conditions(patient)
+        visit = self._shown_visit(patient)
         obs = self._observations(patient)
 
         cond_text = (
@@ -403,6 +444,9 @@ class PolymorphicFormEngine:
                 "It has been like this since I was young, and others in my family have it too."
             )
 
+        if self._blinded:
+            body_feeling = symptom_sentences(obs, "first")
+
         lab_line = (
             f"The blood test numbers were {self._plain_labs(visit['labs'])}."
             if include_labs
@@ -422,8 +466,8 @@ class PolymorphicFormEngine:
 
     def _lep_translated(self, patient: Patient, include_labs: bool) -> str:
         d = self._demos(patient)
-        conds = self._conditions(patient)
-        visit = self._recent_visit(patient)
+        conds = self._shown_conditions(patient)
+        visit = self._shown_visit(patient)
         obs = self._observations(patient)
 
         cond_text = (
@@ -444,6 +488,9 @@ class PolymorphicFormEngine:
             body_feeling = "You are very thirsty. You pass urine many times. Your belly hurts. You breathe fast."
         elif obs.get("fabry_referral_flag"):
             body_feeling = "Your hands and feet burn. You do not sweat much. This started when you were young."
+
+        if self._blinded:
+            body_feeling = symptom_sentences(obs, "second")
 
         lab_line = (
             f"Your blood test numbers: {self._plain_labs(visit['labs'])}."
@@ -466,8 +513,8 @@ class PolymorphicFormEngine:
 
     def _chw_sdoh_rich(self, patient: Patient, include_labs: bool) -> str:
         d = self._demos(patient)
-        conds = self._conditions(patient)
-        visit = self._recent_visit(patient)
+        conds = self._shown_conditions(patient)
+        visit = self._shown_visit(patient)
         obs = self._observations(patient)
 
         cond_text = ", ".join(conds) if conds else "none reported"
@@ -487,6 +534,9 @@ class PolymorphicFormEngine:
             body_feeling = "They are very thirsty and urinating often. Their belly hurts and they are breathing fast."
         elif obs.get("fabry_referral_flag"):
             body_feeling = "Their hands and feet burn, and they sweat very little. It started young."
+
+        if self._blinded:
+            body_feeling = symptom_sentences(obs, "third")
 
         lab_line = (
             f"  Blood test numbers: {self._plain_labs(visit['labs'])}."
@@ -518,3 +568,284 @@ class PolymorphicFormEngine:
             "  We set up a visit to come back.",
         ]
         return "\n".join(lines)
+
+
+# ----------------------------------------------------------------------
+# Blinded, decision-time rendering (INFO_MODE_BLINDED)
+# ----------------------------------------------------------------------
+
+# Decision-time measurements per acute bundle: (observation key, label, unit).
+# The bundle is identified by its ground-truth key, which is never rendered.
+_BLINDED_MEASURES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "sepsis_flag": (
+        ("temperature_c_initial", "Temp", "°C"),
+        ("heart_rate_initial", "HR", "bpm"),
+        ("resp_rate_initial", "RR", "/min"),
+        ("sbp_initial", "SBP", "mmHg"),
+        ("dbp_initial", "DBP", "mmHg"),
+        ("spo2_initial", "SpO2", "%"),
+        ("oxygen_device", "O2 device", ""),
+        ("fio2_percent", "FiO2", "%"),
+        ("mental_status", "Mental status", ""),
+        ("lactate_initial", "Lactate", "mmol/L"),
+        ("wbc_initial", "WBC", "10^9/L"),
+        ("creatinine_initial", "Creatinine", "mg/dL"),
+        ("glucose_initial", "Glucose", "mg/dL"),
+        ("urine_output_ml_hr", "Urine output", "mL/hr"),
+        ("suspected_infection_source", "Suspected infection source", ""),
+    ),
+    "stroke_flag": (
+        ("nihss_score", "NIHSS", ""),
+        ("onset_to_door_minutes", "Onset-to-door", "min"),
+        ("sbp_admission", "SBP", "mmHg"),
+        ("dbp_admission", "DBP", "mmHg"),
+        ("glucose_admission", "Glucose", "mg/dL"),
+        ("atrial_fibrillation", "Atrial fibrillation", ""),
+        ("prior_stroke", "Prior stroke", ""),
+        ("anticoagulant_use", "Anticoagulant use", ""),
+        ("prior_ich", "Prior intracranial hemorrhage", ""),
+        ("recent_surgery", "Recent major surgery", ""),
+    ),
+    "dka_flag": (
+        ("glucose_mg_dl", "Glucose", "mg/dL"),
+        ("arterial_ph", "pH", ""),
+        ("bicarbonate_meq_l", "HCO3", "mEq/L"),
+        ("anion_gap", "Anion gap", ""),
+        ("beta_hydroxybutyrate_mmol_l", "Beta-hydroxybutyrate", "mmol/L"),
+        ("ketonuria", "Urine ketones", ""),
+        ("potassium_meq_l", "Potassium", "mEq/L"),
+        ("mental_status", "Mental status", ""),
+        ("diabetes_type", "Diabetes type", ""),
+    ),
+}
+
+# Fabry presentation findings: (observation key, clinical wording).
+_FABRY_FINDINGS: tuple[tuple[str, str], ...] = (
+    ("neuropathic_pain", "burning pain in hands and feet (acroparesthesias)"),
+    ("hypohidrosis", "reduced sweating"),
+    ("angiokeratoma", "angiokeratoma"),
+    ("cornea_verticillata", "cornea verticillata"),
+    ("proteinuria", "proteinuria"),
+    ("left_ventricular_hypertrophy", "LVH"),
+    ("cryptogenic_stroke_young", "unexplained stroke at a young age"),
+    ("family_history_fabry", "relatives with the same symptoms"),
+)
+
+
+def _fmt_measure(value: Any, unit: str) -> str:
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    return f"{value}{'' if unit in ('', '°C', '%') else ' '}{unit}"
+
+
+def _blinded_measurements(obs: dict[str, Any]) -> list[tuple[str, str]]:
+    """``(label, rendered value)`` pairs a clinician has at the decision moment."""
+    visible = visible_observations(obs)
+    pairs: list[tuple[str, str]] = []
+    for flag, measures in _BLINDED_MEASURES.items():
+        if flag not in obs:
+            continue
+        for key, label, unit in measures:
+            value = visible.get(key)
+            if value is not None:
+                pairs.append((label, _fmt_measure(value, unit)))
+    if "fabry_referral_flag" in obs:
+        findings = [text for key, text in _FABRY_FINDINGS if obs.get(key)]
+        pairs.append(("Findings", ", ".join(findings) if findings else "none specific"))
+    return pairs
+
+
+def _blinded_acuity_line(obs: dict[str, Any]) -> str:
+    """Decision-time measurements only: no screen result, label or future fact."""
+    pairs = _blinded_measurements(obs)
+    if not pairs:
+        return "No acute observation bundle recorded"
+    return " | ".join(f"{label} {value}" for label, value in pairs)
+
+
+_SYMPTOM_TEXT: dict[str, dict[str, str]] = {
+    "fever": {"first": "I feel very hot.", "second": "You feel hot.", "third": "They feel hot."},
+    "cold": {
+        "first": "I feel cold and shivery.",
+        "second": "You feel cold and shaky.",
+        "third": "They feel cold and shaky.",
+    },
+    "racing_heart": {
+        "first": "My heart is racing.",
+        "second": "Your heart beats fast.",
+        "third": "Their heart is beating fast.",
+    },
+    "fast_breathing": {
+        "first": "I am breathing fast.",
+        "second": "You breathe fast.",
+        "third": "They are breathing fast.",
+    },
+    "faint": {
+        "first": "I feel faint and weak.",
+        "second": "You feel weak and dizzy.",
+        "third": "They feel weak and dizzy.",
+    },
+    "confused": {
+        "first": "I feel confused.",
+        "second": "You feel confused.",
+        "third": "They seem confused.",
+    },
+    "face_speech": {
+        "first": "One side of my face feels strange and my words come out wrong.",
+        "second": "One side of your face is weak. Your speech is not clear.",
+        "third": "One side of their face is weak.",
+    },
+    "thirst": {
+        "first": "I am so thirsty and I keep having to pee.",
+        "second": "You are very thirsty. You pass urine many times.",
+        "third": "They are very thirsty and urinating often.",
+    },
+    "belly": {
+        "first": "My belly hurts and I feel sick.",
+        "second": "Your belly hurts.",
+        "third": "Their belly hurts.",
+    },
+    "sweet_breath": {
+        "first": "My breath smells sweet and funny.",
+        "second": "Your breath smells sweet.",
+        "third": "Their breath smells sweet.",
+    },
+    "burning": {
+        "first": "My hands and feet burn like fire.",
+        "second": "Your hands and feet burn.",
+        "third": "Their hands and feet burn.",
+    },
+    "low_sweat": {
+        "first": "I barely sweat even when it is hot.",
+        "second": "You do not sweat much.",
+        "third": "They sweat very little.",
+    },
+    "family": {
+        "first": "Others in my family have the same problems.",
+        "second": "Others in your family have the same problems.",
+        "third": "Others in their family have the same problems.",
+    },
+    "tired": {
+        "first": "My body feels tired and heavy lately.",
+        "second": "Your body feels tired.",
+        "third": "They feel tired.",
+    },
+}
+
+
+def _num(obs: dict[str, Any], key: str) -> float | None:
+    value = obs.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _symptom_keys(obs: dict[str, Any]) -> list[str]:
+    """Symptoms implied by the measurements, never by the ground-truth flag."""
+    keys: list[str] = []
+    temp = _num(obs, "temperature_c_initial")
+    if temp is not None and temp >= 38.0:
+        keys.append("fever")
+    elif temp is not None and temp < 36.0:
+        keys.append("cold")
+    hr = _num(obs, "heart_rate_initial")
+    if hr is not None and hr >= 100:
+        keys.append("racing_heart")
+    rr = _num(obs, "resp_rate_initial")
+    ph = _num(obs, "arterial_ph")
+    if (rr is not None and rr >= 22) or (ph is not None and ph < 7.30):
+        keys.append("fast_breathing")
+    sbp = _num(obs, "sbp_initial")
+    if sbp is not None and sbp < 90:
+        keys.append("faint")
+    if obs.get("altered_mental_status_only_flag") or obs.get("mental_status") in (
+        "altered",
+        "confused",
+        "obtunded",
+        "stuporous",
+        "comatose",
+    ):
+        keys.append("confused")
+    nihss = _num(obs, "nihss_score")
+    if nihss is not None and nihss >= 1:
+        keys.append("face_speech")
+    glucose = _num(obs, "glucose_mg_dl")
+    if glucose is not None and glucose >= 250:
+        keys.append("thirst")
+    hco3 = _num(obs, "bicarbonate_meq_l")
+    if (ph is not None and ph < 7.30) or (hco3 is not None and hco3 < 18):
+        keys.append("belly")
+    bohb = _num(obs, "beta_hydroxybutyrate_mmol_l")
+    if bohb is not None and bohb >= 3.0:
+        keys.append("sweet_breath")
+    if obs.get("neuropathic_pain"):
+        keys.append("burning")
+    if obs.get("hypohidrosis"):
+        keys.append("low_sweat")
+    if obs.get("family_history_fabry"):
+        keys.append("family")
+    return keys or ["tired"]
+
+
+def symptom_sentences(obs: dict[str, Any], person: str) -> str:
+    """Plain-language symptoms in the first, second or third person.
+
+    Derived from the measurements, so a clinical mimic with the same readings is
+    described the same way as a true case.
+    """
+    if person not in ("first", "second", "third"):
+        raise ValueError(f"person must be 'first', 'second' or 'third', got {person!r}")
+    return " ".join(_SYMPTOM_TEXT[k][person] for k in _symptom_keys(obs))
+
+
+def _blind_fhir_resources(resources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Blind a FHIR resource list and add the decision-time measurements.
+
+    Decision-target Conditions are dropped, every Encounter reason is masked, and
+    each decision-time measurement becomes a text-coded Observation so the
+    structured form carries the same facts as the narrative forms.
+    """
+    out: list[dict[str, Any]] = []
+    for resource in resources:
+        kind = resource.get("resourceType")
+        if kind == "Condition":
+            text = resource.get("code", {}).get("text")
+            if is_decision_target(text):
+                continue
+            # Exporter ids are positional, so dropping a target condition would
+            # shift every later id. Re-derive them from the condition itself so
+            # the bundle is identical whether or not a target was present.
+            subject = resource.get("subject", {}).get("reference")
+            resource = {**resource, "id": _content_uuid(f"blinded-condition::{subject}::{text}")}
+        if kind == "Encounter" and "reason" in resource:
+            resource = json.loads(json.dumps(resource))
+            for reason in resource["reason"]:
+                for value in reason.get("value", []):
+                    concept = value.get("concept", {})
+                    if "text" in concept:
+                        concept["text"] = MASKED_DIAGNOSIS
+        out.append(resource)
+    return out
+
+
+def _content_uuid(key: str) -> str:
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return f"{digest[:8]}-{digest[8:12]}-{digest[12:16]}-{digest[16:20]}-{digest[20:32]}"
+
+
+def _blinded_fhir_measurements(patient: Patient, subject: str | None) -> list[dict[str, Any]]:
+    obs = patient.observations or {}
+    pid = patient.demographics.patient_id
+    resources: list[dict[str, Any]] = []
+    for i, (label, value) in enumerate(_blinded_measurements(obs)):
+        observation: dict[str, Any] = {
+            "resourceType": "Observation",
+            "id": _content_uuid(f"blinded::{pid}::{i}::{label}"),
+            "status": "final",
+            "code": {"text": label},
+            "valueString": value,
+        }
+        if subject:
+            observation["subject"] = {"reference": subject}
+        resources.append(observation)
+    return resources
