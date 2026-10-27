@@ -63,6 +63,7 @@ from typing import Any
 from hipaasynth.aast.adapter import ModelAdapter, ModelResponse
 from hipaasynth.aast.cases import (
     CANONICAL_FORM,
+    case_id,
     control,
     fragmented,
     in_setting,
@@ -129,6 +130,9 @@ class AASTReport:
     model_calls: int
     answer_rates: dict[str, Any]
     limitations: list[str]
+    #: One row per cohort patient, in run order: ``case_id`` of the case the
+    #: model was shown, ``truth`` and ``kind``. Lets anyone check the cohort.
+    population: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def overall(self) -> str:
@@ -262,7 +266,8 @@ def run_7aast(
     def ask(patient: Any, form: Form | str = CANONICAL_FORM) -> ModelResponse:
         return model.respond(present(patient, input_type, form))
 
-    base = [ask(c.patient) for c in cohort]
+    shown = [present(c.patient, input_type) for c in cohort]
+    base = [model.respond(case) for case in shown]
 
     axes: list[AxisResult] = []
     axes.append(_accuracy_axis(cohort, base, seed, min_events, deployment_prevalence))
@@ -300,6 +305,9 @@ def run_7aast(
             "deployment_prevalence": deployment_prevalence,
             "information_mode": INFO_MODE_BLINDED,
             "true_cases": sum(c.truth for c in cohort),
+            "noise_cases": noise_cases,
+            "repeats": repeats,
+            "min_events": min_events,
         },
         model=adapter.describe(),
         demo=demo,
@@ -307,6 +315,10 @@ def run_7aast(
         model_calls=calls["n"],
         answer_rates=rates,
         limitations=limitations,
+        population=[
+            {"case_id": case_id(case), "truth": c.truth, "kind": c.kind}
+            for c, case in zip(cohort, shown, strict=True)
+        ],
     )
 
 
