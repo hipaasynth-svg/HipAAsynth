@@ -34,20 +34,25 @@ Or call a Python function ``module:function`` that takes one case::
 
 Use the same --condition, --input, --n, --seed, --prevalence and --profile for
 ``export`` and ``run``.
+
+Save the report (``.html`` to read, ``.json`` for systems) and check it later::
+
+    hipaasynth 7aast run --condition sepsis --input text --demo demo_biased \\
+        --report report.html
+    hipaasynth 7aast verify report.html --regenerate
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib
-import json
 import sys
-from pathlib import Path
 from typing import Any
 
 from hipaasynth.aast.adapter import INPUT_TYPES, OUTPUT_TYPES, ModelAdapter
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import AnswerFileError, answers_adapter, export_cases
+from hipaasynth.aast.report import load_document, verify, write_report
 from hipaasynth.aast.run import AASTReport, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
 
@@ -160,7 +165,13 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--name", help="Model name for the report.")
     run.add_argument("--deployment-prevalence", type=float,
                      help="Real-world prevalence, for a positive predictive value estimate.")  # fmt: skip
-    run.add_argument("--report", help="Also write the full report as JSON here.")
+    run.add_argument("--report",
+                     help="Also save the full report here: .html to read, .json for systems.")  # fmt: skip
+
+    ver = sub.add_parser("verify", help="Check a saved report has not been changed.")
+    ver.add_argument("report", help="Report file (.json or .html) from 'run --report'.")
+    ver.add_argument("--regenerate", action="store_true",
+                     help="Also rebuild every case from the seed and compare.")  # fmt: skip
     return parser
 
 
@@ -168,6 +179,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "verify":
+            result = verify(load_document(args.report), regenerate=args.regenerate)
+            print(result.text())
+            return 0 if result.ok else 3
         if args.command == "export":
             out = export_cases(
                 args.out,
@@ -213,6 +228,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(summary_text(report))
     if args.report:
-        Path(args.report).write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
+        try:
+            doc = write_report(report, args.report)
+        except OSError as err:
+            print(f"hipaasynth 7aast: error: cannot write report: {err}", file=sys.stderr)
+            return 1
         print(f"\nFull report: {args.report}")
+        print(f"Report hash: {doc['chain']['report']}")
     return 0 if report.overall != "FAIL" else 2

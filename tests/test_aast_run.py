@@ -303,7 +303,7 @@ def test_cli_demo_run_prints_report_and_exit_code(capsys, tmp_path):
                       "--demo", "demo_biased", "--report", str(tmp_path / "r.json")])  # fmt: skip
     out = capsys.readouterr().out
     assert code == 2 and "OVERALL: FAIL" in out and "DEMO MODEL" in out
-    assert json.loads((tmp_path / "r.json").read_text())["overall"] == FAIL
+    assert json.loads((tmp_path / "r.json").read_text())["results"]["overall"] == FAIL
 
 
 def test_cli_export_then_answers(capsys, tmp_path):
