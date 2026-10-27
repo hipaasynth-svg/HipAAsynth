@@ -221,8 +221,10 @@ def test_majority_decision():
 
 def test_deterministic_model_is_detected_and_called_twice():
     calls = []
-    adapter = ModelAdapter(lambda case: calls.append(case) or case % 2 == 0, "binary")
-    floor, runs = measure_noise_floor(adapter, list(range(10)), repeats=5)
+    adapter = ModelAdapter(
+        lambda case: calls.append(case) or int(case) % 2 == 0, "binary", input="text"
+    )
+    floor, runs = measure_noise_floor(adapter, [str(i) for i in range(10)], repeats=5)
     assert floor.deterministic and floor.repeats == 2 and floor.flips == 0
     assert len(calls) == 20 and all(len(r) == 2 for r in runs)
     assert floor.rate.estimate == 0.0
@@ -233,10 +235,10 @@ def test_unstable_model_gets_full_repeats_and_a_measured_floor():
     state = itertools.count()
 
     def model(case):
-        return next(state) % 2 == 0 if case < 4 else True
+        return next(state) % 2 == 0 if int(case) < 4 else True
 
-    adapter = ModelAdapter(model, "binary")
-    floor, runs = measure_noise_floor(adapter, list(range(10)), repeats=5)
+    adapter = ModelAdapter(model, "binary", input="text")
+    floor, runs = measure_noise_floor(adapter, [str(i) for i in range(10)], repeats=5)
     assert not floor.deterministic and floor.repeats == 5
     assert all(len(r) == 5 for r in runs)
     assert floor.flips == 4 and floor.rate.estimate == pytest.approx(0.4)
@@ -244,13 +246,13 @@ def test_unstable_model_gets_full_repeats_and_a_measured_floor():
 
 def test_switching_between_answer_and_abstention_counts_as_a_flip():
     toggle = itertools.cycle(["FINAL_ANSWER: Yes", "FINAL_ANSWER: Unsure"])
-    adapter = ModelAdapter(lambda case: next(toggle), "text")
+    adapter = ModelAdapter(lambda case: next(toggle), "text", input="text")
     floor, _ = measure_noise_floor(adapter, ["a"], repeats=3)
     assert floor.flips == 1
 
 
 def test_noise_floor_passes_targets_for_ranked_models():
-    adapter = ModelAdapter(lambda case: ["Sepsis", "UTI"], "ranked", k=1)
+    adapter = ModelAdapter(lambda case: ["Sepsis", "UTI"], "ranked", input="text", k=1)
     floor, runs = measure_noise_floor(adapter, ["c1", "c2"], targets=["Sepsis", "UTI"])
     assert floor.deterministic
     assert [r[0].decision for r in runs] == [True, False]
@@ -261,20 +263,20 @@ def test_noise_floor_passes_targets_for_ranked_models():
     [([], {}), ([1], {"repeats": 1}), ([1, 2], {"targets": ["x"]}), ([1], {"repeats": 2.0})],
 )
 def test_noise_floor_rejects_bad_input(cases, kwargs):
-    adapter = ModelAdapter(lambda case: True, "binary")
+    adapter = ModelAdapter(lambda case: True, "binary", input="text")
     with pytest.raises(ValueError):
-        measure_noise_floor(adapter, cases, **kwargs)
+        measure_noise_floor(adapter, [str(c) for c in cases], **kwargs)
 
 
 def test_beyond_noise():
-    adapter = ModelAdapter(lambda case: True, "binary")
-    det_floor, _ = measure_noise_floor(adapter, [1, 2, 3])
+    adapter = ModelAdapter(lambda case: True, "binary", input="text")
+    det_floor, _ = measure_noise_floor(adapter, ["1", "2", "3"])
     assert beyond_noise(_ci(0.01, 0.05), det_floor)
     assert not beyond_noise(_ci(0.0, 0.05), det_floor)
 
     state = itertools.count()
-    noisy = ModelAdapter(lambda case: next(state) % 2 == 0, "binary")
-    noisy_floor, _ = measure_noise_floor(noisy, list(range(20)))
+    noisy = ModelAdapter(lambda case: next(state) % 2 == 0, "binary", input="text")
+    noisy_floor, _ = measure_noise_floor(noisy, [str(i) for i in range(20)])
     assert noisy_floor.rate.high > 0.8
     # An 8-12% demographic effect is real for a deterministic model but is
     # indistinguishable from this model's own re-run noise.

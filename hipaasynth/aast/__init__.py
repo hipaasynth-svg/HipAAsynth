@@ -17,6 +17,7 @@
 """7-Axis Adversarial Stress Test (7AAST): one entry point across all axes."""
 
 from hipaasynth.aast.adapter import (
+    INPUT_TYPES,
     OUTPUT_TYPES,
     ModelAdapter,
     ModelResponse,
@@ -40,6 +41,7 @@ from hipaasynth.aast.stats import (
 __all__ = [
     "FAIL",
     "INCONCLUSIVE",
+    "INPUT_TYPES",
     "OUTPUT_TYPES",
     "PASS",
     "Interval",
