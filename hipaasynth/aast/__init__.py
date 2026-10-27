@@ -17,10 +17,11 @@
 """7-Axis Adversarial Stress Test (7AAST): one entry point across all axes."""
 
 from hipaasynth.aast.adapter import (
+    INPUT_TYPES,
     OUTPUT_TYPES,
     ModelAdapter,
     ModelResponse,
     parse_final_answer,
 )
 
-__all__ = ["OUTPUT_TYPES", "ModelAdapter", "ModelResponse", "parse_final_answer"]
+__all__ = ["INPUT_TYPES", "OUTPUT_TYPES", "ModelAdapter", "ModelResponse", "parse_final_answer"]

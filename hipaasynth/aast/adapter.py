@@ -25,6 +25,16 @@ positive at its deployed operating point?* ``ModelAdapter`` turns any of five
 output types into one :class:`ModelResponse` so every axis reads every model the
 same way.
 
+What the model reads
+--------------------
+``input="text"``    a written presentation of the patient (a note, a FHIR JSON
+                    string, a patient message, a prompt). LLMs and NLP models.
+``input="record"``  a structured patient record (``dict``). Tabular risk models
+                    such as the Epic Sepsis Model or the Deterioration Index.
+
+Axes that compare the same patient across written forms (DIF, Axes 1-4) only
+apply to ``text`` models; each axis declares which inputs it supports.
+
 Output types
 ------------
 ``binary``   ``fn`` returns ``True``/``False``.
@@ -59,11 +69,12 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from numbers import Real
 from typing import Any
 
+INPUT_TYPES = ("text", "record")
 OUTPUT_TYPES = ("binary", "score", "ordinal", "ranked", "text")
 
 # Same terminator convention as the Axis 5 evaluator's prompts.
@@ -117,9 +128,11 @@ class ModelAdapter:
     """Wrap a model callable so every 7AAST axis can read its answers.
 
     Args:
-        fn:                 The model. Called with the case each axis supplies
-                            (a patient form, a record, or a prompt).
+        fn:                 The model. Called with the case each axis supplies:
+                            a ``str`` for ``input="text"``, a ``dict`` record for
+                            ``input="record"``.
         output:             One of :data:`OUTPUT_TYPES`.
+        input:              One of :data:`INPUT_TYPES`: what the model reads.
         threshold:          ``score`` only: the deployed alert cutoff.
         higher_is_positive: ``score`` only: direction of the cutoff.
         acute_levels:       ``ordinal`` only: the levels that count as positive.
@@ -139,6 +152,7 @@ class ModelAdapter:
         fn: Callable[[Any], Any],
         output: str,
         *,
+        input: str,
         threshold: float | None = None,
         higher_is_positive: bool = True,
         acute_levels: Sequence[int] | None = None,
@@ -151,6 +165,8 @@ class ModelAdapter:
             raise TypeError("fn must be callable")
         if output not in OUTPUT_TYPES:
             raise ValueError(f"output must be one of {OUTPUT_TYPES}, got {output!r}")
+        if input not in INPUT_TYPES:
+            raise ValueError(f"input must be one of {INPUT_TYPES}, got {input!r}")
 
         given = {
             "threshold": threshold is not None,
@@ -192,6 +208,7 @@ class ModelAdapter:
 
         self.fn = fn
         self.output = output
+        self.input = input
         self.threshold = threshold
         self.higher_is_positive = bool(higher_is_positive)
         self.acute_levels = frozenset(acute_levels) if acute_levels is not None else None
@@ -208,9 +225,23 @@ class ModelAdapter:
         """Call the model on ``case`` and normalise its answer.
 
         Args:
-            case:   Whatever the axis supplies to the model.
+            case:   What the axis supplies: a ``str`` for ``input="text"``, a
+                    mapping for ``input="record"``.
             target: ``ranked`` only: the correct label for this case.
+
+        Raises:
+            TypeError: when ``case`` does not match ``input``. That is an axis
+                bug (it handed the model the wrong kind of input), never a
+                model outcome.
         """
+        if self.input == "text" and not isinstance(case, str):
+            raise TypeError(
+                f"{self.name}: input='text' needs a str case, got {type(case).__name__}"
+            )
+        if self.input == "record" and not isinstance(case, Mapping):
+            raise TypeError(
+                f"{self.name}: input='record' needs a mapping case, got {type(case).__name__}"
+            )
         if self.output == "ranked" and target is None:
             raise ValueError("output='ranked' needs target= (the correct label for this case)")
         raw = self.fn(case)
@@ -227,6 +258,7 @@ class ModelAdapter:
         """
         return {
             "name": self.name,
+            "input": self.input,
             "output": self.output,
             "threshold": self.threshold,
             "higher_is_positive": self.higher_is_positive if self.output == "score" else None,
