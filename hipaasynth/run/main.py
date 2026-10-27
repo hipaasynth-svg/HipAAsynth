@@ -203,6 +203,11 @@ def _resolve_scenario_args(args, parser):
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["7aast"]:
+        from hipaasynth.aast.cli import main as aast_main
+
+        return aast_main(argv[1:])
     parser = build_parser()
     args = parser.parse_args(argv)
     module, profile_path = _resolve_scenario_args(args, parser)
