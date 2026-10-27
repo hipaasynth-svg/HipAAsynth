@@ -50,6 +50,8 @@ failures with error=-1.
 
 import re
 
+from hipaasynth.polymorphic.blinding import visible_observations
+
 
 # ── Ground truth extractors ──────────────────────────────────────────
 
@@ -75,7 +77,11 @@ def _detect_condition(patient_dict: dict) -> str:
 
 # ── Prompt builders ──────────────────────────────────────────────────
 
-def _build_sepsis_prompt(patient_dict: dict) -> str:
+def _build_sepsis_prompt(patient_dict: dict, decision_time: bool = False) -> str:
+    """Sepsis prompt. ``decision_time=True`` drops facts a clinician cannot have
+    at triage (later hypotension, deterioration pattern, 6-hour fluids, the
+    ventilation decision) and the generator's "contradictory signals" hints,
+    which name the very trap the case was built to test."""
     demo   = patient_dict.get("demographics", {})
     anthro = patient_dict.get("anthropometrics", {})
     obs    = patient_dict.get("observations", {})
@@ -114,16 +120,18 @@ def _build_sepsis_prompt(patient_dict: dict) -> str:
     cond_str = ", ".join(conds) if conds else "none"
     ams_str  = " Patient presents with altered mental status only." if ams else ""
     htn_str  = (f" Hypotension onset at {h_htn}h after presentation."
-                if h_htn is not None else "")
+                if h_htn is not None and not decision_time else "")
 
     if o2_device:
         fio2_str  = f" (FiO2 {int(fio2)}%)" if fio2 is not None else ""
-        vent_str  = f", mode: {vent_mode}" if vent_mode else ""
+        vent_str  = f", mode: {vent_mode}" if vent_mode and not decision_time else ""
         resp_line = f"\n  Respiratory support: {o2_device}{fio2_str}{vent_str}"
     else:
         resp_line = ""
 
-    if uo is not None:
+    if uo is not None and decision_time:
+        fluid_line = f"\n  Urine output:        {uo:.1f} mL/hr"
+    elif uo is not None:
         fluid_line = (
             f"\n  Urine output:        {uo:.1f} mL/hr"
             f"\n  Fluid input (6h):    {int(fluid_in) if fluid_in else '?'} mL"
@@ -131,13 +139,15 @@ def _build_sepsis_prompt(patient_dict: dict) -> str:
     else:
         fluid_line = ""
 
-    det_line = f"\n  Deterioration pattern: {det_pattern}" if det_pattern else ""
+    det_line = (f"\n  Deterioration pattern: {det_pattern}"
+                if det_pattern and not decision_time else "")
 
     flags = []
     if cryptic:    flags.append("cryptic shock (SBP appears compensated but lactate elevated)")
     if nl_wbc_lac: flags.append("normal WBC with elevated lactate")
     if afeb_tach:  flags.append("afebrile but tachycardic")
-    flag_line = ("\n  Contradictory signals: " + "; ".join(flags)) if flags else ""
+    flag_line = (("\n  Contradictory signals: " + "; ".join(flags))
+                 if flags and not decision_time else "")
 
     return f"""PATIENT PRESENTATION:
   Age: {age} | Sex: {sex} | Ethnicity: {ethnicity} | BMI: {bmi}
@@ -172,7 +182,9 @@ FINAL_ANSWER: No
 Please include one of the above lines at the end of your response."""
 
 
-def _build_stroke_prompt(patient_dict: dict) -> str:
+def _build_stroke_prompt(patient_dict: dict, decision_time: bool = False) -> str:
+    """Stroke prompt. ``decision_time=True`` drops the CT-derived stroke type and
+    the door-to-needle time (a treatment already given)."""
     demo   = patient_dict.get("demographics", {})
     obs    = patient_dict.get("observations", {})
     conds  = [c["name"] for c in patient_dict.get("conditions", [])
@@ -204,6 +216,8 @@ def _build_stroke_prompt(patient_dict: dict) -> str:
     prior_ich_str   = "Yes" if prior_ich else "No"
     surgery_str     = "Yes" if recent_surgery else "No"
     rural_str       = "Yes" if rural else "No"
+    type_line       = "" if decision_time else f"  Suspected type:      {stype}\n"
+    d2n_line        = "" if decision_time else f"  Door to needle:   {d2n} minutes\n"
 
     return f"""PATIENT PRESENTATION:
   Age: {age} | Sex: {sex} | Ethnicity: {ethnicity}
@@ -212,8 +226,7 @@ def _build_stroke_prompt(patient_dict: dict) -> str:
 
 NEUROLOGICAL ASSESSMENT:
   NIHSS score:         {nihss} ({nihss_c})
-  Suspected type:      {stype}
-  Atrial fibrillation: {afib_str}
+{type_line}  Atrial fibrillation: {afib_str}
   Prior stroke:        {prior_str}
   Anticoagulant use:   {anticoag_str}
 
@@ -223,8 +236,7 @@ VITALS / LABS:
 
 TIMELINE:
   Onset to door:    {o2d} minutes
-  Door to needle:   {d2n} minutes
-
+{d2n_line}
 tPA CONTRAINDICATION HISTORY:
   Prior intracranial hemorrhage:     {prior_ich_str}
   Recent major surgery (<14 days):   {surgery_str}
@@ -242,12 +254,14 @@ FINAL_ANSWER: No
 Please include one of the above lines at the end of your response."""
 
 
-def _build_prompt(patient_dict: dict, condition: str) -> str:
+def _build_prompt(patient_dict: dict, condition: str, decision_time: bool = False) -> str:
     if condition == "sepsis":
-        return _build_sepsis_prompt(patient_dict)
+        return _build_sepsis_prompt(patient_dict, decision_time)
     if condition == "stroke":
-        return _build_stroke_prompt(patient_dict)
+        return _build_stroke_prompt(patient_dict, decision_time)
     obs = patient_dict.get("observations", {})
+    if decision_time:
+        obs = visible_observations(obs)
     return (f"Patient age {patient_dict.get('demographics',{}).get('age','?')}. "
             f"Clinical data: {obs}. Does this patient require urgent intervention? "
             f"Respond Yes or No.")
@@ -266,7 +280,9 @@ Rules:
 """
 
 
-def _build_messages(patient_dict: dict, condition: str) -> list[dict]:
+def _build_messages(
+    patient_dict: dict, condition: str, decision_time: bool = False
+) -> list[dict]:
     """
     Build a [system, user] messages payload for any OpenAI-compatible API.
 
@@ -276,7 +292,7 @@ def _build_messages(patient_dict: dict, condition: str) -> list[dict]:
     """
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user",   "content": _build_prompt(patient_dict, condition)},
+        {"role": "user",   "content": _build_prompt(patient_dict, condition, decision_time)},
     ]
 
 
@@ -327,8 +343,11 @@ class Evaluator:
         failures = ev.evaluate(timelines, model_fn=my_model)
     """
 
-    def __init__(self, threshold=None):
+    def __init__(self, threshold=None, decision_time: bool = False):
         self.threshold = threshold
+        # True: prompts show only what a clinician has at the decision moment
+        # (see _build_sepsis_prompt / _build_stroke_prompt). 7AAST uses True.
+        self.decision_time = decision_time
         self.cache: dict[str, str] = {}
         self.total       = 0   # slices evaluated (ground truth defined)
         self.correct     = 0
@@ -379,7 +398,7 @@ class Evaluator:
                 # skipped slices used to be counted and dragged accuracy down.
                 self.total += 1
 
-                prompt = _build_prompt(patient_dict, condition)
+                prompt = _build_prompt(patient_dict, condition, self.decision_time)
                 raw    = self._predict(prompt, model_fn, debug)
                 pred   = _parse_yes_no(raw)
 
