@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `hipaasynth.dif.write_passport_bundle()` — the readable deliverable for a
+  full DIF audit run. `run_audit()` already returned one `FairnessPassport`
+  per patient, each with a full `to_markdown()` report, but nothing wrote a
+  cohort's worth of them to disk as a linked, reviewable bundle. This writes
+  `summary.md` (the `CohortFairnessSummary`, indexed with a PASS/FAIL table
+  linking every patient) plus `patients/{id}.md` per patient (each linking
+  back to the summary), so a reviewer can go from the aggregate finding
+  straight to the specific patient who exposed it. Rejects an empty cohort,
+  duplicate `patient_id`s (each would silently overwrite the previous
+  patient's file), and a caller-supplied `summary` that doesn't match the
+  given passports, rather than writing a bundle whose index disagrees with
+  itself.
+
 ### Fixed
 
 - Profiled cohorts no longer depend on where the profile file is saved. The
@@ -40,21 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Seismometer adapter infers the module from whole label tokens, so
   `cloud_export` is no longer read as OUD (#119).
 - The web UI no longer scrolls sideways after a run (#120).
-
-### Added
-
-- `hipaasynth.dif.write_passport_bundle()` — the readable deliverable for a
-  full DIF audit run. `run_audit()` already returned one `FairnessPassport`
-  per patient, each with a full `to_markdown()` report, but nothing wrote a
-  cohort's worth of them to disk as a linked, reviewable bundle. This writes
-  `summary.md` (the `CohortFairnessSummary`, indexed with a PASS/FAIL table
-  linking every patient) plus `patients/{id}.md` per patient (each linking
-  back to the summary), so a reviewer can go from the aggregate finding
-  straight to the specific patient who exposed it. Rejects an empty cohort,
-  duplicate `patient_id`s (each would silently overwrite the previous
-  patient's file), and a caller-supplied `summary` that doesn't match the
-  given passports, rather than writing a bundle whose index disagrees with
-  itself.
 
 ## [1.4.0] — 2026-07-30
 
