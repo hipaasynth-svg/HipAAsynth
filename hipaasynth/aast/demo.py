@@ -100,14 +100,18 @@ def _rule(condition: str, m: dict[str, Any]) -> bool | None:
 
 
 _SYMPTOM_RULES: dict[str, Callable[[str], bool]] = {
-    "sepsis": lambda t: ("hot" in t or "cold" in t)
-    and ("fast" in t or "racing" in t)
-    and ("confused" in t or "faint" in t or "dizzy" in t or "weak" in t),
-    "stroke": lambda t: "face" in t
-    and ("speech" in t or "words" in t or "weak" in t)
-    and "shaking all over" not in t
-    and "forehead" not in t
-    and "shaky" not in t,
+    "sepsis": lambda t: (
+        ("hot" in t or "cold" in t)
+        and ("fast" in t or "racing" in t)
+        and ("confused" in t or "faint" in t or "dizzy" in t or "weak" in t)
+    ),
+    "stroke": lambda t: (
+        "face" in t
+        and ("speech" in t or "words" in t or "weak" in t)
+        and "shaking all over" not in t
+        and "forehead" not in t
+        and "shaky" not in t
+    ),
     "dka": lambda t: "thirsty" in t and ("breath" in t or "breathing fast" in t),
     "fabry": lambda t: "burn" in t and ("sweat" in t or "family" in t),
 }
