@@ -7,9 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-These fixes change output for the same inputs.
+### Fixed
 
 - Profiled cohorts no longer depend on where the profile file is saved. The
   patient-ID anchor uses a SHA-256 fingerprint of the profile's contents, not its
@@ -23,9 +21,6 @@ These fixes change output for the same inputs.
 - Rural and tribal profiles produce rural patients. The rural flag is read from
   the profile's `rural` field, not its name (#107).
 - `module="sepsis"` produces sepsis patients (#106).
-
-### Fixed
-
 - DIF rejects non-boolean predictions (`None`, `"no"`) instead of counting them
   as decisions, and warns when a cohort has no positive cases (#110).
 - PSF and CC reject NaN, negative, `None` and string scores, and zero-size runs
