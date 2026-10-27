@@ -22,6 +22,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   given passports, rather than writing a bundle whose index disagrees with
   itself.
 
+### Fixed
+
+- Profiled cohorts no longer depend on where the profile file is saved. The
+  patient-ID anchor uses a SHA-256 fingerprint of the profile's contents, not its
+  path (#109).
+- Axis 6 (PSF) and Axis 7 (CC) results are reproducible across processes. They
+  are seeded with `stable_seed_from_id` instead of Python's salted `hash()`
+  (#108).
+- The DIF verdict includes an accuracy floor (default 0.85,
+  `DIFConfig.accuracy_threshold`), so a model that is consistently wrong fails
+  (#111).
+- Rural and tribal profiles produce rural patients. The rural flag is read from
+  the profile's `rural` field, not its name (#107).
+- `module="sepsis"` produces sepsis patients (#106).
+- DIF rejects non-boolean predictions (`None`, `"no"`) instead of counting them
+  as decisions, and warns when a cohort has no positive cases (#110).
+- PSF and CC reject NaN, negative, `None` and string scores, and zero-size runs
+  (#112).
+- CLI: one-line errors instead of tracebacks, bundled profile names accepted by
+  `--profile`, and the API's seed range enforced (#113).
+- SDK: `count` and `seed` validated against the same range as the API (#114).
+- API: unknown query or body parameters are rejected (`modul=stroke` used to
+  return a sepsis cohort with HTTP 200), and unsupported methods get a JSON 405
+  (#115).
+- Axis 5: accuracy counts only the slices that were evaluated (skipped slices
+  were scored as wrong), and Axis 5 now has tests (#116).
+- `examples/rare_disease_demo.py` generates Fabry patients rather than CKD, so the
+  biased model now fails, as the README says (#117).
+- Browser UI tests find Chromium under the newer `chrome-linux64` layout instead
+  of silently skipping (#118).
+- The Seismometer adapter infers the module from whole label tokens, so
+  `cloud_export` is no longer read as OUD (#119).
+- The web UI no longer scrolls sideways after a run (#120).
+
 ## [1.4.0] — 2026-07-30
 
 Interoperability and access. Earlier releases exposed the engine as an
