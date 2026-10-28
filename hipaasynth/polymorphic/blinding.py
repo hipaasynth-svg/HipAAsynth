@@ -85,6 +85,10 @@ FUTURE_FIELDS: frozenset[str] = frozenset(
         "precipitant",
         "hours_to_icu",
         "hours_to_vasopressors",
+        # Oxygen support is treatment started after the triage reading, and its
+        # level is chosen from the severity the model is meant to judge.
+        "oxygen_device",
+        "fio2_percent",
     }
 )
 
@@ -103,6 +107,11 @@ GENERATOR_FIELDS: frozenset[str] = frozenset(
         "unsupported_fields_emitted_as_null",
         "source_visit_id",
         "source_visit_date",
+        # The Fabry generator's count of its own red flags (the referral rule's
+        # input); the individual signs stay visible.
+        "red_flag_count",
+        # Reference arterial saturation behind a pulse-oximeter reading.
+        "sao2_reference",
     }
 )
 

@@ -292,6 +292,17 @@ def run_7aast(
         ),
         "Clinical mimic presentations are textbook ranges pending clinician review.",
     ]
+    if condition == "sepsis":
+        limitations += [
+            (
+                "SpO2 is shown as a pulse oximeter reads it, including its documented "
+                "over-reading in patients with darker skin (race/ethnicity used as a proxy)."
+            ),
+            (
+                "Sepsis true cases are at the hypotensive end of the spectrum; normotensive "
+                "sepsis is not yet represented."
+            ),
+        ]
     if demo:
         limitations.insert(0, "DEMO: built-in demonstration model, not a clinical tool.")
     return AASTReport(
