@@ -121,7 +121,7 @@ sick patient has missed them.
 | `--n` | 200 | Synthetic patients. More patients give narrower intervals and fewer INCONCLUSIVE results. 400 to 1000 is a good range for a decision. |
 | `--seed` | 42 | Same seed, same patients. Change it to check a result holds on a fresh cohort. |
 | `--prevalence` | 0.5 | Share of true cases. Half and half gives the most power for both misses and false alarms. |
-| `--profile` | default | A bundled population, for example `nd_tribal_region_a`. |
+| `--profile` | balanced | Without a profile, White, Black, Hispanic, Asian and Native American patients are equally represented, so every group gets its own verdict. A bundled profile (for example `nd_tribal_region_a`) uses that population's real mix instead; small groups may then be INCONCLUSIVE. |
 | `--deployment-prevalence` | none | Your real-world rate (for example 0.02) to estimate how many alerts would be right. |
 
 ---

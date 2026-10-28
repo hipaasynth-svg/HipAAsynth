@@ -93,6 +93,13 @@ on mixed, blinded cohorts with interval-based verdicts. Guide:
   white cell count, infection source, prior stroke and NIHSS now overlap true
   cases (#129).
 - Ranked-list models no longer crash `run_7aast` (#129).
+- Every race/ethnicity group can be judged: with no profile, 7AAST cohorts
+  represent each group equally (an enriched design); before, about two Native
+  American true cases per 200 patients left group fairness permanently
+  INCONCLUSIVE (#131).
+- The guideline DKA demo follows the ADA 2024 consensus and flags new-onset DKA
+  and bedside-only presentations; `hipaasynth 7aast` usage errors exit 1, not
+  the FAIL code 2 (#131).
 
 ## [1.4.0] — 2026-07-30
 
