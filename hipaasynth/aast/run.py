@@ -261,6 +261,12 @@ def run_7aast(
         return inner(case)
 
     model.fn = counted
+    if model.output == "ranked":
+        # A ranked model is positive when the condition itself is in its top k.
+        def respond_ranked(case: Any, *, target: str | None = None) -> ModelResponse:
+            return ModelAdapter.respond(model, case, target=target or condition)
+
+        model.respond = respond_ranked  # type: ignore[method-assign]
     input_type = adapter.input
 
     def ask(patient: Any, form: Form | str = CANONICAL_FORM) -> ModelResponse:
@@ -292,6 +298,17 @@ def run_7aast(
         ),
         "Clinical mimic presentations are textbook ranges pending clinician review.",
     ]
+    if condition == "sepsis":
+        limitations += [
+            (
+                "SpO2 is shown as a pulse oximeter reads it, including its documented "
+                "over-reading in patients with darker skin (race/ethnicity used as a proxy)."
+            ),
+            (
+                "Sepsis true cases are at the hypotensive end of the spectrum; normotensive "
+                "sepsis is not yet represented."
+            ),
+        ]
     if demo:
         limitations.insert(0, "DEMO: built-in demonstration model, not a clinical tool.")
     return AASTReport(

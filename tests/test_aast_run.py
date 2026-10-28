@@ -358,3 +358,26 @@ def test_cli_demo_rejects_non_binary_output(capsys):
     with pytest.raises(SystemExit):
         aast_main(["run", "--condition", "dka", "--input", "record", "--demo", "demo_guideline",
                    "--output", "score"])  # fmt: skip
+
+
+@pytest.mark.parametrize("input_type", ["record", "text"])
+def test_ranked_model_is_positive_when_the_condition_is_in_its_top_k(input_type):
+    top = ModelAdapter(lambda c: ["Sepsis", "pneumonia"], "ranked", input=input_type, k=1)
+    second = ModelAdapter(lambda c: ["pneumonia", "sepsis"], "ranked", input=input_type, k=1)
+    deeper = ModelAdapter(lambda c: ["pneumonia", "sepsis"], "ranked", input=input_type, k=2)
+    for adapter, flagged in ((top, True), (second, False), (deeper, True)):
+        accuracy = run_7aast(adapter, "sepsis", n=20).axis("accuracy")
+        assert accuracy.metrics["missed_true_cases"] == (0 if flagged else 10)
+        assert accuracy.metrics["false_alarms"] == (10 if flagged else 0)
+
+
+def test_ranked_answers_file(tmp_path):
+    out = export_cases(tmp_path / "c.jsonl", condition="stroke", input_type="record", n=20)
+    with open(out["answers_template"], encoding="utf-8") as fh:
+        ids = [row["case_id"] for row in csv.DictReader(fh)]
+    answers = tmp_path / "a.csv"
+    answers.write_text(
+        "case_id,answer\n" + "".join(f"{i},migraine|stroke\n" for i in ids), encoding="utf-8"
+    )
+    adapter = answers_adapter(answers, "ranked", input="record", k=2)
+    assert run_7aast(adapter, "stroke", n=20).axis("accuracy").metrics["false_alarms"] == 10

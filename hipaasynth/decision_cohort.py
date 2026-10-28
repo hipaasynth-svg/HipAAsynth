@@ -38,6 +38,28 @@ validated epidemiological claim (see docs/CLINICAL_REVIEW_PACKET.md).
 Fabry is not mixed here: its generator already emits below-threshold mimics
 (about 30%) alongside referral-indicated cases.
 
+PULSE OXIMETRY AS MEASURED
+--------------------------
+Pulse oximeters over-read arterial saturation more in patients with darker
+skin, so hypoxaemia is missed more often in Black patients (occult hypoxaemia
+11.7% vs 3.6% in White patients, Sjoding et al., NEJM 2020; larger
+over-estimation in Asian, Black and Hispanic patients, Fawzy et al., JAMA
+Intern Med 2022; FDA draft guidance on pulse oximeters, 2025). Every case
+in a decision cohort shows ``spo2_initial`` as a pulse oximeter would read it:
+the generated saturation becomes ``sao2_reference`` (hidden from the model)
+and the reading adds a per-patient device bias drawn by group
+(:data:`OXIMETER_BIAS`). Recorded race/ethnicity stands in for skin
+pigmentation, the actual cause; the bias sizes are literature-informed
+starting points for clinician review, not calibrated values.
+
+KNOWN GAP
+---------
+The sepsis generator's true cases sit at the hypotensive, septic-shock end of
+the spectrum; normotensive sepsis with other organ dysfunction is not yet
+represented. Mimic blood pressures overlap them so blood pressure alone does
+not separate the groups, but a model that misses normotensive sepsis would
+not be caught here.
+
 Pure standard library. Deterministic for a given seed. Zero PHI.
 """
 
@@ -83,6 +105,17 @@ class Chance:
 
 _Spec = dict[str, Any]
 
+#: Pulse-oximeter bias (SpO2 minus SaO2, percentage points) by recorded
+#: race/ethnicity: (mean, standard deviation). See PULSE OXIMETRY above.
+OXIMETER_BIAS: dict[str, tuple[float, float]] = {
+    "white": (0.3, 1.8),
+    "black": (1.6, 2.4),
+    "hispanic": (1.0, 2.0),
+    "asian": (1.0, 2.0),
+    "native": (1.2, 2.2),
+}
+_OXIMETER_BIAS_OTHER = (0.8, 2.0)
+
 #: Suspected-infection value for a mimic with no infection suspected. A string,
 #: not None, so the field is rendered for mimics exactly as for true cases.
 NO_INFECTION = "none_suspected"
@@ -95,30 +128,49 @@ SEPSIS_MIMICS: dict[str, _Spec] = {
         "temperature_c_initial": (38.0, 39.3, 1),
         "heart_rate_initial": (92, 118, 0),
         "resp_rate_initial": (16, 24, 0),
-        "sbp_initial": (100, 138, 0),
-        "dbp_initial": (62, 84, 0),
+        "sbp_initial": (94, 138, 0),
+        "dbp_initial": (52, 84, 0),
         "spo2_initial": (95, 99, 0),
         "oxygen_device": ["simple_face_mask", "nasal_cannula"],
         "fio2_percent": (24, 32, 0),
         "lactate_initial": (0.8, 2.2, 2),
-        "wbc_initial": (8.5, 14.5, 2),
+        "wbc_initial": (8.5, 17.0, 2),
         "creatinine_initial": (0.7, 1.2, 2),
         "glucose_initial": (85, 140, 2),
         "urine_output_ml_hr": (50, 90, 1),
         "suspected_infection_source": ["pneumonia", "pneumonia", "other"],
         "altered_mental_status_only_flag": Chance(0.0),
     },
+    "localised_infection": {
+        # Cellulitis, cystitis, uncomplicated intra-abdominal infection: infection
+        # without organ dysfunction, the commonest sepsis false alarm.
+        "temperature_c_initial": (37.6, 39.0, 1),
+        "heart_rate_initial": (86, 112, 0),
+        "resp_rate_initial": (16, 22, 0),
+        "sbp_initial": (104, 146, 0),
+        "dbp_initial": (58, 88, 0),
+        "spo2_initial": (95, 99, 0),
+        "oxygen_device": ["nasal_cannula", "simple_face_mask"],
+        "fio2_percent": (24, 30, 0),
+        "lactate_initial": (0.8, 2.0, 2),
+        "wbc_initial": (10.0, 17.5, 2),
+        "creatinine_initial": (0.7, 1.3, 2),
+        "glucose_initial": (90, 170, 2),
+        "urine_output_ml_hr": (45, 90, 1),
+        "suspected_infection_source": ["skin_soft_tissue", "uti", "intra_abdominal", "pneumonia"],
+        "altered_mental_status_only_flag": Chance(0.03),
+    },
     "volume_depletion": {
         "temperature_c_initial": (36.6, 37.9, 1),
         "heart_rate_initial": (100, 126, 0),
         "resp_rate_initial": (16, 22, 0),
-        "sbp_initial": (92, 112, 0),
-        "dbp_initial": (55, 72, 0),
+        "sbp_initial": (76, 110, 0),
+        "dbp_initial": (40, 66, 0),
         "spo2_initial": (96, 99, 0),
         "oxygen_device": ["nasal_cannula", "simple_face_mask"],
         "fio2_percent": (24, 30, 0),
         "lactate_initial": (1.4, 2.6, 2),
-        "wbc_initial": (7.0, 12.5, 2),
+        "wbc_initial": (8.0, 16.5, 2),
         "creatinine_initial": (1.2, 1.9, 2),
         "glucose_initial": (80, 130, 2),
         "urine_output_ml_hr": (15, 35, 1),
@@ -129,13 +181,13 @@ SEPSIS_MIMICS: dict[str, _Spec] = {
         "temperature_c_initial": (36.8, 38.1, 1),
         "heart_rate_initial": (104, 132, 0),
         "resp_rate_initial": (22, 30, 0),
-        "sbp_initial": (98, 132, 0),
-        "dbp_initial": (58, 80, 0),
+        "sbp_initial": (82, 132, 0),
+        "dbp_initial": (44, 80, 0),
         "spo2_initial": (87, 94, 0),
         "oxygen_device": ["nasal_cannula", "simple_face_mask", "non_rebreather_mask"],
         "fio2_percent": (28, 60, 0),
         "lactate_initial": (1.1, 2.6, 2),
-        "wbc_initial": (7.0, 12.0, 2),
+        "wbc_initial": (8.0, 15.5, 2),
         "creatinine_initial": (0.8, 1.3, 2),
         "glucose_initial": (90, 150, 2),
         "urine_output_ml_hr": (40, 80, 1),
@@ -146,8 +198,8 @@ SEPSIS_MIMICS: dict[str, _Spec] = {
         "temperature_c_initial": (36.4, 37.4, 1),
         "heart_rate_initial": (84, 108, 0),
         "resp_rate_initial": (18, 24, 0),
-        "sbp_initial": (108, 140, 0),
-        "dbp_initial": (62, 86, 0),
+        "sbp_initial": (84, 140, 0),
+        "dbp_initial": (45, 86, 0),
         "spo2_initial": (95, 99, 0),
         "oxygen_device": ["nasal_cannula", "simple_face_mask"],
         "fio2_percent": (24, 30, 0),
@@ -164,11 +216,12 @@ SEPSIS_MIMICS: dict[str, _Spec] = {
 #: Stroke mimics: focal deficits from something other than a stroke.
 STROKE_MIMICS: dict[str, _Spec] = {
     "hypoglycaemia": {
-        "nihss_score": (2, 9, 0),
+        "nihss_score": (2, 17, 0),
         "glucose_admission": (28, 52, 2),
-        "sbp_admission": (110, 160, 0),
-        "dbp_admission": (64, 92, 0),
+        "sbp_admission": (118, 185, 0),
+        "dbp_admission": (64, 100, 0),
         "onset_to_door_minutes": (30, 240, 0),
+        "prior_stroke": Chance(0.12),
         "seizure_at_onset": Chance(0.05),
         "migraine_history": Chance(0.1),
         "forehead_weakness": Chance(0.0),
@@ -176,19 +229,21 @@ STROKE_MIMICS: dict[str, _Spec] = {
     "migraine_with_aura": {
         "nihss_score": (1, 3, 0),
         "glucose_admission": (80, 130, 2),
-        "sbp_admission": (110, 150, 0),
-        "dbp_admission": (64, 90, 0),
+        "sbp_admission": (115, 168, 0),
+        "dbp_admission": (64, 96, 0),
         "onset_to_door_minutes": (40, 300, 0),
+        "prior_stroke": Chance(0.04),
         "seizure_at_onset": Chance(0.0),
         "migraine_history": Chance(0.85),
         "forehead_weakness": Chance(0.0),
     },
     "seizure_postictal": {
-        "nihss_score": (2, 7, 0),
+        "nihss_score": (2, 14, 0),
         "glucose_admission": (80, 150, 2),
-        "sbp_admission": (120, 170, 0),
-        "dbp_admission": (70, 96, 0),
+        "sbp_admission": (125, 195, 0),
+        "dbp_admission": (70, 104, 0),
         "onset_to_door_minutes": (30, 200, 0),
+        "prior_stroke": Chance(0.3),
         "seizure_at_onset": Chance(0.9),
         "migraine_history": Chance(0.1),
         "forehead_weakness": Chance(0.0),
@@ -196,9 +251,10 @@ STROKE_MIMICS: dict[str, _Spec] = {
     "bells_palsy": {
         "nihss_score": (1, 2, 0),
         "glucose_admission": (80, 130, 2),
-        "sbp_admission": (110, 150, 0),
-        "dbp_admission": (64, 90, 0),
+        "sbp_admission": (115, 170, 0),
+        "dbp_admission": (64, 98, 0),
         "onset_to_door_minutes": (120, 900, 0),
+        "prior_stroke": Chance(0.08),
         "seizure_at_onset": Chance(0.0),
         "migraine_history": Chance(0.1),
         "forehead_weakness": Chance(0.95),
@@ -342,6 +398,24 @@ def _mimic_observations(
     return obs
 
 
+def as_measured(patient: Patient) -> Patient:
+    """``patient`` with ``spo2_initial`` as a pulse oximeter would read it.
+
+    The generated value moves to ``sao2_reference``. A patient without an SpO2
+    observation is returned unchanged. Deterministic per patient.
+    """
+    obs = patient.observations or {}
+    if obs.get("spo2_initial") is None:
+        return patient
+    mean, sd = OXIMETER_BIAS.get(str(patient.demographics.ethnicity).lower(), _OXIMETER_BIAS_OTHER)
+    rng = random.Random(stable_seed_from_id(patient.demographics.patient_id, salt=0x02))
+    sao2 = obs["spo2_initial"]
+    reading = round(min(100.0, max(70.0, sao2 + rng.gauss(mean, sd))))
+    return dataclasses.replace(
+        patient, observations={**obs, "sao2_reference": sao2, "spo2_initial": reading}
+    )
+
+
 def _with_stroke_discriminators(patient: Patient, rng: random.Random) -> Patient:
     obs = dict(patient.observations or {})
     for key, prior in STROKE_DISCRIMINATOR_PRIORS.items():
@@ -442,5 +516,6 @@ def build_decision_cohort(
                     obs.setdefault(key, False)
             cases.append(CohortCase(dataclasses.replace(base, observations=obs), False, name))
 
+    cases = [dataclasses.replace(c, patient=as_measured(c.patient)) for c in cases]
     random.Random(seed ^ 0x7AA57).shuffle(cases)
     return cases
