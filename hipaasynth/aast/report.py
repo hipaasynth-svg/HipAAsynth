@@ -64,7 +64,15 @@ FORMAT = "hipaasynth-7aast-report/1"
 STAGES = ("population", "method", "results", "report")
 
 #: Settings that decide which patients are generated (the rest go in ``method``).
-_POPULATION_SETTINGS = ("condition", "n", "seed", "prevalence", "profile", "information_mode")
+_POPULATION_SETTINGS = (
+    "condition",
+    "n",
+    "seed",
+    "prevalence",
+    "profile",
+    "information_mode",
+    "balanced_groups",
+)
 
 #: Plain-English description of each check, for the HTML report.
 AXIS_QUESTIONS: dict[str, str] = {
@@ -315,7 +323,7 @@ def verify(doc: dict[str, Any], *, regenerate: bool = False) -> Verification:
 def _regenerate_check(population: dict[str, Any]) -> Check:
     from hipaasynth.aast.cases import case_id, present
     from hipaasynth.core.config import ENGINE_VERSION
-    from hipaasynth.decision_cohort import build_decision_cohort
+    from hipaasynth.decision_cohort import BALANCED_ETHNICITY_WEIGHTS, build_decision_cohort
     from hipaasynth.sdk import _resolve_profile
 
     name = "cohort rebuilt from settings"
@@ -334,6 +342,9 @@ def _regenerate_check(population: dict[str, Any]) -> Check:
             seed=population["seed"],
             prevalence=population["prevalence"],
             population_profile_path=_resolve_profile(profile) if profile else None,
+            ethnicity_weights=(
+                BALANCED_ETHNICITY_WEIGHTS if population.get("balanced_groups") else None
+            ),
         )
         rebuilt = [
             {

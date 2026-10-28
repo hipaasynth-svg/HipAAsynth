@@ -82,14 +82,25 @@ def _rule(condition: str, m: dict[str, Any]) -> bool | None:
             and not (_yes(m.get("History of migraine")) and nihss <= 3)
         )
     if condition == "dka":
+        # ADA 2024 hyperglycaemic-crises consensus: D (glucose >= 200 mg/dL or known
+        # diabetes), K (beta-hydroxybutyrate >= 3 mmol/L or urine ketones), A (pH < 7.3
+        # or bicarbonate < 18). A first presentation of type 1 diabetes has no
+        # known history, so the history is never required.
         ph, hco3 = _f(m.get("pH")), _f(m.get("HCO3"))
         bohb, glucose = _f(m.get("Beta-hydroxybutyrate")), _f(m.get("Glucose"))
-        diabetic = str(m.get("Diabetes type", "")).lower() in ("type1", "type2")
+        urine_ketones = _yes(m.get("Urine ketones"))
         if hco3 is None and ph is None and glucose is None:
             return None
-        if ph is not None or bohb is not None:
-            return bool(diabetic and (ph or 7.4) < 7.30 and (hco3 or 24) < 18 and (bohb or 0) >= 3)
-        return bool(diabetic and (hco3 or 24) < 18 and (glucose or 0) >= 250)
+        diabetes = (glucose or 0) >= 200 or str(m.get("Diabetes type", "")).lower() in (
+            "type1",
+            "type2",
+        )
+        ketones = (bohb or 0) >= 3 or urine_ketones
+        if ph is None and hco3 is None and bohb is None:
+            # Bedside only (glucose meter and urine dipstick): flag probable DKA.
+            return bool((glucose or 0) >= 250 and urine_ketones)
+        acidosis = (ph is not None and ph < 7.30) or (hco3 is not None and hco3 < 18)
+        return bool(diabetes and ketones and acidosis)
     if condition == "fabry":
         findings = m.get("Findings")
         if findings is None:
@@ -165,7 +176,7 @@ _RECORD_LABELS = {
     "migraine_history": "History of migraine",
     "forehead_weakness": "Forehead weakness on the affected side", "arterial_ph": "pH",
     "bicarbonate_meq_l": "HCO3", "beta_hydroxybutyrate_mmol_l": "Beta-hydroxybutyrate",
-    "glucose_mg_dl": "Glucose", "diabetes_type": "Diabetes type",
+    "glucose_mg_dl": "Glucose", "diabetes_type": "Diabetes type", "ketonuria": "Urine ketones",
 }  # fmt: skip
 
 _FABRY_KEYS = (
