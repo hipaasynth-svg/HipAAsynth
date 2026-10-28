@@ -208,6 +208,10 @@ def main(argv=None):
         from hipaasynth.aast.cli import main as aast_main
 
         return aast_main(argv[1:])
+    if argv[:1] == ["ui"]:
+        from hipaasynth.api import ui_main
+
+        return ui_main(argv[1:])
     parser = build_parser()
     args = parser.parse_args(argv)
     module, profile_path = _resolve_scenario_args(args, parser)

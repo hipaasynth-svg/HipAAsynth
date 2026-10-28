@@ -36,6 +36,9 @@ Endpoints
 ``POST /generate``    → generate a cohort using a JSON (or form-encoded) body
 ``GET  /viz/demographics`` → SVG of a cohort's age/sex/ethnicity distribution
 ``GET  /viz/fairness``     → SVG fairness heatmap from a demo DIF audit (mock model)
+``GET  /7aast``       → the 7AAST stress-test page (run, read and save a report)
+``POST /7aast``       → run 7AAST with a demo model or an uploaded answers file
+``POST /7aast/export`` → the cases to run through a model, plus an answers template
 
 The web UI is a single static ``ui/index.html`` (kept as a real file — not a
 Python string — so it stays editable, lintable and Playwright-testable) served
@@ -112,6 +115,8 @@ DEFAULT_MAX_COUNT = 10_000
 # and allocate/read toward it: a forged huge value (e.g. 999999999999) would
 # otherwise MemoryError the handling thread.
 MAX_BODY_BYTES = 1_000_000
+#: The 7AAST routes take a whole answers file (free-text answers can be long).
+AAST_MAX_BODY_BYTES = 20_000_000
 _PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
 _UI_DIR = Path(__file__).resolve().parent / "ui"
 
@@ -305,6 +310,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         "/generate": {"GET", "POST"},
         "/viz/demographics": {"GET"},
         "/viz/fairness": {"GET"},
+        "/7aast": {"GET", "POST"},
+        "/7aast/export": {"POST"},
     }
 
     # Query/body parameters each route understands. Anything else is rejected,
@@ -352,9 +359,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     def _send_api_error(self, err: ApiError):
         self._send_json(err.status, {"error": err.message, "status": err.status})
 
-    def _send_ui(self):
-        """Serve the bundled static web UI (``ui/index.html``)."""
-        index = _UI_DIR / "index.html"
+    def _send_ui(self, page: str = "index.html"):
+        """Serve a bundled static web UI page (``ui/index.html`` by default)."""
+        index = _UI_DIR / page
         try:
             body = index.read_bytes()
         except OSError:  # pragma: no cover - the file ships with the package
@@ -362,7 +369,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
                 500, {"error": "web UI asset missing", "status": 500})
         self._send_bytes(200, "text/html; charset=utf-8", body)
 
-    def _read_body(self, declared_length: int) -> bytes:
+    def _read_body(self, declared_length: int, limit: int = MAX_BODY_BYTES) -> bytes:
         """Read the request body in bounded chunks, never exceeding
         ``MAX_BODY_BYTES``.
 
@@ -373,7 +380,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         can never make us allocate or read past the cap. Callers must already have
         rejected ``declared_length > MAX_BODY_BYTES`` with a 413.
         """
-        remaining = min(max(declared_length, 0), MAX_BODY_BYTES)
+        remaining = min(max(declared_length, 0), limit)
         chunk_size = 65_536
         chunks = []
         while remaining > 0:
@@ -416,6 +423,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             return
         if route == "/":
             return self._send_ui()
+        if route == "/7aast":
+            return self._send_ui("7aast.html")
         if route == "/health":
             return self._send_json(200, {"status": "ok", "engine_version": ENGINE_VERSION})
         if route == "/formats":
@@ -442,7 +451,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         route, parsed = self._route()
         if self._method_guard(route, "POST"):
             return
-        # /generate is the only POST route.
+        limit = AAST_MAX_BODY_BYTES if route.startswith("/7aast") else MAX_BODY_BYTES
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -451,13 +460,16 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             return self._send_api_error(ApiError(400, "invalid Content-Length"))
         # Reject an oversized (or forged) Content-Length BEFORE reading/allocating
         # toward it — a huge value must not be trusted into self.rfile.read().
-        if length > MAX_BODY_BYTES:
+        if length > limit:
             return self._send_api_error(ApiError(
                 413,
                 f"request body too large: {length} bytes exceeds the "
-                f"{MAX_BODY_BYTES}-byte limit",
+                f"{limit}-byte limit",
             ))
-        raw = self._read_body(length)
+        raw = self._read_body(length, limit)
+        if route.startswith("/7aast"):
+            return self._handle_7aast(route, raw)
+        # /generate is the only other POST route.
         body_params: dict = {}
         if raw:
             ctype = self.headers.get("Content-Type", "")
@@ -573,6 +585,31 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             return self._send_json(500, {"error": f"viz failed: {err}", "status": 500})
         self._send_svg(svg)
 
+    def _handle_7aast(self, route: str, raw: bytes):
+        """``POST /7aast`` (run) and ``POST /7aast/export`` (cases to answer).
+
+        JSON only. Runs built-in demo models or replays an uploaded answers file;
+        never calls out to a model or loads code (see hipaasynth/aast/web.py).
+        """
+        from hipaasynth.aast.files import AnswerFileError
+        from hipaasynth.aast.web import RequestError, export_request, run_request
+
+        if "application/json" not in self.headers.get("Content-Type", ""):
+            return self._send_api_error(ApiError(415, "send a JSON object (application/json)"))
+        try:
+            params = json.loads(raw.decode("utf-8")) if raw else {}
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return self._send_api_error(ApiError(400, "invalid JSON body"))
+        if not isinstance(params, dict):
+            return self._send_api_error(ApiError(400, "JSON body must be an object"))
+        try:
+            result = (run_request if route == "/7aast" else export_request)(params)
+        except (RequestError, AnswerFileError) as err:
+            return self._send_api_error(ApiError(400, str(err)))
+        except Exception as err:  # pragma: no cover - defensive 500
+            return self._send_json(500, {"error": f"7AAST failed: {err}", "status": 500})
+        self._send_json(200, result)
+
     def _stream_ndjson(self, patients):
         """Stream FHIR NDJSON with HTTP chunked transfer (never buffers the whole
         cohort in memory) — the streaming answer for large-cohort responses."""
@@ -614,10 +651,45 @@ def main(argv=None) -> int:
     print(f"  Web UI: http://{host}:{port}/")
     print("  GET / | GET /health | GET /formats | GET /scenarios | GET|POST /generate")
     print("  GET /viz/demographics | GET /viz/fairness")
+    print("  GET /7aast (stress-test page) | POST /7aast | POST /7aast/export")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nshutting down…")
+    finally:
+        server.server_close()
+    return 0
+
+
+def ui_main(argv=None, *, open_browser=None) -> int:
+    """``hipaasynth ui``: start the server on this computer and open the 7AAST page.
+
+    Binds to 127.0.0.1 only, so nothing outside this computer can reach it. If
+    the port is taken, any free port is used.
+    """
+    import webbrowser
+
+    parser = argparse.ArgumentParser(
+        prog="hipaasynth ui",
+        description="Open the HipAAsynth tools in your browser (runs on this computer only).",
+    )
+    parser.add_argument("--port", type=int, default=8765, help="Port (default %(default)s).")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="Print the address instead of opening a browser.")
+    args = parser.parse_args(argv)
+    try:
+        server = make_server("127.0.0.1", args.port)
+    except OSError:
+        server = make_server("127.0.0.1", 0)
+    url = f"http://127.0.0.1:{server.server_address[1]}/7aast"
+    print(f"HipAAsynth is running at {url}")
+    print("  It runs on this computer only. Press Ctrl-C to stop.")
+    if not args.no_browser:
+        (open_browser or webbrowser.open)(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nstopped.")
     finally:
         server.server_close()
     return 0
