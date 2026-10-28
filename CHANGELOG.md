@@ -99,7 +99,8 @@ on mixed, blinded cohorts with interval-based verdicts. Guide:
   INCONCLUSIVE (#131).
 - The guideline DKA demo follows the ADA 2024 consensus and flags new-onset DKA
   and bedside-only presentations; `hipaasynth 7aast` usage errors exit 1, not
-  the FAIL code 2 (#131).
+  the FAIL code 2; cohorts with no true cases or no look-alikes are refused; a
+  report says when written-form differences include re-run noise (#131).
 
 ## [1.4.0] — 2026-07-30
 
