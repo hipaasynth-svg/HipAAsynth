@@ -43,7 +43,9 @@ def test_no_single_number_separates_cases_from_mimics(blinded):
     keys = {k for _, obs in rows for k in obs}
     for key in sorted(keys):
         values = [(t, obs.get(key)) for t, obs in rows]
-        nums = [(t, v) for t, v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        nums = [
+            (t, v) for t, v in values if isinstance(v, (int, float)) and not isinstance(v, bool)
+        ]
         if len(nums) < 0.8 * len(values):
             continue
         pos = [v for t, v in nums if t]

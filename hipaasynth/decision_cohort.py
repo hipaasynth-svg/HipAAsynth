@@ -407,12 +407,10 @@ def as_measured(patient: Patient) -> Patient:
     obs = patient.observations or {}
     if obs.get("spo2_initial") is None:
         return patient
-    mean, sd = OXIMETER_BIAS.get(
-        str(patient.demographics.ethnicity).lower(), _OXIMETER_BIAS_OTHER
-    )
+    mean, sd = OXIMETER_BIAS.get(str(patient.demographics.ethnicity).lower(), _OXIMETER_BIAS_OTHER)
     rng = random.Random(stable_seed_from_id(patient.demographics.patient_id, salt=0x02))
     sao2 = obs["spo2_initial"]
-    reading = int(round(min(100.0, max(70.0, sao2 + rng.gauss(mean, sd)))))
+    reading = round(min(100.0, max(70.0, sao2 + rng.gauss(mean, sd))))
     return dataclasses.replace(
         patient, observations={**obs, "sao2_reference": sao2, "spo2_initial": reading}
     )
