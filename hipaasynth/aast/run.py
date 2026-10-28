@@ -335,6 +335,12 @@ def run_7aast(
             "Each race/ethnicity group is equally represented so every group can be judged; "
             "overall accuracy reflects that mix, not a real population."
         )
+    noise = next((a.metrics.get("noise_floor") for a in axes if a.axis == "5"), None)
+    if noise and not noise["deterministic"] and noise.get("rate"):
+        limitations.append(
+            f"The model changed its answer on {noise['rate']['estimate']:.0%} of re-runs of an "
+            "identical case; differences between written forms (Axes 1-4) include this noise."
+        )
     if condition == "sepsis":
         limitations += [
             (

@@ -437,3 +437,13 @@ def test_cli_usage_error_is_exit_1_not_the_fail_code(capsys):
 def test_degenerate_cohorts_are_refused(kwargs, message):
     with pytest.raises(ValueError, match=message):
         run_7aast(_const(True), "sepsis", **kwargs)
+
+
+def test_report_says_when_form_differences_include_rerun_noise():
+    calls = iter(range(10**6))
+    # Alternates on every call, so two calls on the same case always disagree.
+    noisy = ModelAdapter(lambda c: next(calls) % 2 == 0, "binary", input="text", name="flip")
+    report = run_7aast(noisy, "sepsis", n=20, noise_cases=10)
+    assert any("re-runs of an identical case" in note for note in report.limitations)
+    steady = run_7aast(_const(True, "text"), "sepsis", n=20, noise_cases=10)
+    assert not any("re-runs" in note for note in steady.limitations)
