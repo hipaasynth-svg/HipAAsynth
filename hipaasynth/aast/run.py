@@ -103,6 +103,11 @@ SAF_THRESHOLD = 0.20
 RETENTION_THRESHOLD = 0.80
 
 #: Report row order.
+#: Smallest cohort and share of true cases a run accepts: a cohort needs both
+#: true cases (to measure misses) and look-alikes (to measure false alarms).
+MIN_N = 10
+PREVALENCE_RANGE = (0.05, 0.95)
+
 AXIS_ORDER = ("accuracy", "1", "2", "2b", "3", "4", "5", "6", "7")
 
 #: The form used for demographic twins: it is the one that states ethnicity.
@@ -254,6 +259,19 @@ def run_7aast(
                      profile always keeps its own population mix.
     """
     from hipaasynth.sdk import _resolve_profile
+
+    if isinstance(n, bool) or not isinstance(n, int) or n < MIN_N:
+        raise ValueError(f"n must be a whole number of at least {MIN_N}, got {n!r}")
+    if not PREVALENCE_RANGE[0] <= prevalence <= PREVALENCE_RANGE[1]:
+        raise ValueError(
+            f"prevalence must be between {PREVALENCE_RANGE[0]} and {PREVALENCE_RANGE[1]} so the "
+            f"cohort has both true cases and look-alikes, got {prevalence!r}"
+        )
+    if condition != "fabry" and not 1 <= round(n * prevalence) <= n - 1:
+        raise ValueError(
+            f"n={n} at prevalence {prevalence} leaves no true cases or no look-alikes; "
+            "use more patients"
+        )
 
     profile_path = _resolve_profile(profile) if profile else None
     balanced = balance_groups and profile is None

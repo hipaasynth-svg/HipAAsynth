@@ -423,3 +423,17 @@ def test_cli_usage_error_is_exit_1_not_the_fail_code(capsys):
     assert aast_main(["run", "--condition", "flu", "--input", "text", "--demo", "demo_biased"]) == 1
     assert aast_main(["--help"]) == 0
     capsys.readouterr()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"n": 5}, "at least 10"),
+        ({"n": 20, "prevalence": 1.0}, "both true cases and look-alikes"),
+        ({"n": 20, "prevalence": 0.0}, "both true cases and look-alikes"),
+        ({"n": 10, "prevalence": 0.05}, "no true cases or no look-alikes"),
+    ],
+)
+def test_degenerate_cohorts_are_refused(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        run_7aast(_const(True), "sepsis", **kwargs)
