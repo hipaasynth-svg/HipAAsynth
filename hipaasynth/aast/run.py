@@ -261,6 +261,12 @@ def run_7aast(
         return inner(case)
 
     model.fn = counted
+    if model.output == "ranked":
+        # A ranked model is positive when the condition itself is in its top k.
+        def respond_ranked(case: Any, *, target: str | None = None) -> ModelResponse:
+            return ModelAdapter.respond(model, case, target=target or condition)
+
+        model.respond = respond_ranked  # type: ignore[method-assign]
     input_type = adapter.input
 
     def ask(patient: Any, form: Form | str = CANONICAL_FORM) -> ModelResponse:
