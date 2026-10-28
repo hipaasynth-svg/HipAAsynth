@@ -177,7 +177,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exit_:
+        # argparse exits 2 on a usage error; 2 means "a check failed" here, so a
+        # typo in a pipeline must not read as a failed model.
+        return 1 if exit_.code == 2 else int(exit_.code or 0)
     try:
         if args.command == "verify":
             result = verify(load_document(args.report), regenerate=args.regenerate)

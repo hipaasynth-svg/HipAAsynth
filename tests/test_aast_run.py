@@ -381,3 +381,45 @@ def test_ranked_answers_file(tmp_path):
     )
     adapter = answers_adapter(answers, "ranked", input="record", k=2)
     assert run_7aast(adapter, "stroke", n=20).axis("accuracy").metrics["false_alarms"] == 10
+
+
+def test_cohort_is_balanced_by_group_unless_a_profile_is_chosen():
+    from collections import Counter
+
+    report = run_7aast(_const(True), "sepsis", n=200)
+    assert report.settings["balanced_groups"] is True
+    assert any("equally represented" in note for note in report.limitations)
+    cohort = build_decision_cohort(
+        "sepsis", 200, seed=42, ethnicity_weights={k: 0.2 for k in
+                                                   ("white", "black", "hispanic", "asian", "native")}
+    )  # fmt: skip
+    true_by_group = Counter(c.patient.demographics.ethnicity for c in cohort if c.truth)
+    assert set(true_by_group) == {"white", "black", "hispanic", "asian", "native"}
+    assert min(true_by_group.values()) >= 10  # every group gets its own verdict
+
+    profiled = run_7aast(_const(True), "sepsis", n=40, profile="nd_tribal_region_a")
+    assert profiled.settings["balanced_groups"] is False
+
+
+def test_guideline_demo_can_pass_and_biased_demo_fails():
+    good = run_7aast(demo_adapter("demo_guideline", "dka", "record"), "dka", n=200, demo=True)
+    bad = run_7aast(demo_adapter("demo_biased", "dka", "record"), "dka", n=400, demo=True)
+    assert good.overall == PASS
+    assert bad.overall == FAIL
+
+
+def test_dka_demo_flags_first_presentation_without_known_diabetes():
+    from hipaasynth.aast.demo import _rule
+
+    new_onset = {"Glucose": "480", "pH": "7.12", "HCO3": "9", "Beta-hydroxybutyrate": "5.1"}
+    assert _rule("dka", new_onset) is True
+    assert _rule("dka", {"Glucose": "380", "Urine ketones": "Yes"}) is True  # bedside only
+    assert (
+        _rule("dka", {"Glucose": "90", "pH": "7.2", "HCO3": "12", "Urine ketones": "Yes"}) is False
+    )
+
+
+def test_cli_usage_error_is_exit_1_not_the_fail_code(capsys):
+    assert aast_main(["run", "--condition", "flu", "--input", "text", "--demo", "demo_biased"]) == 1
+    assert aast_main(["--help"]) == 0
+    capsys.readouterr()

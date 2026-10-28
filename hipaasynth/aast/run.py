@@ -83,7 +83,11 @@ from hipaasynth.aast.stats import (
     verdict,
 )
 from hipaasynth.core.config import ENGINE_VERSION, GenerationConfig
-from hipaasynth.decision_cohort import CohortCase, build_decision_cohort
+from hipaasynth.decision_cohort import (
+    BALANCED_ETHNICITY_WEIGHTS,
+    CohortCase,
+    build_decision_cohort,
+)
 from hipaasynth.dif.framework import DIFConfig, run_audit
 from hipaasynth.dif.model_interface import DecisionResult
 from hipaasynth.polymorphic.forms import INFO_MODE_BLINDED, Form
@@ -228,6 +232,7 @@ def run_7aast(
     repeats: int = 5,
     min_events: int = DEFAULT_MIN_EVENTS,
     demo: bool = False,
+    balance_groups: bool = True,
 ) -> AASTReport:
     """Run every 7AAST axis that applies to ``adapter`` on one decision cohort.
 
@@ -244,12 +249,21 @@ def run_7aast(
         repeats:     Calls per case for a non-deterministic model.
         min_events:  Fewest true cases in a group before it gets a verdict.
         demo:        Label the report DEMO (built-in demo models).
+        balance_groups: With no ``profile``, represent every race/ethnicity group
+                     equally so each can be judged (an enriched design). A
+                     profile always keeps its own population mix.
     """
     from hipaasynth.sdk import _resolve_profile
 
     profile_path = _resolve_profile(profile) if profile else None
+    balanced = balance_groups and profile is None
     cohort = build_decision_cohort(
-        condition, n, seed=seed, prevalence=prevalence, population_profile_path=profile_path
+        condition,
+        n,
+        seed=seed,
+        prevalence=prevalence,
+        population_profile_path=profile_path,
+        ethnicity_weights=BALANCED_ETHNICITY_WEIGHTS if balanced else None,
     )
 
     calls = {"n": 0}
@@ -298,6 +312,11 @@ def run_7aast(
         ),
         "Clinical mimic presentations are textbook ranges pending clinician review.",
     ]
+    if balanced:
+        limitations.append(
+            "Each race/ethnicity group is equally represented so every group can be judged; "
+            "overall accuracy reflects that mix, not a real population."
+        )
     if condition == "sepsis":
         limitations += [
             (
@@ -321,6 +340,7 @@ def run_7aast(
             "profile": profile,
             "deployment_prevalence": deployment_prevalence,
             "information_mode": INFO_MODE_BLINDED,
+            "balanced_groups": balanced,
             "true_cases": sum(c.truth for c in cohort),
             "noise_cases": noise_cases,
             "repeats": repeats,
