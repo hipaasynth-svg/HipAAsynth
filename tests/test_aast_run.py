@@ -102,8 +102,12 @@ def test_group_axis_catches_a_race_biased_record_model():
     report = run_7aast(demo_adapter("demo_biased", "stroke", "record"), "stroke", n=400)
     groups = report.axis("2").metrics["groups"]
     assert report.axis("2").status == FAIL
-    assert groups["ethnicity=black"]["status"] == FAIL
-    assert groups["ethnicity=black"]["miss_rate"] > 0.3
+    assert "ethnicity=black" in report.axis("2").summary or "ethnicity=native" in (
+        report.axis("2").summary
+    )
+    for group in ("ethnicity=black", "ethnicity=native"):  # the groups the demo is biased against
+        assert groups[group]["miss_rate"] > 0.3
+        assert groups[group]["gap_vs_rest"]["estimate"] > 0.15
 
 
 def test_setting_axis_fails_a_lactate_dependent_model():
