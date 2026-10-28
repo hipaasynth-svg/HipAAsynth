@@ -372,7 +372,8 @@ main{max-width:960px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:1.6rem;margin:.2em 0}h2{font-size:1.15rem;margin:1.8em 0 .5em}
 .muted{color:var(--muted)}.demo{background:var(--fail);color:#fff;font-weight:700;
 padding:10px 16px;text-align:center;letter-spacing:.04em}
-.overall{display:flex;gap:16px;align-items:center;background:var(--card);
+.overall>div{flex:1 1 240px}
+.overall{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;background:var(--card);
 border:1px solid var(--line);border-radius:8px;padding:16px;margin:16px 0}
 .badge{display:inline-block;font-weight:700;font-size:.8rem;padding:2px 8px;border-radius:12px;
 color:#fff;white-space:nowrap}
