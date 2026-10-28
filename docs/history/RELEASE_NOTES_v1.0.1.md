@@ -42,5 +42,5 @@ Fresh installs simply get a repository that clones and runs cleanly.
 
 ---
 
-**Full changelog:** see [CHANGELOG.md](CHANGELOG.md).
+**Full changelog:** see [CHANGELOG.md](../../CHANGELOG.md).
 **Contact:** HipAAsynth LLC — Minot, North Dakota · [hipaasynth.com](https://hipaasynth.com) · cody@hipaasynth.com

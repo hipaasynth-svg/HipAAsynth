@@ -92,7 +92,7 @@ HipAAsynth is dual-licensed:
 - **AGPL-3.0** for the public, open-source engine and all core modules.
 - **Commercial license** available for organizations embedding the engine in
   proprietary products that cannot meet the AGPL v3 source-disclosure
-  obligations. See [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
+  obligations. See [COMMERCIAL-LICENSE.md](../../COMMERCIAL-LICENSE.md).
 
 ## Breaking Changes
 
@@ -100,6 +100,6 @@ None — this is the first stable release.
 
 ---
 
-**Full changelog:** see [CHANGELOG.md](CHANGELOG.md).
+**Full changelog:** see [CHANGELOG.md](../../CHANGELOG.md).
 **Contact:** HipAAsynth LLC — Minot, North Dakota · [hipaasynth.com](https://hipaasynth.com) · cody@hipaasynth.com
 </content>

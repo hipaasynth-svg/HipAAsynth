@@ -7,8 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-10-28
+
+7AAST becomes one test you can run. Earlier releases shipped the seven axes as
+separate engines, every 7AAST cohort was 100% positive, and the answer was
+written into the case, so a model that said "yes" to everyone passed. This
+release fixes the 15 defects an October 2026 audit found and rebuilds 7AAST
+on mixed, blinded cohorts with interval-based verdicts. Guide:
+[docs/7AAST.md](docs/7AAST.md).
+
 ### Added
 
+- `hipaasynth ui`: opens the 7AAST page on this computer (127.0.0.1 only). Try a
+  demo model or test a model by file, read the report, save it (#128).
+- `hipaasynth 7aast run | export | verify` and `POST /7aast`,
+  `POST /7aast/export` (#126, #127, #128). `run` exits 2 when a check fails.
+- `run_7aast()`: every applicable check against one model in one call: the
+  accuracy floor, Axes 1–4, the group miss-rate gap, Axis 5 counterfactual twins
+  against a noise floor and a control edit, Axis 6 care settings with missing
+  tests, Axis 7 fragmented history (#126).
+- `ModelAdapter`: one way to plug in models that answer yes/no, a score with a
+  deployed threshold, an ordinal level, a ranked list or free text (#122).
+- Exact (Clopper-Pearson) and bootstrap intervals, PASS / FAIL / INCONCLUSIVE
+  verdicts and a model re-run noise floor (#123).
+- Blinded decision-time mode for forms, records and Axis 5 prompts: the answer,
+  later events and generator bookkeeping are hidden (#124).
+- Decision cohorts: true cases mixed with clinical look-alikes with identical
+  fields, so false alarms are measured (#125).
+- Test by file: export the cases, run them anywhere, replay the answers (#126).
+- Report as JSON or self-contained HTML with a four-stage SHA-256 chain
+  (population, method, results, report) and `verify --regenerate` (#127).
+- Pulse oximetry as measured in decision cohorts, with the documented
+  over-reading in darker skin (#129).
+- [docs/CLINICAL_REVIEW_PACKET.md](docs/CLINICAL_REVIEW_PACKET.md) for clinician
+  sign-off and [docs/HISTORY.md](docs/HISTORY.md); older root reports moved to
+  `docs/history/`.
 - `hipaasynth.dif.write_passport_bundle()` — the readable deliverable for a
   full DIF audit run. `run_audit()` already returned one `FairnessPassport`
   per patient, each with a full `to_markdown()` report, but nothing wrote a
@@ -55,6 +88,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Seismometer adapter infers the module from whole label tokens, so
   `cloud_export` is no longer read as OUD (#119).
 - The web UI no longer scrolls sideways after a run (#120).
+- Decision cohorts no longer leak the answer: oxygen support and the Fabry
+  red-flag count are hidden at decision time, and look-alike blood pressure,
+  white cell count, infection source, prior stroke and NIHSS now overlap true
+  cases (#129).
+- Ranked-list models no longer crash `run_7aast` (#129).
 
 ## [1.4.0] — 2026-07-30
 

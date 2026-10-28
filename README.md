@@ -97,6 +97,39 @@ This is a structural answer to the most important question in third-party auditi
 
 ---
 
+## Stress-test a model: 7AAST
+
+The **7-Axis Adversarial Stress Test** checks whether a clinical AI model catches
+the condition it is meant to catch (sepsis, stroke, DKA, Fabry referral) on
+synthetic patients built to include the people real data leaves out. Half are
+true cases, half are clinical look-alikes, and every case is shown as at the
+moment of decision with the answer hidden. Each check returns PASS, FAIL or
+INCONCLUSIVE from a confidence interval, and the report carries a hash anyone can
+re-check.
+
+```bash
+pip install -e .
+hipaasynth ui                    # opens the 7AAST page in your browser (this computer only)
+```
+
+Try a demo model, or test your own **without any integration**: download the
+cases, run them through your model however you normally do, upload the answers.
+
+```bash
+hipaasynth 7aast run --condition sepsis --input text --demo demo_biased --report report.html
+hipaasynth 7aast export --condition sepsis --input record --out cases.jsonl
+hipaasynth 7aast run --condition sepsis --input record --output score --threshold 6 \
+    --answers cases_answers.csv --report report.html
+hipaasynth 7aast verify report.html --regenerate
+```
+
+Models that answer yes/no, a risk score, a triage level, a ranked differential or
+free text are all supported. **Full guide: [docs/7AAST.md](docs/7AAST.md).** The
+synthetic look-alikes await clinician review
+([docs/CLINICAL_REVIEW_PACKET.md](docs/CLINICAL_REVIEW_PACKET.md)).
+
+---
+
 ## Quick start — no Python required
 
 You do not have to write Python to use the engine. Install it, start the server,
@@ -119,17 +152,19 @@ population distribution charted.
 The UI also renders a **fairness heatmap**. Read the label on it: that panel is a
 *demonstration* audit run against a built-in **mock** model, so you can see what
 the output looks like. It is **not** an audit of any real model — a stateless HTTP
-request has no model under test. To audit your own model, use the Python API
-below.
+request has no model under test. To test your own model, use the 7AAST page
+(`hipaasynth ui`, above) or the Python API below.
 
 ---
 
 ## Every way in
 
-The same engine sits behind all five surfaces. Pick whichever fits.
+The same engine sits behind every surface. Pick whichever fits.
 
 | Surface | For | One-line example |
 |---|---|---|
+| **7AAST page** | Testing a model on a laptop | `hipaasynth ui` |
+| **7AAST CLI** | Model tests in scripts and CI (exit 2 on FAIL) | `hipaasynth 7aast run --condition stroke --input text --demo demo_guideline` |
 | **Web UI** | Non-programmers | `python -m hipaasynth.api` → <http://127.0.0.1:8000> |
 | **CLI** | Scripts, pipelines, air-gapped runs | `hipaasynth --scenario tribal_stroke --count 200 --format csv --out ./out` |
 | **Python SDK** | Notebooks, analysis | `hipaasynth.generate(count=200, seed=42, module="stroke")` |
@@ -310,6 +345,9 @@ For contributors and reviewers:
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting, incident response, data-handling
 - [`COMPLIANCE.md`](COMPLIANCE.md) — HIPAA shared-responsibility matrix and gap list
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup, test commands, PR requirements, code style
+- [`docs/7AAST.md`](docs/7AAST.md) — how to run 7AAST, describe a model, and read and verify a report
+- [`docs/CLINICAL_REVIEW_PACKET.md`](docs/CLINICAL_REVIEW_PACKET.md) — what a clinician reviewer checks and signs off
+- [`docs/HISTORY.md`](docs/HISTORY.md) — how the project got here, core vs extras, and older reports
 
 Contributors: `pip install -e ".[dev]" && pre-commit install` sets up formatting,
 linting, and secret scanning (`.pre-commit-config.yaml`).
@@ -335,6 +373,7 @@ See [Optional extras](#optional-extras) for the full list.
 | CC module (Care Continuity) | Open | AGPL v3 |
 | DIF module (Differential Impact Framework) | Open | AGPL v3 |
 | Polymorphic layer (7 forms + metrics) | Open | AGPL v3 |
+| 7AAST runner, laptop page, report and `verify` (local hash chain) | Open | AGPL v3 |
 | CAP pipeline (Bitcoin-anchored certification) | Closed | Proprietary |
 | FDA-Ready tier logic | Closed | Proprietary |
 | LLM evaluators, clinical harnesses | Closed | BSL 1.1 |
@@ -342,6 +381,11 @@ See [Optional extras](#optional-extras) for the full list.
 For proprietary use without AGPL v3 obligations, see [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md).
 
 The CAP pipeline — cryptographic hash chain, OpenTimestamps Bitcoin anchor, and live verification server — is a separate proprietary service. It provides timestamped provenance for a FairnessPassport; it is not a regulatory certification, and the open engine does not itself certify, attest, or make any regulatory determination. Organizations seeking timestamped provenance for procurement or their own submission packages can use the CAP pipeline via [HipAAsynth.com](https://hipaasynth.com).
+
+The open 7AAST report's hash chain shows that a report has not changed since it
+was made, as long as its hash was kept somewhere safe. It does not show *when* it
+was made or who made it; independent timestamping and hosted verification are
+what the CAP pipeline adds.
 
 AGPL v3 means: any organization embedding this engine in a commercial product must either open-source their full stack or obtain a commercial license.
 
