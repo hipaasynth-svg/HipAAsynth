@@ -1,3 +1,42 @@
+# HipAAsynth — project guide for coding agents
+
+HipAAsynth generates deterministic synthetic patients and runs 7AAST, a stress
+test of clinical AI models. Start with [README.md](README.md),
+[docs/7AAST.md](docs/7AAST.md) and [docs/HISTORY.md](docs/HISTORY.md) (core vs
+extras).
+
+## Where things are
+
+| Path | What |
+|---|---|
+| `hipaasynth/aast/` | 7AAST: `adapter.py` (model output types), `stats.py` (intervals, verdicts, noise floor), `cases.py` (what the model sees), `run.py` (`run_7aast`), `files.py` (test by file), `report.py` (hash chain, HTML, `verify`), `cli.py`, `web.py` (`POST /7aast`) |
+| `hipaasynth/decision_cohort.py` | True cases mixed with clinical look-alikes; pulse-oximeter reading |
+| `hipaasynth/polymorphic/` | Seven written forms; `blinding.py` decides what is hidden at decision time |
+| `hipaasynth/dif/`, `psf/`, `cc/`, `adversarial/` | The older per-axis engines 7AAST builds on |
+| `hipaasynth/api.py`, `run/main.py`, `sdk.py`, `ui/` | Front doors: REST API + pages, CLI (`hipaasynth`, `hipaasynth 7aast`, `hipaasynth ui`), SDK |
+
+## Rules that keep results trustworthy
+
+- **Determinism.** Same seed, same output, across processes. Use
+  `core.hashing.stable_seed_from_id`, never `hash()`. When you change engine
+  code, prove old (non-blinded) forms and outputs are byte-identical.
+- **No answer leaks.** Anything a blinded case shows must be knowable at the
+  decision moment and must not separate true cases from look-alikes on its own;
+  `tests/test_decision_realism.py` enforces this. New observation fields that
+  are treatment, outcomes or generator bookkeeping go in `polymorphic/blinding.py`.
+- **Wording.** Never call a report a certification, and never call the product
+  a synthetic data vendor. Demo models are always labelled DEMO.
+- **Pure standard library** in the engine. No PHI, ever.
+- **Checks before a PR:** `python -m pytest`, `ruff check` and `ruff format` on
+  changed files, `mypy hipaasynth/aast`.
+
+## Code intelligence
+
+The GitNexus block below is generated. Its index command is out of date: build
+the index with `npx -y gitnexus analyze --index-only` (the flag keeps it from
+rewriting this file), then use `npx -y gitnexus impact <symbol> --direction
+upstream --repo .` and `npx -y gitnexus detect-changes --scope staged --repo .`.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
