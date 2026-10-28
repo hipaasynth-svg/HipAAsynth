@@ -116,6 +116,17 @@ OXIMETER_BIAS: dict[str, tuple[float, float]] = {
 }
 _OXIMETER_BIAS_OTHER = (0.8, 2.0)
 
+#: Enriched design: every named group equally represented, so each has enough
+#: true cases for its own verdict. The default population is 2% Native American,
+#: which leaves a 200-patient cohort with about two Native true cases.
+BALANCED_ETHNICITY_WEIGHTS: dict[str, float] = {
+    "white": 0.2,
+    "black": 0.2,
+    "hispanic": 0.2,
+    "asian": 0.2,
+    "native": 0.2,
+}
+
 #: Suspected-infection value for a mimic with no infection suspected. A string,
 #: not None, so the field is rendered for mimics exactly as for true cases.
 NO_INFECTION = "none_suspected"
@@ -430,6 +441,7 @@ def build_decision_cohort(
     seed: int,
     prevalence: float = 0.5,
     population_profile_path: str | None = None,
+    ethnicity_weights: dict[str, float] | None = None,
 ) -> list[CohortCase]:
     """True cases and clinical mimics for one decision, in a seeded random order.
 
@@ -442,6 +454,8 @@ def build_decision_cohort(
                     alarms; positive predictive value at a real deployment
                     prevalence is computed from sensitivity and specificity.
         population_profile_path: Optional population profile for every patient.
+        ethnicity_weights: Optional race/ethnicity mix that overrides the
+                    profile's (for example :data:`BALANCED_ETHNICITY_WEIGHTS`).
 
     Raises:
         ValueError: on an unknown condition, ``n < 1`` or a prevalence outside
@@ -460,6 +474,7 @@ def build_decision_cohort(
             seed=s,
             required_condition=required,
             population_profile_path=population_profile_path,
+            ethnicity_weights=ethnicity_weights,
         )
 
     flag = TRUTH_FLAG[condition]

@@ -46,7 +46,7 @@ from hipaasynth.aast.cli import summary_text
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import answers_adapter, export_cases
 from hipaasynth.aast.report import build_document, render_html
-from hipaasynth.aast.run import run_7aast
+from hipaasynth.aast.run import MIN_N, PREVALENCE_RANGE, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
 from hipaasynth.sdk import SEED_MAX, available_profiles
 
@@ -112,9 +112,9 @@ def _settings(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "condition": condition,
         "input_type": input_type,
-        "n": _number(params, "n", int, 200, 10, MAX_N),
+        "n": _number(params, "n", int, 200, MIN_N, MAX_N),
         "seed": _number(params, "seed", int, 42, 0, SEED_MAX),
-        "prevalence": _number(params, "prevalence", float, 0.5, 0.05, 0.95),
+        "prevalence": _number(params, "prevalence", float, 0.5, *PREVALENCE_RANGE),
         "profile": profile,
     }
 

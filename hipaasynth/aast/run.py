@@ -83,7 +83,11 @@ from hipaasynth.aast.stats import (
     verdict,
 )
 from hipaasynth.core.config import ENGINE_VERSION, GenerationConfig
-from hipaasynth.decision_cohort import CohortCase, build_decision_cohort
+from hipaasynth.decision_cohort import (
+    BALANCED_ETHNICITY_WEIGHTS,
+    CohortCase,
+    build_decision_cohort,
+)
 from hipaasynth.dif.framework import DIFConfig, run_audit
 from hipaasynth.dif.model_interface import DecisionResult
 from hipaasynth.polymorphic.forms import INFO_MODE_BLINDED, Form
@@ -99,6 +103,11 @@ SAF_THRESHOLD = 0.20
 RETENTION_THRESHOLD = 0.80
 
 #: Report row order.
+#: Smallest cohort and share of true cases a run accepts: a cohort needs both
+#: true cases (to measure misses) and look-alikes (to measure false alarms).
+MIN_N = 10
+PREVALENCE_RANGE = (0.05, 0.95)
+
 AXIS_ORDER = ("accuracy", "1", "2", "2b", "3", "4", "5", "6", "7")
 
 #: The form used for demographic twins: it is the one that states ethnicity.
@@ -228,6 +237,7 @@ def run_7aast(
     repeats: int = 5,
     min_events: int = DEFAULT_MIN_EVENTS,
     demo: bool = False,
+    balance_groups: bool = True,
 ) -> AASTReport:
     """Run every 7AAST axis that applies to ``adapter`` on one decision cohort.
 
@@ -244,12 +254,34 @@ def run_7aast(
         repeats:     Calls per case for a non-deterministic model.
         min_events:  Fewest true cases in a group before it gets a verdict.
         demo:        Label the report DEMO (built-in demo models).
+        balance_groups: With no ``profile``, represent every race/ethnicity group
+                     equally so each can be judged (an enriched design). A
+                     profile always keeps its own population mix.
     """
     from hipaasynth.sdk import _resolve_profile
 
+    if isinstance(n, bool) or not isinstance(n, int) or n < MIN_N:
+        raise ValueError(f"n must be a whole number of at least {MIN_N}, got {n!r}")
+    if not PREVALENCE_RANGE[0] <= prevalence <= PREVALENCE_RANGE[1]:
+        raise ValueError(
+            f"prevalence must be between {PREVALENCE_RANGE[0]} and {PREVALENCE_RANGE[1]} so the "
+            f"cohort has both true cases and look-alikes, got {prevalence!r}"
+        )
+    if condition != "fabry" and not 1 <= round(n * prevalence) <= n - 1:
+        raise ValueError(
+            f"n={n} at prevalence {prevalence} leaves no true cases or no look-alikes; "
+            "use more patients"
+        )
+
     profile_path = _resolve_profile(profile) if profile else None
+    balanced = balance_groups and profile is None
     cohort = build_decision_cohort(
-        condition, n, seed=seed, prevalence=prevalence, population_profile_path=profile_path
+        condition,
+        n,
+        seed=seed,
+        prevalence=prevalence,
+        population_profile_path=profile_path,
+        ethnicity_weights=BALANCED_ETHNICITY_WEIGHTS if balanced else None,
     )
 
     calls = {"n": 0}
@@ -298,6 +330,17 @@ def run_7aast(
         ),
         "Clinical mimic presentations are textbook ranges pending clinician review.",
     ]
+    if balanced:
+        limitations.append(
+            "Each race/ethnicity group is equally represented so every group can be judged; "
+            "overall accuracy reflects that mix, not a real population."
+        )
+    noise = next((a.metrics.get("noise_floor") for a in axes if a.axis == "5"), None)
+    if noise and not noise["deterministic"] and noise.get("rate"):
+        limitations.append(
+            f"The model changed its answer on {noise['rate']['estimate']:.0%} of re-runs of an "
+            "identical case; differences between written forms (Axes 1-4) include this noise."
+        )
     if condition == "sepsis":
         limitations += [
             (
@@ -321,6 +364,7 @@ def run_7aast(
             "profile": profile,
             "deployment_prevalence": deployment_prevalence,
             "information_mode": INFO_MODE_BLINDED,
+            "balanced_groups": balanced,
             "true_cases": sum(c.truth for c in cohort),
             "noise_cases": noise_cases,
             "repeats": repeats,
