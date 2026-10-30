@@ -14,7 +14,7 @@
     "IHS_context": "Indian Health Service Aberdeen Area. Northern Plains tribal health region Service Unit, Northern Plains. PHS Act Title V tribal health program.",
     "sepsis_vitals": "Singer M et al. JAMA. 2016;315(8):801-810.",
     "afebrile_elderly": "Gavazzi G, Krause KH. Lancet Infect Dis. 2002;2(11):659-666.",
-    "infection_source": "Rhee C et al. JAMA Intern Med. 2017;177(7):944-951. Rural adjustment applied.",
+    "infection_source": "No verified source for the base mix (see docs/calibration/SOURCE_AUDIT.md). Rural adjustment applied.",
     "lab_floors": "WBC: Singer 2016. Glucose: ADA 2024. Creatinine: KDIGO 2022. LDL: Grundy 2019."
   },
   "sex_ratio_female": 0.508,

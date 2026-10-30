@@ -127,7 +127,7 @@ You can also point it at a model server's address, an LLM API (OpenAI-compatible
 or Anthropic), or one of the built-in published clinical scores (qSOFA, SIRS,
 NEWS2, ROSIER, ADA DKA). Run through 7AAST, those scores show the weaknesses the
 literature reports (qSOFA catches 42% of sepsis, a quarter of normotensive
-sepsis; SIRS catches 87% but raises a false alarm on half of look-alikes):
+sepsis; SIRS catches 88% but raises a false alarm on half of look-alikes):
 [docs/REFERENCE_RESULTS.md](docs/REFERENCE_RESULTS.md).
 
 Models that answer yes/no, a risk score, a triage level, a ranked differential or

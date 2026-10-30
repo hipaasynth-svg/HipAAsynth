@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-10-30
+
+Every calibrated number and every reference checked against PubMed and its
+source: [docs/calibration/SOURCE_AUDIT.md](docs/calibration/SOURCE_AUDIT.md).
+
+### Changed
+
+- Sepsis true cases are hypothermic (< 36 °C) 15% of the time, not 8%;
+  published cohorts report about 14-23%. Reference-score results move by at
+  most one point (SIRS sensitivity 88%, matching Kaukonen et al.).
+- Eight citations that do not exist were removed and nine that pointed at
+  unrelated papers were replaced or flagged; values with no verified source are
+  now labelled unsourced. Six citations had wrong journal, pages or author.
+- Corrected two claims: stroke mimics are 18-40% of stroke-code activations (not
+  "up to 67% of alerts"), and NSDUH 2022 counts about 6.1 million people with
+  OUD (not 2.7 million).
+- Citation text inside the karachi, lagos and ND tribal profiles changed, and a
+  profile's contents seed its cohorts, so cohorts from those six profiles differ
+  from 1.6.0. Install 1.6.0 to reproduce an older cohort exactly.
+
 ## [1.6.0] — 2026-10-30
 
 Every gap in the 1.5.0 review closed: sepsis spans the clinical spectrum, the

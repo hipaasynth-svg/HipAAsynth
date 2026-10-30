@@ -153,8 +153,8 @@ PACK_YEARS = {
 #     doi:10.1016/S2213-2600(15)00241-6
 #   T2DM: Mirrakhimov AE. Cardiovasc Diabetol 2012;11:132.
 #     doi:10.1186/1475-2840-11-132
-#   Depression/Anxiety: Yohannes AM et al. Respir Care 2014;59(7):1112-1120
-#   OSA: Shawon MS et al. Respir Med 2017;131:79-90
+#   Depression/Anxiety: Yohannes AM, Alexopoulos GS. Eur Respir Rev 2014;23(133):345-349 (PMID 25176970)
+#   OSA: Shawon MS et al. Sleep Med Rev 2017;32:58-68 (PMID 28169105)
 #   Pulm HTN: Chaouat A et al. Eur Respir J 2008;32(5):1371-1385
 COMORBIDITY_RATES = {
     "hypertension": 0.55,

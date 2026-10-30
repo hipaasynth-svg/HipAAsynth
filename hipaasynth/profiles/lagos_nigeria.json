@@ -13,7 +13,7 @@
     "sepsis_ICU": "Murthy S et al. ICU capacity in low-income countries. PLoS One. 2015. Nigeria ICU beds ~0.07 per 100,000. Pneumonia leading sepsis source in sub-Saharan Africa.",
     "sepsis_vitals": "Singer M et al. Sepsis-3. JAMA. 2016;315(8):801-810.",
     "afebrile_presentation": "Gavazzi G, Krause KH. Ageing and infection. Lancet Infect Dis. 2002;2(11):659-666.",
-    "infection_source": "Rhee C et al. JAMA Intern Med. 2017;177(7):944-951. Pneumonia upweighted for sub-Saharan Africa urban context per WHO Africa region data."
+    "infection_source": "US base mix (no verified source; see docs/calibration/SOURCE_AUDIT.md). Pneumonia upweighted for sub-Saharan Africa urban context per WHO Africa region data."
   },
   "sex_ratio_female": 0.494,
   "ethnicity_weights": {

@@ -91,8 +91,8 @@ class CardioMedications:
             # ---------------- ANTICOAG ----------------
             # Oral anticoagulation in AF with elevated stroke risk
             # (CHA2DS2-VASc >= 2) ~70%; DOACs now dominate over warfarin.
-            # Source: Freedman B et al. JAMA Cardiol 2017;2(4):442-451
-            # (guideline-indicated OAC undertreatment in AF).
+            # Source: no verified source
+            # (citation removed in the 2026-10 source audit; see docs/calibration/SOURCE_AUDIT.md).
             if af and self.rng.random() < 0.72:
                 out["on_anticoagulant"][i] = True
                 out["anticoagulant_type"][i] = "doac" if self.rng.random() < 0.8 else "warfarin"

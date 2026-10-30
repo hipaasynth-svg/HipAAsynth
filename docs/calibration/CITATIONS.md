@@ -1,5 +1,8 @@
 # HipAAsynth Calibration Citation Registry
 
+**Audited 2026-10-30** against PubMed and the primary sources: see
+[SOURCE_AUDIT.md](SOURCE_AUDIT.md) for the verdict on every row.
+
 **Purpose:** one row per calibration anchor, with the exact source and where to
 look, so each number can be verified independently. This is the companion to
 [`../CALIBRATION_SOURCES.md`](../CALIBRATION_SOURCES.md) (the guide) and the
@@ -53,15 +56,15 @@ Every metric charted in the calibration report maps to a row below.
 | Female proportion | 0.52 | NHANES 2017–2020 | NHANES site | COPD sex distribution | [in-code] |
 | GOLD 1/2/3/4 split | 0.20/0.38/0.28/0.14 | Buist AS et al. International variation in the prevalence of COPD (BOLD Study). *Lancet* 2007;370(9589):741-750; GOLD 2024 staging framework | https://doi.org/10.1016/S0140-6736(07)61377-4 | BOLD post-bronchodilator spirometry GOLD-grade distribution; GOLD 2024 §2 staging | [in-code] |
 | Smoking current/former/never | 0.38/0.47/0.15 | NHANES / CDC BRFSS 2022; GOLD 2024 | NHANES / BRFSS sites | Smoking status among COPD adults | [in-code] |
-| Hypertension comorbidity | 0.55 | Chen W et al. *Lancet Respir Med* 2015;3(8):631-639 | https://doi.org/10.1016/S2213-2600(15)00241-6 | CV comorbidity meta-analysis (HTN OR 1.33 vs non-COPD) | [in-code] |
+| Hypertension comorbidity | 0.55 | Chen W et al. *Lancet Respir Med* 2015;3(8):631-639 | https://doi.org/10.1016/S2213-2600(15)00241-6 | Gives HTN OR 1.33 vs non-COPD, not a prevalence; 0.55 is within reported COPD cohort ranges | [in-code] |
 | Type 2 diabetes comorbidity | 0.22 | Mirrakhimov AE. *Cardiovasc Diabetol* 2012;11:132 | https://doi.org/10.1186/1475-2840-11-132 | COPD & glucose metabolism review | [in-code] |
-| Depression comorbidity | 0.27 | Yohannes AM et al. *Respir Care* 2014;59(7):1112-1120 | https://doi.org/10.4187/respcare.02458 | Depression/anxiety in COPD | [in-code] |
+| Depression comorbidity | 0.27 | Yohannes AM, Alexopoulos GS. *Eur Respir Rev* 2014;23(133):345-349 | PMID 25176970 | Depression in 26% of COPD | [in-code] |
 | GOLD_2 FEV1% mean | 64.5 | GOLD 2024; ATS/ERS GLI-2012 | GOLD site | FEV1% predicted band for GOLD 2 (50–79%) | [in-code] |
 | GOLD_4 LTOT rate | 0.42 | Nocturnal Oxygen Therapy Trial Group. *Ann Intern Med* 1980;93(3):391-398; GOLD 2024 | https://doi.org/10.7326/0003-4819-93-3-391 | Landmark LTOT survival trial; GOLD 2024 LTOT recommendation | [in-code] |
 | SpO2 mean | ~94.5 | GOLD 2024 Report (oximetry/LTOT thresholds) | https://goldcopd.org/2024-gold-report/ | SpO2 monitoring; LTOT triggered at SpO2 ≤88%, so non-severe stable COPD sits ~92-96% | [canonical] |
 
-Additional in-code comorbidity sources: OSA — Shawon MS et al. *Respir Med*
-2017;131:79-90; Pulmonary HTN — Chaouat A et al. *Eur Respir J*
+Additional in-code comorbidity sources: OSA — Shawon MS et al. *Sleep Med Rev*
+2017;32:58-68; Pulmonary HTN — Chaouat A et al. *Eur Respir J*
 2008;32(5):1371-1385; exacerbations — Hurst JR et al. *NEJM*
 2010;363(12):1128-1138 (https://doi.org/10.1056/NEJMoa0909883);
 CAT score — Jones PW et al. *ERJ* 2009;34(3):648-654.
@@ -88,13 +91,13 @@ CAT score — Jones PW et al. *ERJ* 2009;34(3):648-654.
 
 | Metric | Target | Source | Verify | Where to look | Prov. |
 |---|---|---|---|---|---|
-| OUD prevalence context | ~2.7M adults | SAMHSA NSDUH 2022 | NSDUH releases | Detailed table 5.x, opioid use disorder | [in-code] |
-| Rural/frontier proportion | 0.33 | Mack KA et al. *MMWR* 2017;66(19):506-512 | PubMed: Mack MMWR 2017 | Rural-urban overdose/OUD disparity | [in-code] |
-| Illicit fentanyl dominance | 0.35 | Cicero TJ et al. *NEJM* 2014;371(22):2063-2066 | https://doi.org/10.1056/NEJMc1406300 | Shift to fentanyl/heroin | [in-code] |
-| Benzo co-use on UDS | 0.38 | Jones CM et al. *JAMA Psychiatry* 2022;79(5):512-520 | https://doi.org/10.1001/jamapsychiatry.2022.0246 | Benzodiazepine co-involvement | [in-code] |
-| No-MOUD treatment gap | 0.78 | Larochelle MR et al. *Ann Intern Med* 2018;169(3):137-145 | https://doi.org/10.7326/M17-3107 | MOUD receipt after overdose | [in-code] |
-| Frontier naloxone/buprenorphine access | low (0.18) | Andrilla CHA et al. *J Rural Health* 2019;35(1):8-25 | https://doi.org/10.1111/jrh.12307 | Rural buprenorphine prescriber geography | [in-code] |
-| HCV comorbidity | ~0.38 | White AM et al. *Drug Alcohol Depend* 2021;227:109002 | https://doi.org/10.1016/j.drugalcdep.2021.109002 | HCV in people who inject drugs | [in-code] |
+| OUD prevalence context | ~6.1M people 12+ | SAMHSA NSDUH 2022 | NSDUH releases | Past-year OUD, DSM-5 criteria (the 2.7M figure stated before was an earlier, DSM-IV-era count) | [in-code] |
+| Rural/frontier proportion | 0.33 | Mack KA et al. *MMWR Surveill Summ* 2017;66(19):1-12 | https://doi.org/10.15585/mmwr.ss6619a1 | Metro vs nonmetro drug use and overdose (gives rates, not this share) | [in-code] |
+| Illicit fentanyl dominance | 0.35 | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)) | — | — | [unsourced] |
+| Benzo co-use on UDS | 0.38 | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)) | — | — | [unsourced] |
+| No-MOUD treatment gap | 0.78 | CDC. Treatment for OUD: population estimates, US 2022. *MMWR* 2024;73(25):567-574 (25.1% of adults needing OUD treatment received MOUD); Larochelle MR et al. *Ann Intern Med* 2018;169(3):137-145 | https://doi.org/10.7326/M17-3107 | PMID 38935567; PMID 29913516 | [in-code] |
+| Frontier naloxone/buprenorphine access | low (0.18) | Andrilla CHA et al. *J Rural Health* 2019;35(1):108-112 | https://doi.org/10.1111/jrh.12307 | 56.3% of rural counties had no waivered buprenorphine provider (2017) | [in-code] |
+| HCV comorbidity | ~0.38 | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)) | — | — | [unsourced] |
 | Prior-authorization/rural prescribing | context | Rando J et al. *J Rural Health* 2021;37(3):526-534 | PubMed: Rando J Rural Health 2021 | Rural OUD treatment barriers | [in-code] |
 
 Severity, IV use, depression, tobacco, PTSD, AUD, Medicaid anchors calibrate to
@@ -123,8 +126,7 @@ see **Documented gaps**): Feng L et al. *J Clin Lab Anal* 2018;33(1)
 *Ann Neurol* 2023;93(6):1106-1116 (https://doi.org/10.1002/ana.26621);
 Duan C et al. *CNS Neurosci Ther* 2023;29(8):2308-2317
 (https://doi.org/10.1111/cns.14164, mRS 0–1 81% in minor stroke);
-Broderick JP et al. *Stroke* 2010;41(9):2108-2129
-(https://doi.org/10.1161/STROKEAHA.107.183689, ICH severity); AHA/ASA
+Morgenstern LB et al. *Stroke* 2010;41(9):2108-2129 (PMID 20651276, ICH guideline); AHA/ASA
 Guidelines *Stroke* 2019 (tPA 4.5h window, DTN <60 min).
 
 ---
@@ -136,7 +138,7 @@ Guidelines *Stroke* 2019 (tPA 4.5h window, DTN <60 min).
 | Type 1 vs Type 2 split | 0.06 / 0.94 | CDC National Diabetes Statistics Report; NHANES | https://www.cdc.gov/diabetes/php/data-research/ | ~5–10% of diagnosed diabetes is Type 1 | [in-code] |
 | Race distribution | W 0.55 / B 0.18 / H 0.15 / A 0.08 / O 0.04 | CDC/NHANES diabetes epidemiology | https://www.cdc.gov/diabetes/php/data-research/ | Diagnosed-diabetes prevalence by race/ethnicity | [in-code] |
 | Current-age mean | 50–60 | CDC/NHANES age distribution of diagnosed diabetes | NHANES site | Age-at-interview among diabetic adults | [canonical] |
-| Insulin use in treated T2DM | ~26% | Casagrande SS et al. *Diabetes Care* 2018;41:2020-2028 | https://doi.org/10.2337/dc18-0287 | NHANES 2013–2016 insulin use | [in-code] |
+| Insulin use in treated T2DM | ~26% | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)); NHANES 2011–14 reports insulin use in ~33% of adults with diagnosed diabetes (all types) | — | — | [unsourced] |
 | T2DM insulin progression | ~50% by 10 yr | Turner RC et al. *JAMA* 1999;281:2005-2012 (UKPDS) | https://doi.org/10.1001/jama.281.21.2005 | UKPDS glycemic-control progression | [in-code] |
 
 ---
@@ -239,7 +241,7 @@ population — levels, the same framing CHF uses for its hospitalized cohort.
 | ASCVD 10-yr low risk (<5%) | 0.28 | Goff DC et al. *Circulation* 2014;129(25 Suppl 2):S49-S73 (ACC/AHA Pooled Cohort Equations) | https://doi.org/10.1161/01.cir.0000437741.48606.98 | PCE risk-tier thresholds; low tail | [in-code] |
 | ASCVD 10-yr high risk (≥20%) | 0.16 | Goff DC et al. *Circulation* 2014;129(25 Suppl 2):S49-S73 | https://doi.org/10.1161/01.cir.0000437741.48606.98 | PCE risk-tier thresholds; high tail | [in-code] |
 | Statin use among eligible | 0.55 | Salami JA et al. *JAMA Cardiol* 2017;2(1):56-65 | https://doi.org/10.1001/jamacardio.2016.4700 | Statin use in guideline-eligible US adults (~55.5%) | [in-code] |
-| Anticoagulation in AF (CHA₂DS₂-VASc ≥2) | 0.70 | Freedman B et al. *JAMA Cardiol* 2017;2(4):442-451 | https://doi.org/10.1001/jamacardio.2016.5975 | Guideline-indicated OAC in AF; ~70% treated | [in-code] |
+| Anticoagulation in AF (CHA₂DS₂-VASc ≥2) | 0.70 | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)) | — | — | [unsourced] |
 | Current smoker | 0.14 | CDC MMWR 2023; AHA Heart Disease & Stroke Statistics 2023 | https://www.cdc.gov/tobacco/ | Adult cigarette smoking prevalence | [in-code] |
 | Diabetes prevalence | 0.15 | CDC National Diabetes Statistics Report 2022 | https://www.cdc.gov/diabetes/php/data-research/ | Diagnosed diabetes in adults (~13-15%) | [in-code] |
 | Hypertension prevalence | 0.50 | AHA Heart Disease & Stroke Statistics 2023 (2017 ACC/AHA threshold) | https://doi.org/10.1161/CIR.0000000000001123 | Adult hypertension prevalence (~48%) | [in-code] |
@@ -257,14 +259,14 @@ These anchors carry DOIs directly in each profile's `sources` block.
 
 | Anchor | Value | Source | Verify | Prov. |
 |---|---|---|---|---|
-| AI/AN diabetes prevalence | 13.6% | Dai J et al. *Diabetes Obes Metab* 2024;27(1):328-337 | https://doi.org/10.1111/dom.16021 | [in-code] |
-| AI/AN hypertension (ND/SD) | ~27% | Jolly SE et al. *J Clin Hypertens* 2015;17(10):812-818 (WATCH) | https://doi.org/10.1111/jch.12483 | [in-code] |
+| AI/AN diabetes prevalence | 13.6% | CDC National Diabetes Statistics Report (via HHS Office of Minority Health); the Dai 2024 paper cited before reports medication trends, not prevalence | https://www.minorityhealth.hhs.gov/diabetes-and-american-indiansalaska-natives | [in-code] |
+| AI/AN hypertension | ~27% | Jolly SE et al. *J Clin Hypertens* 2015;17(10):812-818 (WATCH) — **western Alaska Native** cohort, 30% age-standardized; not an ND/SD source | https://doi.org/10.1111/jch.12483 | [in-code] |
 | DM+HTN co-occurrence | 77.9% | Walls ML et al. *J Diabetes Res* 2025 | https://doi.org/10.1155/jdr/6591307 | [in-code] |
 | CKD association | elevated | Nephrology Mini Orals. *Nephrology* 2021;26(S2):17-32 | https://doi.org/10.1111/nep.13930 | [in-code] |
 | Sepsis SDOH mortality | ADI-associated | Ardabili AK et al. *World Med Health Policy* 2025;17(4):823-830 | https://doi.org/10.1002/wmh3.70043 | [in-code] |
 | Sepsis-3 definition | — | Singer M et al. *JAMA* 2016;315(8):801-810 | https://doi.org/10.1001/jama.2016.0287 | [in-code] |
 | Afebrile elderly infection | — | Gavazzi G, Krause KH. *Lancet Infect Dis* 2002;2(11):659-666 | https://doi.org/10.1016/S1473-3099(02)00437-1 | [in-code] |
-| IHS nurse vacancy | 23–40% | Brockie T et al. *J Clin Nurs* 2021;32(3-4):610-624 | https://doi.org/10.1111/jocn.15801 | [in-code] |
+| IHS provider vacancy | 25% (13–31% by area) | GAO-18-580 (2018) | https://www.gao.gov/products/gao-18-580 | [in-code] |
 
 ---
 
@@ -277,8 +279,8 @@ targets are sourced in-code:
 | Anchor | Source | Verify |
 |---|---|---|
 | Sepsis-3 organ-dysfunction definition | Singer M et al. *JAMA* 2016;315(8):801-810 | https://doi.org/10.1001/jama.2016.0287 |
-| Initial fluid 30 mL/kg; vasopressor targets | Surviving Sepsis Campaign 2021. *Crit Care Med* 2021;49(3):e299-e347 | https://doi.org/10.1097/CCM.0000000000005337 |
-| Infection source / rural | Rhee C et al. *JAMA Intern Med* 2017;177(7):944-951 | https://doi.org/10.1001/jamainternmed.2017.1938 |
+| Initial fluid 30 mL/kg; vasopressor targets | Evans L et al. Surviving Sepsis Campaign 2021. *Crit Care Med* 2021;49(11):e1063-e1143 | https://doi.org/10.1097/CCM.0000000000005337 |
+| Infection source / rural | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)) | — |
 | Ventilation modes (LUNG SAFE) | Bellani G et al. *JAMA* 2016;315(8):788-800 | https://doi.org/10.1001/jama.2016.0291 |
 | HFNC vs NIV | Frat JP et al. *NEJM* 2015;372(23):2185-2196 | https://doi.org/10.1056/NEJMoa1503326 |
 | O2 targets (COPD 88–92%) | O'Driscoll BR et al. *Thorax* 2017;72(Suppl 1):ii1-ii90 | https://doi.org/10.1136/thoraxjnl-2016-209729 |

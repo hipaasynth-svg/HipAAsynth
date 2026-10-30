@@ -28,12 +28,14 @@ Important boundary:
 Calibration sources:
   [S1] Singer M et al. Sepsis-3. JAMA. 2016;315(8):801-810.
   [S2] Gavazzi G, Krause KH. Lancet Infect Dis. 2002;2(11):659-666. (Afebrile elderly)
-  [S3] Rhee C et al. JAMA Intern Med. 2017;177(7):944-951. (Infection source / rural)
-  [S4] Surviving Sepsis Campaign. Critical Care Med. 2021;49(3):e299-e347.
+  [S3] Infection-source mix: no verified source (an earlier citation did not
+       exist; see docs/calibration/SOURCE_AUDIT.md).
+  [S4] Evans L et al. Surviving Sepsis Campaign 2021. Crit Care Med. 2021;49(11):e1063-e1143.
        Initial fluid resuscitation 30 mL/kg; vasopressor targets; O2 management.
   [S5] Frat JP et al. NEJM. 2015;372(23):2185-2196. (HFNC vs NIV in hypoxemic ARF)
   [S6] Bellani G et al. JAMA. 2016;315(8):788-800. (LUNG SAFE: ventilation modes)
-  [S7] Rhoads CM et al. Chest. 2019;155(4):744-752. (Oliguria as sepsis predictor)
+  [S7] Oliguria as a sepsis predictor: no verified source (an earlier citation did
+       not exist; see docs/calibration/SOURCE_AUDIT.md).
   [S8] Cecconi M et al. Intensive Care Med. 2014;40(12):1795-1815. (Fluid balance)
   [S9] Internal calibration review, 2026-04-22.
        Respiratory context, urine output, fluid balance, deterioration realism,
@@ -193,7 +195,7 @@ def _urine_output(
     Hourly urine output in mL/hr. Oliguria threshold: <0.5 mL/kg/hr [S7].
     Oliguria is a key early marker of renal hypoperfusion in sepsis.
 
-    Source: Rhoads 2019 [S7]; Surviving Sepsis Campaign 2021 [S4].
+    Source: Surviving Sepsis Campaign 2021 [S4]; see [S7].
     """
     oliguria_threshold = 0.5 * weight_kg
     if severity > 0.60 or (delayed_hypotension and severity > 0.40) or ckd:
@@ -472,7 +474,7 @@ def build_sepsis_observations(
     # ----------------------------------------------------------------
     # FLUID BALANCE — internal review 2026 [S9]
     # UO already computed above (before pressor logic). Fluid balance needs RNG.
-    # Sources: Rhoads 2019 [S7]; Cecconi 2014 [S8]; SSC 2021 [S4].
+    # Sources: Cecconi 2014 [S8]; SSC 2021 [S4]; see [S7].
     # ----------------------------------------------------------------
     fluid_input_6h_ml, fluid_balance_6h_ml = _fluid_balance(
         rng, weight_kg, severity, ckd, chf, urine_output_ml_hr
