@@ -53,7 +53,9 @@ from hipaasynth.sdk import SEED_MAX, available_profiles
 #: Largest cohort one HTTP request may ask for (a run makes ~13 calls per patient).
 MAX_N = 1000
 
-SETTING_KEYS = frozenset({"condition", "input", "n", "seed", "prevalence", "profile"})
+SETTING_KEYS = frozenset(
+    {"condition", "input", "n", "seed", "prevalence", "profile", "natural_mix"}
+)
 RUN_KEYS = SETTING_KEYS | {
     "demo",
     "answers",
@@ -116,6 +118,7 @@ def _settings(params: dict[str, Any]) -> dict[str, Any]:
         "seed": _number(params, "seed", int, 42, 0, SEED_MAX),
         "prevalence": _number(params, "prevalence", float, 0.5, *PREVALENCE_RANGE),
         "profile": profile,
+        "balance_groups": not bool(params.get("natural_mix")),
     }
 
 
@@ -167,6 +170,7 @@ def run_request(params: dict[str, Any]) -> dict[str, Any]:
         "seed": s["seed"],
         "prevalence": s["prevalence"],
         "profile": s["profile"],
+        "balance_groups": s["balance_groups"],
         "deployment_prevalence": deployment,
     }
     if demo:

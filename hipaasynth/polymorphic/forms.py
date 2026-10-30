@@ -200,9 +200,7 @@ class PolymorphicFormEngine:
     def _acuity(self, obs: dict[str, Any]) -> str:
         return _blinded_acuity_line(obs) if self._blinded else self._acuity_line(obs)
 
-    def _measure_omissions(
-        self, text: str, facts: ClinicalFactSet, form: Form
-    ) -> list[str]:
+    def _measure_omissions(self, text: str, facts: ClinicalFactSet, form: Form) -> list[str]:
         """Return fact categories this form failed to encode.
 
         ALWAYS-present categories missing here indicate a rendering bug (they are
@@ -277,9 +275,7 @@ class PolymorphicFormEngine:
         """Build a one-line acuity summary from the acute observation bundle."""
         parts: list[str] = []
         if "sepsis_flag" in obs:
-            parts.append(
-                f"Sepsis-3 screen {'POSITIVE' if obs.get('sepsis_flag') else 'negative'}"
-            )
+            parts.append(f"Sepsis-3 screen {'POSITIVE' if obs.get('sepsis_flag') else 'negative'}")
             parts.append(f"Temp {obs.get('temperature_c_initial', '?')}°C")
             parts.append(f"HR {obs.get('heart_rate_initial', '?')} bpm")
             parts.append(f"Lactate {obs.get('lactate_initial', '?')} mmol/L")
@@ -340,9 +336,7 @@ class PolymorphicFormEngine:
             "resourceType": "Bundle",
             "id": f"poly-{patient.demographics.patient_id}",
             "type": "collection",
-            "entry": [
-                {"fullUrl": f"urn:uuid:{r['id']}", "resource": r} for r in resources
-            ],
+            "entry": [{"fullUrl": f"urn:uuid:{r['id']}", "resource": r} for r in resources],
         }
         return json.dumps(bundle, indent=2)
 
@@ -394,11 +388,7 @@ class PolymorphicFormEngine:
         visit = self._shown_visit(patient)
         obs = self._observations(patient)
 
-        cond_text = (
-            ", ".join(conds)
-            if conds
-            else "no long-term health conditions that I know of"
-        )
+        cond_text = ", ".join(conds) if conds else "no long-term health conditions that I know of"
         lab_text = (
             f"My recent test results: {self._plain_labs(visit['labs'])}."
             if include_labs
@@ -430,7 +420,9 @@ class PolymorphicFormEngine:
 
         body_feeling = "My body feels tired and heavy lately."
         if obs.get("sepsis_flag"):
-            body_feeling = "I feel very hot and confused, like something bad is spreading inside me."
+            body_feeling = (
+                "I feel very hot and confused, like something bad is spreading inside me."
+            )
         elif obs.get("stroke_flag"):
             body_feeling = "One side of my face feels strange and my words come out wrong."
         elif obs.get("dka_flag"):
@@ -445,7 +437,9 @@ class PolymorphicFormEngine:
             )
 
         if self._blinded:
-            body_feeling = symptom_sentences(obs, "first")
+            body_feeling = symptom_sentences(obs, "first") + _plain_measurements(
+                obs, "The nurse wrote down my numbers: "
+            )
 
         lab_line = (
             f"The blood test numbers were {self._plain_labs(visit['labs'])}."
@@ -487,10 +481,14 @@ class PolymorphicFormEngine:
         elif obs.get("dka_flag"):
             body_feeling = "You are very thirsty. You pass urine many times. Your belly hurts. You breathe fast."
         elif obs.get("fabry_referral_flag"):
-            body_feeling = "Your hands and feet burn. You do not sweat much. This started when you were young."
+            body_feeling = (
+                "Your hands and feet burn. You do not sweat much. This started when you were young."
+            )
 
         if self._blinded:
-            body_feeling = symptom_sentences(obs, "second")
+            body_feeling = symptom_sentences(obs, "second") + _plain_measurements(
+                obs, "Your numbers today: "
+            )
 
         lab_line = (
             f"Your blood test numbers: {self._plain_labs(visit['labs'])}."
@@ -533,10 +531,14 @@ class PolymorphicFormEngine:
         elif obs.get("dka_flag"):
             body_feeling = "They are very thirsty and urinating often. Their belly hurts and they are breathing fast."
         elif obs.get("fabry_referral_flag"):
-            body_feeling = "Their hands and feet burn, and they sweat very little. It started young."
+            body_feeling = (
+                "Their hands and feet burn, and they sweat very little. It started young."
+            )
 
         if self._blinded:
-            body_feeling = symptom_sentences(obs, "third")
+            body_feeling = symptom_sentences(obs, "third") + _plain_measurements(
+                obs, "Numbers from today: "
+            )
 
         lab_line = (
             f"  Blood test numbers: {self._plain_labs(visit['labs'])}."
@@ -657,6 +659,20 @@ def _blinded_measurements(obs: dict[str, Any]) -> list[tuple[str, str]]:
         findings = [text for key, text in _FABRY_FINDINGS if obs.get(key)]
         pairs.append(("Findings", ", ".join(findings) if findings else "none specific"))
     return pairs
+
+
+def _plain_measurements(obs: dict[str, Any], lead: str) -> str:
+    """The decision-time measurements as one plain sentence, for the patient-voice,
+    interpreter and community-health-worker forms.
+
+    Every form carries the same facts in its own register (fact invariance), so a
+    difference in a model's answers across forms reflects how the patient is
+    written up, not what is known about them.
+    """
+    pairs = _blinded_measurements(obs)
+    if not pairs:
+        return ""
+    return " " + lead + " | ".join(f"{label} {value}" for label, value in pairs) + "."
 
 
 def _blinded_acuity_line(obs: dict[str, Any]) -> str:

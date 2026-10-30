@@ -35,32 +35,44 @@ The mimic ranges below are plausible textbook presentations, written to be
 reviewed: every number is a starting point for clinician sign-off, not a
 validated epidemiological claim (see docs/CLINICAL_REVIEW_PACKET.md).
 
-Fabry is not mixed here: its generator already emits below-threshold mimics
-(about 30%) alongside referral-indicated cases.
+Fabry has no hand-written mimics: its generator already emits below-threshold
+patients alongside referral-indicated cases, and the cohort draws from both to
+reach the requested share of true cases.
 
 PULSE OXIMETRY AS MEASURED
 --------------------------
-Pulse oximeters over-read arterial saturation more in patients with darker
-skin, so hypoxaemia is missed more often in Black patients (occult hypoxaemia
-11.7% vs 3.6% in White patients, Sjoding et al., NEJM 2020; larger
-over-estimation in Asian, Black and Hispanic patients, Fawzy et al., JAMA
-Intern Med 2022; FDA draft guidance on pulse oximeters, 2025). Every case
-in a decision cohort shows ``spo2_initial`` as a pulse oximeter would read it:
-the generated saturation becomes ``sao2_reference`` (hidden from the model)
-and the reading adds a per-patient device bias drawn by group
-(:data:`OXIMETER_BIAS`). Recorded race/ethnicity stands in for skin
-pigmentation, the actual cause; the bias sizes are literature-informed
+Pulse oximeters over-read arterial saturation more on darker skin, so
+hypoxaemia is missed more often (occult hypoxaemia 11.7% in Black vs 3.6% in
+White patients, Sjoding et al., NEJM 2020; larger over-estimation in Asian,
+Black and Hispanic patients, Fawzy et al., JAMA Intern Med 2022). The FDA's
+2025 draft guidance on pulse oximeters frames performance by skin pigmentation
+on the Monk Skin Tone scale (1 lightest to 10 darkest), not by race.
+
+Every decision-cohort patient gets a Monk skin tone (``skin_tone_monk``, drawn
+per patient from a group-specific distribution, :data:`MONK_TONE_BY_GROUP`),
+and every case with an SpO2 shows it as a pulse oximeter would read it: the
+generated saturation becomes ``sao2_reference`` and the reading adds a
+per-patient bias that grows with skin tone (:func:`oximeter_bias`). Both
+fields are hidden from the model. The bias sizes are literature-informed
 starting points for clinician review, not calibrated values.
 
-KNOWN GAP
----------
-The sepsis generator's true cases sit at the hypotensive, septic-shock end of
-the spectrum; normotensive sepsis with other organ dysfunction is not yet
-represented. Mimic blood pressures overlap them so blood pressure alone does
-not separate the groups, but a model that misses normotensive sepsis would
-not be caught here.
+SEPSIS PRESENTATION SPECTRUM
+----------------------------
+The sepsis generator's true cases sit at the septic-shock end: every one is
+hypotensive, none has altered mental status, low white cells or a low
+temperature. Most real sepsis is not shock (Sepsis-3: suspected infection plus
+organ dysfunction; shock is the subset needing vasopressors), so a model that
+keys on hypotension would look perfect here and miss most real patients. Each
+decision-cohort true case is therefore redrawn onto the spectrum, deterministic
+per patient (:func:`sepsis_spectrum`):
 
-Pure standard library. Deterministic for a given seed. Zero PHI.
+* 60% **normotensive** (SBP 100-145, DBP 60-88) with at least one organ
+  dysfunction kept or added: lactate >= 2, creatinine >= 1.6, altered mental
+  status or urine output < 30 mL/h.
+* 25% altered mental status; 8% leukopenia (WBC < 4); 8% hypothermia (< 36 C).
+
+The presentation is recorded in a hidden field (``sepsis_presentation``) so
+reports can show the catch rate for shock and non-shock sepsis separately.
 """
 
 from __future__ import annotations
@@ -105,16 +117,34 @@ class Chance:
 
 _Spec = dict[str, Any]
 
-#: Pulse-oximeter bias (SpO2 minus SaO2, percentage points) by recorded
-#: race/ethnicity: (mean, standard deviation). See PULSE OXIMETRY above.
-OXIMETER_BIAS: dict[str, tuple[float, float]] = {
-    "white": (0.3, 1.8),
-    "black": (1.6, 2.4),
-    "hispanic": (1.0, 2.0),
-    "asian": (1.0, 2.0),
-    "native": (1.2, 2.2),
+#: Monk Skin Tone (1-10) by recorded race/ethnicity: (mean, standard deviation)
+#: of a per-patient draw, rounded and clipped to 1-10. Tones vary widely within
+#: every group; these only set where each group's distribution sits.
+MONK_TONE_BY_GROUP: dict[str, tuple[float, float]] = {
+    "white": (2.5, 1.2),
+    "asian": (4.0, 1.3),
+    "hispanic": (4.5, 1.5),
+    "native": (5.5, 1.5),
+    "black": (7.5, 1.4),
 }
-_OXIMETER_BIAS_OTHER = (0.8, 2.0)
+_MONK_TONE_OTHER = (4.5, 2.0)
+
+
+def oximeter_bias(tone: int) -> tuple[float, float]:
+    """(mean, sd) of SpO2 minus SaO2 in points for Monk skin tone ``tone`` (1-10).
+
+    About 0 points at tone 1 rising to about 2.3 at tone 10, with more spread on
+    darker skin, in line with the over-estimation reported in the studies above.
+    """
+    return 0.25 * (tone - 1), 1.8 + 0.07 * (tone - 1)
+
+
+def skin_tone(patient: Patient) -> int:
+    """The patient's Monk skin tone (1-10), deterministic per patient."""
+    mean, sd = MONK_TONE_BY_GROUP.get(str(patient.demographics.ethnicity).lower(), _MONK_TONE_OTHER)
+    rng = random.Random(stable_seed_from_id(patient.demographics.patient_id, salt=0x0A))
+    return int(min(10, max(1, round(rng.gauss(mean, sd)))))
+
 
 #: Enriched design: every named group equally represented, so each has enough
 #: true cases for its own verdict. The default population is 2% Native American,
@@ -405,26 +435,73 @@ def _mimic_observations(
         obs[key] = _draw(rng, spec)
     if condition == "stroke":
         obs["nihss_category"] = _nihss_category(int(obs["nihss_score"]))
+    if condition == "sepsis":
+        obs["sepsis_presentation"] = None
     obs["mimic_type"] = mimic
     return obs
 
 
 def as_measured(patient: Patient) -> Patient:
-    """``patient`` with ``spo2_initial`` as a pulse oximeter would read it.
+    """``patient`` with a Monk skin tone and ``spo2_initial`` as a pulse oximeter reads it.
 
-    The generated value moves to ``sao2_reference``. A patient without an SpO2
-    observation is returned unchanged. Deterministic per patient.
+    The generated value moves to ``sao2_reference``; a patient without an SpO2
+    observation only gains ``skin_tone_monk``. Deterministic per patient.
     """
-    obs = patient.observations or {}
-    if obs.get("spo2_initial") is None:
-        return patient
-    mean, sd = OXIMETER_BIAS.get(str(patient.demographics.ethnicity).lower(), _OXIMETER_BIAS_OTHER)
-    rng = random.Random(stable_seed_from_id(patient.demographics.patient_id, salt=0x02))
-    sao2 = obs["spo2_initial"]
-    reading = round(min(100.0, max(70.0, sao2 + rng.gauss(mean, sd))))
-    return dataclasses.replace(
-        patient, observations={**obs, "sao2_reference": sao2, "spo2_initial": reading}
-    )
+    obs = dict(patient.observations or {})
+    tone = skin_tone(patient)
+    obs["skin_tone_monk"] = tone
+    if obs.get("spo2_initial") is not None:
+        mean, sd = oximeter_bias(tone)
+        rng = random.Random(stable_seed_from_id(patient.demographics.patient_id, salt=0x02))
+        sao2 = obs["spo2_initial"]
+        obs["sao2_reference"] = sao2
+        obs["spo2_initial"] = round(min(100.0, max(70.0, sao2 + rng.gauss(mean, sd))))
+    return dataclasses.replace(patient, observations=obs)
+
+
+#: Share of true sepsis cases shown at each point of the spectrum (see above).
+SEPSIS_NORMOTENSIVE_SHARE = 0.60
+_SEPSIS_AMS_SHARE = 0.25
+_SEPSIS_LEUKOPENIA_SHARE = 0.08
+_SEPSIS_HYPOTHERMIA_SHARE = 0.08
+
+
+def sepsis_spectrum(patient: Patient) -> Patient:
+    """A true sepsis case redrawn onto the clinical spectrum, deterministic per patient.
+
+    See SEPSIS PRESENTATION SPECTRUM above. Values outside the redrawn fields are
+    kept, so the patient stays internally consistent.
+    """
+    obs = dict(patient.observations or {})
+    rng = random.Random(stable_seed_from_id(patient.demographics.patient_id, salt=0x5E))
+    normotensive = rng.random() < SEPSIS_NORMOTENSIVE_SHARE
+    if rng.random() < _SEPSIS_AMS_SHARE:
+        obs["altered_mental_status_only_flag"] = True
+    if rng.random() < _SEPSIS_LEUKOPENIA_SHARE:
+        obs["wbc_initial"] = round(rng.uniform(1.5, 3.9), 2)
+    if rng.random() < _SEPSIS_HYPOTHERMIA_SHARE:
+        obs["temperature_c_initial"] = round(rng.uniform(35.0, 35.9), 1)
+    if normotensive:
+        obs["sbp_initial"] = rng.randint(100, 145)
+        obs["dbp_initial"] = rng.randint(60, 88)
+        dysfunction = (
+            (obs.get("lactate_initial") or 0) >= 2.0
+            or (obs.get("creatinine_initial") or 0) >= 1.6
+            or bool(obs.get("altered_mental_status_only_flag"))
+            or (obs.get("urine_output_ml_hr") or 99) < 30
+        )
+        if not dysfunction:
+            organ = rng.choice(("lactate", "renal", "mental", "urine"))
+            if organ == "lactate":
+                obs["lactate_initial"] = round(rng.uniform(2.0, 3.8), 2)
+            elif organ == "renal":
+                obs["creatinine_initial"] = round(rng.uniform(1.6, 3.0), 2)
+            elif organ == "mental":
+                obs["altered_mental_status_only_flag"] = True
+            else:
+                obs["urine_output_ml_hr"] = round(rng.uniform(10.0, 29.0), 1)
+    obs["sepsis_presentation"] = "normotensive" if normotensive else "septic_shock"
+    return dataclasses.replace(patient, observations=obs)
 
 
 def _with_stroke_discriminators(patient: Patient, rng: random.Random) -> Patient:
@@ -449,7 +526,7 @@ def build_decision_cohort(
         condition:  ``sepsis``, ``stroke``, ``dka`` or ``fabry``.
         n:          Total patients.
         seed:       Same seed, same cohort, byte for byte.
-        prevalence: Share of true cases (mixed conditions only). Default 0.5
+        prevalence: Share of true cases. Default 0.5
                     gives the most statistical power for both misses and false
                     alarms; positive predictive value at a real deployment
                     prevalence is computed from sensitivity and specificity.
@@ -479,11 +556,20 @@ def build_decision_cohort(
 
     flag = TRUTH_FLAG[condition]
     if condition in SELF_MIXED_CONDITIONS:
-        return [
-            CohortCase(p, truth, "case" if truth else RULE_OUT)
-            for p in generate_patients(cfg(n, seed, condition))
-            for truth in [bool((p.observations or {}).get(flag))]
-        ]
+        # The generator mixes cases and below-threshold patients itself; draw
+        # until both pools are full so ``prevalence`` is honoured here too.
+        want_pos = round(n * prevalence)
+        pos_pool: list[Patient] = []
+        neg_pool: list[Patient] = []
+        draw = 0
+        while len(pos_pool) < want_pos or len(neg_pool) < n - want_pos:
+            for p in generate_patients(cfg(max(2 * n, 20), seed + draw * 7919, condition)):
+                (pos_pool if (p.observations or {}).get(flag) else neg_pool).append(p)
+            draw += 1
+        mixed = [CohortCase(p, True, "case") for p in pos_pool[:want_pos]]
+        mixed += [CohortCase(p, False, RULE_OUT) for p in neg_pool[: n - want_pos]]
+        random.Random(seed ^ 0x7AA57).shuffle(mixed)
+        return [dataclasses.replace(c, patient=as_measured(c.patient)) for c in mixed]
 
     n_pos = round(n * prevalence)
     n_neg = n - n_pos
@@ -509,7 +595,12 @@ def build_decision_cohort(
         rng = random.Random(stable_seed_from_id(p.demographics.patient_id, salt=0x5A))
         return _with_stroke_discriminators(p, rng)
 
-    cases: list[CohortCase] = [CohortCase(stroke_ready(p), True, "case") for p in true_pool[:n_pos]]
+    def spectrum_ready(p: Patient) -> Patient:
+        return sepsis_spectrum(p) if condition == "sepsis" else stroke_ready(p)
+
+    cases: list[CohortCase] = [
+        CohortCase(spectrum_ready(p), True, "case") for p in true_pool[:n_pos]
+    ]
 
     names = sorted(MIMICS[condition]) + ([RULE_OUT] if rule_out_pool else [])
     rule_outs = iter(rule_out_pool)

@@ -265,3 +265,18 @@ def test_evaluator_decision_time_flag(timelines):
     Evaluator(decision_time=True).evaluate(timelines["sepsis"], model)
     assert seen and not any("Hypotension onset" in s for s in seen)
     assert Evaluator().decision_time is False
+
+
+@pytest.mark.parametrize("condition", ["sepsis", "stroke", "dka", "fabry"])
+def test_every_blinded_written_form_carries_the_same_measurements(condition):
+    """Fact invariance: the seven write-ups differ in register, not in what is known."""
+    from hipaasynth.decision_cohort import build_decision_cohort
+    from hipaasynth.polymorphic.forms import _blinded_measurements
+
+    engine = PolymorphicFormEngine(information_mode=INFO_MODE_BLINDED)
+    for case in build_decision_cohort(condition, 6, seed=3):
+        pairs = _blinded_measurements(case.patient.observations or {})
+        for form in engine.express_all(case.patient):
+            text = form["full_text"]
+            for label, value in pairs:
+                assert f"{label} {value}" in text or f'"{label}"' in text, (form["form"], label)

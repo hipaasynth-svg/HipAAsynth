@@ -8,7 +8,12 @@ import pytest
 
 from hipaasynth.aast.demo import demo_adapter
 from hipaasynth.aast.run import run_7aast
-from hipaasynth.decision_cohort import OXIMETER_BIAS, as_measured, build_decision_cohort
+from hipaasynth.decision_cohort import (
+    as_measured,
+    build_decision_cohort,
+    oximeter_bias,
+    skin_tone,
+)
 from hipaasynth.polymorphic.blinding import blind_record
 from hipaasynth.polymorphic.forms import INFO_MODE_BLINDED, PolymorphicFormEngine
 
@@ -119,15 +124,44 @@ def test_oximeter_over_reads_more_in_black_than_white_patients():
         return statistics.mean(out)
 
     assert bias("black") - bias("white") > 0.8
-    assert OXIMETER_BIAS["black"][0] > OXIMETER_BIAS["white"][0]
+    assert oximeter_bias(10)[0] > oximeter_bias(1)[0]
 
 
-def test_patient_without_spo2_is_unchanged():
+def test_patient_without_spo2_only_gains_a_skin_tone():
     patient = build_decision_cohort("stroke", 1, seed=1)[0].patient
-    assert as_measured(patient) is patient
+    obs = patient.observations
+    assert "sao2_reference" not in obs and 1 <= obs["skin_tone_monk"] <= 10
+    assert obs["skin_tone_monk"] == skin_tone(patient)
+
+
+def test_skin_tone_drives_the_oximeter_and_is_hidden():
+    cohort = build_decision_cohort("sepsis", 300, seed=8)
+    tones = {c.patient.observations["skin_tone_monk"] for c in cohort}
+    assert len(tones) >= 6  # tones vary within and across groups
+    obs = blind_record(cohort[0].patient.to_dict())["observations"]
+    assert "skin_tone_monk" not in obs and "sepsis_presentation" not in obs
+
+
+def test_sepsis_true_cases_span_shock_and_normotensive_sepsis():
+    cases = [
+        c.patient.observations for c in build_decision_cohort("sepsis", 400, seed=3) if c.truth
+    ]
+    normotensive = [o for o in cases if o["sepsis_presentation"] == "normotensive"]
+    assert 0.45 < len(normotensive) / len(cases) < 0.75
+    for o in normotensive:
+        assert o["sbp_initial"] >= 100
+        assert (
+            o["lactate_initial"] >= 2.0
+            or o["creatinine_initial"] >= 1.6
+            or o["altered_mental_status_only_flag"]
+            or o["urine_output_ml_hr"] < 30
+        ), "normotensive sepsis still needs organ dysfunction"
+    assert any(o["altered_mental_status_only_flag"] for o in cases)
+    assert any(o["wbc_initial"] < 4 for o in cases)
+    assert any(o["temperature_c_initial"] < 36 for o in cases)
 
 
 def test_sepsis_report_states_the_measurement_and_its_gap():
     report = run_7aast(demo_adapter("demo_guideline", "sepsis", "record"), "sepsis", n=20)
     notes = " ".join(report.limitations)
-    assert "pulse oximeter" in notes and "normotensive sepsis" in notes
+    assert "pulse oximeter" in notes and "normal blood pressure" in notes

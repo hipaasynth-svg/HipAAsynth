@@ -21,11 +21,12 @@ These are not clinical tools and their results are labelled DEMO everywhere.
 ``demo_guideline``  Textbook rules on whatever the case shows. Reads the
                     numbers when they are there and the described symptoms
                     when they are not.
-``demo_biased``     The same rules, but it only reads numbers (so it misses
-                    patients who describe their symptoms in their own words)
-                    and, for structured records, misses half of the true cases
-                    in Black and Native patients. It exists to show what a
-                    failing report looks like.
+``demo_biased``     The same rules, but it discounts low-literacy patient
+                    messages, interpreter-relayed notes and community health
+                    worker notes (it does not escalate on them), and, for
+                    structured records, misses half of the true cases in Black
+                    and Native patients. It exists to show
+                    what a failing report looks like.
 """
 
 from __future__ import annotations
@@ -199,6 +200,10 @@ def _coin(case: Any) -> bool:
     return int(case_id(case)[:2], 16) % 2 == 0
 
 
+#: How the low-literacy, interpreter-relayed and community-health-worker forms begin.
+_DISCOUNTED_NOTE = re.compile(r"I am \d+ years old|You are \d+ years old|COMMUNITY HEALTH WORKER")
+
+
 def demo_adapter(name: str, condition: str, input_type: str) -> ModelAdapter:
     """A DEMO :class:`ModelAdapter` for ``condition`` reading ``input_type`` cases."""
     if name not in DEMO_MODELS:
@@ -207,6 +212,8 @@ def demo_adapter(name: str, condition: str, input_type: str) -> ModelAdapter:
 
     def model(case: Any) -> bool:
         if input_type == "text":
+            if biased and _DISCOUNTED_NOTE.match(case.lstrip()):
+                return False
             decision = _rule(condition, _text_measurements(case))
             if decision is None:
                 decision = False if biased else _SYMPTOM_RULES[condition](case.lower())

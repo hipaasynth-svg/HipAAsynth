@@ -134,6 +134,9 @@ def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--prevalence", type=float, default=0.5,
                    help="Share of true cases (default 0.5).")  # fmt: skip
     p.add_argument("--profile", default=None, help="Bundled population profile name or path.")
+    p.add_argument("--natural-mix", action="store_true",
+                   help="Without a profile, keep the default population's race/ethnicity mix "
+                   "instead of representing every group equally.")  # fmt: skip
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -197,12 +200,14 @@ def main(argv: list[str] | None = None) -> int:
                 seed=args.seed,
                 prevalence=args.prevalence,
                 profile=args.profile,
+                balance_groups=not args.natural_mix,
             )
             print(f"Wrote {out['cases']} cases to {out['cases_file']}.")
             print(f"Fill in the 'answer' column of {out['answers_template']} and run:")
             print(
                 f"  hipaasynth 7aast run --condition {args.condition} --input {args.input} "
                 f"--n {args.n} --seed {args.seed} --answers {out['answers_template']}"
+                + (" --natural-mix" if args.natural_mix else "")
             )
             return 0
         if args.demo:
@@ -227,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
             profile=args.profile,
             deployment_prevalence=args.deployment_prevalence,
             demo=bool(args.demo),
+            balance_groups=not args.natural_mix,
         )
     except (AnswerFileError, ValueError, TypeError, ImportError, AttributeError, OSError) as err:
         print(f"hipaasynth 7aast: error: {err}", file=sys.stderr)
