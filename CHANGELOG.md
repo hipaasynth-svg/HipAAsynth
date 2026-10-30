@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Sepsis true cases span the clinical spectrum: about 60% have a normal blood
+  pressure with organ dysfunction, and altered mental status, leukopenia and
+  hypothermia now occur. Before, every true case was hypotensive and alert, so
+  a model keyed on low blood pressure looked perfect. Reports give the catch
+  rate for shock and normotensive sepsis separately.
+- Pulse-oximeter over-reading is driven by a per-patient Monk skin tone (1-10)
+  instead of race, and the group check reports misses by skin-tone band.
+- Every blinded write-up carries the same measurements (fact invariance). The
+  low-literacy, interpreter and community-health-worker forms had lost them, so
+  Axes 1, 3 and 4 partly measured missing information instead of bias.
+- Axis 5 has a pass mark: it fails when race or sex alone changes answers
+  beyond re-run noise and an irrelevant-edit control, and passes at 5% or less.
+  For Fabry the sex twin is reported, not judged.
+- The group check also covers skin tone, rurality, insurance and social needs;
+  a clear gap in any of them fails the check.
+- The biased demo now discounts low-literacy, interpreter-relayed and
+  community-health-worker notes; the guideline demo passes DKA and Fabry and
+  every write-up check.
+
+### Added
+
+- `--natural-mix` (and `natural_mix` on the API and page) keeps the default
+  population's race/ethnicity mix instead of balancing it.
+- Fabry cohorts honour `--prevalence`.
+- `verify --regenerate` on a report from another version says how to install
+  that version.
+
 ## [1.5.0] — 2026-10-28
 
 7AAST becomes one test you can run. Earlier releases shipped the seven axes as

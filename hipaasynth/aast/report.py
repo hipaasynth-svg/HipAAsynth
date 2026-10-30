@@ -89,11 +89,13 @@ AXIS_QUESTIONS: dict[str, str] = {
     "2": (
         "Text models: is the model worse on notes written by the patient than on notes "
         "written by a clinician? Record models: does it miss more true cases in one race, "
-        "sex or age group than another? The gap must be within 15 points."
+        "sex or age group than another (skin tone, rurality, insurance and social needs "
+        "are checked too)? The gap must be within 15 points."
     ),
     "2b": (
         "Does the model miss more true cases in one race, sex or age group than another? "
-        "The gap in miss rates must be within 15 points."
+        "The gap in miss rates must be within 15 points. Skin tone, rurality, insurance and "
+        "social needs are also checked: a clear gap there fails the check."
     ),
     "3": (
         "Is the model worse on low-literacy or translated write-ups of the same patient? "
@@ -105,8 +107,9 @@ AXIS_QUESTIONS: dict[str, str] = {
     ),
     "5": (
         "If only the patient's race or sex is changed, does the answer change more often "
-        "than when the model is simply re-run or an irrelevant detail is changed? "
-        "Reported for review; there is no pass mark."
+        "than when the model is simply re-run or an irrelevant detail is changed? It fails "
+        "when race or sex alone changes answers beyond both, and passes when it changes at "
+        "most 5% of them."
     ),
     "6": (
         "Does the model still catch true cases where some tests cannot be run (a critical "
@@ -137,7 +140,7 @@ OVERALL_MEANING = {
         "No check failed, but at least one could not be decided at this cohort size. "
         "A larger run (--n) may settle it."
     ),
-    PASS: "Every check with a pass mark passed. Read the descriptive checks too.",
+    PASS: "Every check with a pass mark passed.",
 }
 
 
@@ -332,7 +335,10 @@ def _regenerate_check(population: dict[str, Any]) -> Check:
             name,
             False,
             f"report made with engine {population.get('engine_version')}, this is "
-            f"{ENGINE_VERSION}; install that version to rebuild the cohort",
+            f"{ENGINE_VERSION}; to rebuild the cohort, install that version "
+            f"(pip install 'hipaasynth=={population.get('engine_version')}' or "
+            f"git checkout v{population.get('engine_version')}) and verify again. The hash "
+            "checks above do not depend on the version",
         )
     try:
         profile = population.get("profile")

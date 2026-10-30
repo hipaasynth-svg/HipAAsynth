@@ -64,6 +64,7 @@ def export_cases(
     seed: int = 42,
     prevalence: float = 0.5,
     profile: str | None = None,
+    balance_groups: bool = True,
 ) -> dict[str, Any]:
     """Write every case a run with these settings will show the model.
 
@@ -85,6 +86,7 @@ def export_cases(
         seed=seed,
         prevalence=prevalence,
         profile=profile,
+        balance_groups=balance_groups,
     )
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

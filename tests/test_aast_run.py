@@ -51,7 +51,7 @@ def test_text_model_gets_every_axis(text_reports):
     assert [a.axis for a in report.axes] == list(AXIS_ORDER)
     assert all(a.status in STATUSES for a in report.axes)
     assert NOT_APPLICABLE not in {a.status for a in report.axes}
-    assert report.axis("5").status == DESCRIPTIVE
+    assert report.axis("5").status in {PASS, INCONCLUSIVE}
     assert report.demo and report.limitations[0].startswith("DEMO")
 
 
@@ -137,6 +137,53 @@ def test_twin_axis_sees_a_race_driven_model():
     assert twins["ethnicity"]["beyond_noise_and_control"] is True
     assert twins["sex"]["beyond_noise_and_control"] is False
     assert "ethnicity" in report.axis("5").summary
+    assert report.axis("5").status == FAIL
+
+
+def test_twin_axis_passes_a_model_that_ignores_demographics():
+    report = run_7aast(_const(True), "sepsis", n=100)
+    assert report.axis("5").status == PASS
+
+
+def test_fabry_sex_twin_is_reported_not_judged():
+    def sex_driven(case):
+        return case["demographics"]["sex"] == "male"
+
+    report = run_7aast(ModelAdapter(sex_driven, "binary", input="record"), "fabry", n=100)
+    twins = report.axis("5")
+    assert twins.metrics["sex"]["beyond_noise_and_control"] is True
+    assert twins.metrics["sex"]["judged"] is False and twins.status != FAIL
+    assert "clinically relevant" in twins.reason
+
+
+def test_fabry_honours_prevalence():
+    cohort = build_decision_cohort("fabry", 100, seed=4, prevalence=0.3)
+    assert sum(c.truth for c in cohort) == 30
+
+
+def test_group_axis_reports_secondary_groups():
+    report = run_7aast(_const(True), "stroke", n=200)
+    groups = report.axis("2").metrics["groups"]
+    for prefix in ("skin_tone=", "rural=", "insurance=", "social_needs="):
+        assert any(k.startswith(prefix) for k in groups), prefix
+    assert groups["insurance=uninsured"]["judged"] == "fail_only"
+    assert groups["ethnicity=white"]["judged"] == "full"
+
+
+def test_sepsis_accuracy_splits_shock_and_normotensive():
+    report = run_7aast(_const(True), "sepsis", n=100)
+    split = report.axis("accuracy").metrics["sensitivity_by_presentation"]
+    assert set(split) == {"normotensive", "septic_shock"}
+    assert "normotensive" in report.axis("accuracy").summary
+
+
+def test_natural_mix_flag(capsys, tmp_path):
+    argv = ["run", "--condition", "dka", "--input", "record", "--demo", "demo_guideline",
+            "--n", "40", "--natural-mix", "--report", str(tmp_path / "r.json")]  # fmt: skip
+    aast_main(argv)
+    capsys.readouterr()
+    doc = json.loads((tmp_path / "r.json").read_text())
+    assert doc["population"]["balanced_groups"] is False
 
 
 def test_noise_floor_detects_a_random_model():

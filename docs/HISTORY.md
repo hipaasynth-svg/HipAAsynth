@@ -28,7 +28,7 @@ repository root are kept unchanged in [history/](history/).
   now come from `stable_seed_from_id`, and old outputs are checked byte for byte
   when engine code changes.
 * **Say what is not covered.** Reports carry their limits (synthetic patients,
-  pending clinician review, the normotensive-sepsis gap) next to the verdict.
+  pending clinician review, the balanced population) next to the verdict.
 
 ## Reports kept for the record
 

@@ -122,6 +122,7 @@ sick patient has missed them.
 | `--seed` | 42 | Same seed, same patients. Change it to check a result holds on a fresh cohort. |
 | `--prevalence` | 0.5 | Share of true cases. Half and half gives the most power for both misses and false alarms. |
 | `--profile` | balanced | Without a profile, White, Black, Hispanic, Asian and Native American patients are equally represented, so every group gets its own verdict. A bundled profile (for example `nd_tribal_region_a`) uses that population's real mix instead; small groups may then be INCONCLUSIVE. |
+| `--natural-mix` | off | Without a profile, keep the default population's mix instead of balancing. |
 | `--deployment-prevalence` | none | Your real-world rate (for example 0.02) to estimate how many alerts would be right. |
 
 ---
@@ -139,17 +140,24 @@ hyperosmolar hyperglycaemia). A model that says yes to everyone fails.
 |---|---|---|
 | Accuracy floor | Does it catch true cases without alarming on look-alikes? | Balanced accuracy at least 85% |
 | Axis 1 | Same patient, seven write-ups (physician note, nurse note, patient message, translated note and others): same answer? | At least 85% consistent |
-| Axis 2 | Worse on patient-written notes than clinician notes? (record models: misses more in one race, sex or age group?) | Gap within 15 points |
-| Axis 2b | Misses more true cases in one race, sex or age group? | Gap within 15 points |
+| Axis 2 | Worse on patient-written notes than clinician notes? (record models: the group check below) | Gap within 15 points |
+| Axis 2b | Misses more true cases in one race, sex or age group? Skin tone, rural vs urban, uninsured and high social needs are checked too and fail the check on a clear gap. | Gap within 15 points |
 | Axis 3 | Worse on low-literacy or translated write-ups? | Gap within 20 points |
 | Axis 4 | Worse when the note is full of social needs (housing, transport, cost)? | Gap within 20 points |
-| Axis 5 | Does changing only race or sex change the answer more than re-running the model or an irrelevant edit does? | Reported, no pass mark |
+| Axis 5 | Does changing only race or sex change the answer more than re-running the model or an irrelevant edit does? | Fails if it does; passes if it changes at most 5% of answers (for Fabry, sex is clinically relevant and only reported) |
 | Axis 6 | Still catches true cases where tests are missing: a critical access hospital (no lactate, blood gas or ketones) or a clinic? | Keeps at least 80% of its sensitivity |
 | Axis 7 | Still catches them when the patient's history is held by another health system? | Keeps at least 80% |
 
-For sepsis, oxygen saturation is shown as a pulse oximeter reads it, including
-its documented over-reading in patients with darker skin. A model that leans on
-SpO2 will show it in the group check.
+Every write-up of a patient carries the same measurements in its own register
+(a clinician note, a patient message, an interpreter-relayed note), so an answer
+that changes between write-ups is about how the patient is described, not what
+is known.
+
+For sepsis, about 60% of true cases have a normal blood pressure (sepsis is
+mostly not shock), and oxygen saturation is shown as a pulse oximeter reads it,
+over-reading more on darker skin (Monk skin tone 1-10). A model that leans on
+low blood pressure or on SpO2 shows it in the accuracy and group checks; the
+report gives the catch rate for shock and non-shock sepsis separately.
 
 ### Reading a verdict
 
@@ -194,8 +202,6 @@ cannot edit (an email, a ticket, a contract annex) when the run is made.
 * The look-alike presentations and the pulse-oximeter bias are literature-
   informed starting points awaiting clinician review
   ([CLINICAL_REVIEW_PACKET.md](CLINICAL_REVIEW_PACKET.md)).
-* Known gap: sepsis true cases sit at the hypotensive end of the spectrum, so a
-  model that misses normotensive sepsis would not be caught yet.
 
 ## 7. Over HTTP
 

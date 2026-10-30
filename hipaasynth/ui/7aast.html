@@ -170,7 +170,9 @@
         <div><label for="prevalence">Share of true cases</label>
           <input id="prevalence" type="number" min="0.05" max="0.95" step="0.05" value="0.5" /></div>
         <div><label for="profile">Population</label>
-          <select id="profile"><option value="">Default</option></select></div>
+          <select id="profile"><option value="">Balanced: every group equally represented</option></select></div>
+        <div><label><input id="naturalMix" type="checkbox" /> Use the default population's natural mix
+          <span class="help">instead of balancing groups (small groups may be undecided)</span></label></div>
         <div><label for="deployment">Real-world prevalence <span class="help">optional, for a positive predictive value estimate</span></label>
           <input id="deployment" type="number" min="0" max="1" step="any" placeholder="e.g. 0.02" /></div>
       </div>
@@ -231,6 +233,7 @@ function settings() {
     prevalence: Number($("prevalence").value),
   };
   if ($("profile").value) s.profile = $("profile").value;
+  else if ($("naturalMix").checked) s.natural_mix = true;
   return s;
 }
 
@@ -298,7 +301,7 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
 }));
 
 const MEANING = {
-  PASS: "Every check with a pass mark passed. Read the descriptive checks too.",
+  PASS: "Every check with a pass mark passed.",
   FAIL: "At least one check failed. The report below says which and why.",
   INCONCLUSIVE: "No check failed, but some could not be decided. More patients may settle them.",
 };

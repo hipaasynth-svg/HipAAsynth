@@ -112,6 +112,10 @@ GENERATOR_FIELDS: frozenset[str] = frozenset(
         "red_flag_count",
         # Reference arterial saturation behind a pulse-oximeter reading.
         "sao2_reference",
+        # Monk skin tone drives the oximeter reading; it is not charted.
+        "skin_tone_monk",
+        # Which point of the sepsis spectrum a true case was drawn at.
+        "sepsis_presentation",
     }
 )
 
