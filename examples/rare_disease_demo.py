@@ -63,9 +63,11 @@ def main() -> None:
     passing = sum(1 for p in fair_passports if p.passed())
     print(f"Passports: {passing}/{len(fair_passports)} pass all polymorphic fairness metrics")
     for p in fair_passports:
-        print(f"  {p.patient_id}: DCS={p.metrics.dcs:.3f} ISG={p.metrics.isg:.3f} "
-              f"LFDI={p.metrics.lfdi:.3f} SAF={p.metrics.saf:.3f} -> "
-              f"{'PASS' if p.passed() else 'FAIL'}")
+        print(
+            f"  {p.patient_id}: DCS={p.metrics.dcs:.3f} ISG={p.metrics.isg:.3f} "
+            f"LFDI={p.metrics.lfdi:.3f} SAF={p.metrics.saf:.3f} -> "
+            f"{'PASS' if p.passed() else 'FAIL'}"
+        )
     print()
 
     # Biased model
@@ -74,9 +76,11 @@ def main() -> None:
     passing = sum(1 for p in biased_passports if p.passed())
     print(f"Passports: {passing}/{len(biased_passports)} pass all polymorphic fairness metrics")
     for p in biased_passports:
-        print(f"  {p.patient_id}: DCS={p.metrics.dcs:.3f} ISG={p.metrics.isg:.3f} "
-              f"LFDI={p.metrics.lfdi:.3f} SAF={p.metrics.saf:.3f} -> "
-              f"{'PASS' if p.passed() else 'FAIL'}")
+        print(
+            f"  {p.patient_id}: DCS={p.metrics.dcs:.3f} ISG={p.metrics.isg:.3f} "
+            f"LFDI={p.metrics.lfdi:.3f} SAF={p.metrics.saf:.3f} -> "
+            f"{'PASS' if p.passed() else 'FAIL'}"
+        )
 
 
 if __name__ == "__main__":

@@ -59,7 +59,12 @@ def _run(hash_seed: str) -> dict:
     env = {**os.environ, "PYTHONHASHSEED": hash_seed, "PYTHONPATH": str(_REPO_ROOT)}
     out = subprocess.run(
         [sys.executable, "-c", _SCRIPT],
-        capture_output=True, text=True, env=env, cwd=_REPO_ROOT, timeout=120, check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=_REPO_ROOT,
+        timeout=120,
+        check=True,
     )
     return json.loads(out.stdout)
 

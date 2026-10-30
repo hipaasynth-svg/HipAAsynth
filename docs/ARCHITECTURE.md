@@ -59,6 +59,30 @@ These are load-bearing properties enforced by tests and CI, not aspirations:
               (per-patient structured audit record)
 ```
 
+### 7AAST: the stress test of a model
+
+```
+  decision_cohort.py ── true cases + clinical look-alikes, sepsis spectrum,
+        │               Monk skin tone + pulse-oximeter reading, balanced groups
+        ▼
+  polymorphic/blinding.py ── what is visible at the moment of decision
+        ▼
+  aast/cases.py ── the case the model is shown (7 written forms or a record),
+        │          care-setting and fragmented-history variants, twins
+        ▼
+  aast/adapter.py ◄── the model: Python function · answers file (files.py) ·
+        │             URL or LLM API (remote.py) · demo or published score
+        │             (demo.py, reference.py)
+        ▼
+  aast/run.py ── accuracy floor, Axes 1-7 with intervals (stats.py) ──► AASTReport
+        ▼
+  aast/report.py ── JSON / HTML report with a 4-stage SHA-256 chain, verify
+```
+
+Front doors: `hipaasynth 7aast run|export|verify` (`aast/cli.py`), the page and
+`POST /7aast`, `POST /7aast/export` (`api.py`, `aast/web.py`, `ui/7aast.html`),
+and `hipaasynth ui`, which serves them on 127.0.0.1.
+
 ## Subsystem responsibilities
 
 | Package | Responsibility |
@@ -70,7 +94,10 @@ These are load-bearing properties enforced by tests and CI, not aspirations:
 | `psf/` · `cc/` · `dif/` | Adversarial audit frameworks: Population Sparsity Fairness, Care Continuity, Differential Impact — each produces a degradation index with a documented FAIL threshold. |
 | `exporters/` | Serialize cohorts to CSV (streaming + buffered), JSON, and FHIR R5 bundles. All writes create parent dirs and fail loud on I/O errors. |
 | `validation/` | Post-generation schema/consistency validation. |
-| `run/` | CLI entry points and reproducibility demos. |
+| `run/` | CLI entry points (`hipaasynth`, `hipaasynth 7aast`, `hipaasynth ui`) and reproducibility demos. |
+| `decision_cohort.py` | 7AAST cohorts: true cases mixed with clinical look-alikes, the sepsis presentation spectrum, skin tone and pulse-oximeter readings, balanced or natural group mix. |
+| `aast/` | 7AAST: model adapters, statistics and verdicts, what the model sees, the run, file/URL/LLM/reference model sources, the hash-chained report, CLI and web handlers. |
+| `api.py`, `ui/`, `sdk.py` | REST API and pages (cohort generator, 7AAST), Python SDK. |
 
 ## The FairnessPassport
 
@@ -81,8 +108,10 @@ only — HipAAsynth makes no regulatory determination).
 
 ## What is deliberately *not* here
 
-- No model weights, no inference — the engine evaluates *your* model via a small
-  `predict(patient, form)` interface (`core/model_interface.py`).
-- No network, no telemetry, no data collection.
+- No model weights, no inference — the engine evaluates *your* model through
+  `aast/adapter.py` (or `predict(patient, form)` for the older audit frames).
+- No telemetry, no data collection. The only network calls are the ones the
+  operator asks for: sending synthetic 7AAST cases to a model URL or an LLM API
+  (`aast/remote.py`); the shared API server refuses to make them.
 - No CAP pipeline (cryptographic certification / anchoring) — that is proprietary
   and maintained separately; this repository has no dependency on it.

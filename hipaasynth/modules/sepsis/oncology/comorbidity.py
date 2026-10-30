@@ -48,55 +48,50 @@ class ComorbidityModule:
             hypertension = self.rng.random() < htn_prob
 
             cad_prob = (
-                0.05 +
-                max(0, (age - 50)) * 0.001 +
-                (0.05 if sex == "M" else 0) +
-                (0.10 if not never_smoker else 0) +
-                (0.08 if self.rng.random() < 0.15 else 0) +
-                (0.05 if hypertension else 0)
+                0.05
+                + max(0, (age - 50)) * 0.001
+                + (0.05 if sex == "M" else 0)
+                + (0.10 if not never_smoker else 0)
+                + (0.08 if self.rng.random() < 0.15 else 0)
+                + (0.05 if hypertension else 0)
             )
             cad = self.rng.random() < min(cad_prob, 0.6)
 
             prior_mi = cad and (self.rng.random() < 0.4)
 
             hf_prob = (
-                0.02 +
-                max(0, (age - 60)) * 0.001 +
-                (0.15 if cad else 0) +
-                (0.20 if prior_mi else 0) +
-                (0.05 if hypertension else 0)
+                0.02
+                + max(0, (age - 60)) * 0.001
+                + (0.15 if cad else 0)
+                + (0.20 if prior_mi else 0)
+                + (0.05 if hypertension else 0)
             )
             heart_failure = self.rng.random() < min(hf_prob, 0.4)
 
             hf_type = None
             if heart_failure:
-                hfpef_prob = min(
-                    0.5 + (age - 70) * 0.01 + (0.1 if sex == "F" else 0),
-                    0.8
-                )
+                hfpef_prob = min(0.5 + (age - 70) * 0.01 + (0.1 if sex == "F" else 0), 0.8)
                 hf_type = "HFpEF" if self.rng.random() < hfpef_prob else "HFrEF"
 
             af_prob = (
-                0.02 +
-                max(0, (age - 60)) * 0.002 +
-                (0.05 if sex == "M" else 0) +
-                (0.15 if heart_failure else 0)
+                0.02
+                + max(0, (age - 60)) * 0.002
+                + (0.05 if sex == "M" else 0)
+                + (0.15 if heart_failure else 0)
             )
             afib = self.rng.random() < min(af_prob, 0.25)
 
             stroke_prob = (
-                0.03 +
-                max(0, (age - 65)) * 0.001 +
-                (0.10 if afib else 0) +
-                (0.05 if hypertension else 0)
+                0.03
+                + max(0, (age - 65)) * 0.001
+                + (0.10 if afib else 0)
+                + (0.05 if hypertension else 0)
             )
             stroke = self.rng.random() < min(stroke_prob, 0.2)
 
             # ---------------- METABOLIC ----------------
             dm_prob = (
-                0.05 +
-                max(0, (age - 45)) * 0.002 +
-                (0.05 if race in ["Black", "Hispanic"] else 0)
+                0.05 + max(0, (age - 45)) * 0.002 + (0.05 if race in ["Black", "Hispanic"] else 0)
             )
             diabetes = self.rng.random() < min(dm_prob, 0.35)
 
@@ -108,10 +103,7 @@ class ComorbidityModule:
             bmi = max(18, min(50, bmi))
 
             lipid_prob = (
-                0.20 +
-                max(0, (age - 50)) * 0.001 +
-                (0.15 if cad else 0) +
-                (0.20 if diabetes else 0)
+                0.20 + max(0, (age - 50)) * 0.001 + (0.15 if cad else 0) + (0.20 if diabetes else 0)
             )
             dyslipidemia = self.rng.random() < min(lipid_prob, 0.7)
 
@@ -119,15 +111,9 @@ class ComorbidityModule:
             if biomarkers and "never_smoker" in biomarkers:
                 ever_smoked = not never_smoker
             else:
-                ever_smoked = self.rng.random() < (
-                    0.15 + (0.2 if sex == "M" else 0)
-                )
+                ever_smoked = self.rng.random() < (0.15 + (0.2 if sex == "M" else 0))
 
-            copd_prob = (
-                0.05 +
-                (0.15 if ever_smoked else 0) +
-                max(0, (age - 60)) * 0.002
-            )
+            copd_prob = 0.05 + (0.15 if ever_smoked else 0) + max(0, (age - 60)) * 0.002
             copd = self.rng.random() < min(copd_prob, 0.4)
 
             asthma_prob = max(0, 0.08 - 0.001 * max(0, (age - 30)))
@@ -227,32 +213,27 @@ class ComorbidityModule:
 
     def _empty(self):
         return {
-            "hypertension": [False]*self.n,
-            "cad": [False]*self.n,
-            "prior_mi": [False]*self.n,
-            "heart_failure": [False]*self.n,
-            "hf_type": [None]*self.n,
-            "atrial_fibrillation": [False]*self.n,
-            "prior_stroke": [False]*self.n,
-
-            "diabetes": [False]*self.n,
-            "diabetes_type": [None]*self.n,
-            "bmi": [0]*self.n,
-            "dyslipidemia": [False]*self.n,
-
-            "copd": [False]*self.n,
-            "asthma": [False]*self.n,
-            "pack_years": [0]*self.n,
-            "asbestos_exposure": [False]*self.n,
-
-            "egfr": [0]*self.n,
-            "ckd_stage": [None]*self.n,
-            "on_dialysis": [False]*self.n,
-
-            "chronic_liver_disease": [False]*self.n,
-            "hepatitis": [False]*self.n,
-            "hepatitis_type": [None]*self.n,
-            "lft_abnormal": [False]*self.n,
-
-            "charlson_index": [0]*self.n,
+            "hypertension": [False] * self.n,
+            "cad": [False] * self.n,
+            "prior_mi": [False] * self.n,
+            "heart_failure": [False] * self.n,
+            "hf_type": [None] * self.n,
+            "atrial_fibrillation": [False] * self.n,
+            "prior_stroke": [False] * self.n,
+            "diabetes": [False] * self.n,
+            "diabetes_type": [None] * self.n,
+            "bmi": [0] * self.n,
+            "dyslipidemia": [False] * self.n,
+            "copd": [False] * self.n,
+            "asthma": [False] * self.n,
+            "pack_years": [0] * self.n,
+            "asbestos_exposure": [False] * self.n,
+            "egfr": [0] * self.n,
+            "ckd_stage": [None] * self.n,
+            "on_dialysis": [False] * self.n,
+            "chronic_liver_disease": [False] * self.n,
+            "hepatitis": [False] * self.n,
+            "hepatitis_type": [None] * self.n,
+            "lft_abnormal": [False] * self.n,
+            "charlson_index": [0] * self.n,
         }

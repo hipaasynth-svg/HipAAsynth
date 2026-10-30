@@ -172,16 +172,33 @@ class CardiologyCohortGenerator:
             # Established ASCVD (secondary-prevention subset) ~8%.
             prior_ascvd = rng.random() < (0.05 + max(0, (a - 55)) * 0.003)
 
-            age.append(a); sex.append(s); race.append(r)
-            tc.append(total_c); hdl.append(hdl_c); sbp.append(systolic)
-            smoking.append(smoke); diabetes.append(dm); htn.append(hypertension)
-            hf.append(heart_f); af.append(afib); ckd.append(ckd_flag); prior.append(prior_ascvd)
+            age.append(a)
+            sex.append(s)
+            race.append(r)
+            tc.append(total_c)
+            hdl.append(hdl_c)
+            sbp.append(systolic)
+            smoking.append(smoke)
+            diabetes.append(dm)
+            htn.append(hypertension)
+            hf.append(heart_f)
+            af.append(afib)
+            ckd.append(ckd_flag)
+            prior.append(prior_ascvd)
 
         return {
-            "age": age, "sex": sex, "race": race,
-            "total_cholesterol": tc, "hdl_cholesterol": hdl, "systolic_bp": sbp,
-            "smoking_status": smoking, "diabetes": diabetes, "hypertension": htn,
-            "heart_failure": hf, "atrial_fibrillation": af, "ckd": ckd,
+            "age": age,
+            "sex": sex,
+            "race": race,
+            "total_cholesterol": tc,
+            "hdl_cholesterol": hdl,
+            "systolic_bp": sbp,
+            "smoking_status": smoking,
+            "diabetes": diabetes,
+            "hypertension": htn,
+            "heart_failure": hf,
+            "atrial_fibrillation": af,
+            "ckd": ckd,
             "prior_ascvd": prior,
         }
 

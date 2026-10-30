@@ -36,7 +36,7 @@ Transition consistency (continuity bias)
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from hipaasynth.core.model_interface import ModelInterface, validate_model_score
 from hipaasynth.cc.generator import CCGenerator, CONTINUITY_PROFILES
@@ -161,9 +161,11 @@ class CCAudit:
             pair_seed = config.seed + pair_idx + 1
             pair = gen.generate_matched_pair(base_seed=pair_seed)
             score_a = validate_model_score(
-                model.evaluate(pair["PROFILE_A"]), f"CC matched pair {pair_idx} (PROFILE_A)")
+                model.evaluate(pair["PROFILE_A"]), f"CC matched pair {pair_idx} (PROFILE_A)"
+            )
             score_d = validate_model_score(
-                model.evaluate(pair["PROFILE_D"]), f"CC matched pair {pair_idx} (PROFILE_D)")
+                model.evaluate(pair["PROFILE_D"]), f"CC matched pair {pair_idx} (PROFILE_D)"
+            )
             transition_deltas.append(round(score_a - score_d, 4))
 
         mean_delta = _mean(transition_deltas)
@@ -182,6 +184,7 @@ class CCAudit:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mean(values: List[float]) -> float:
     if not values:

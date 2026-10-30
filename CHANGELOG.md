@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-30
+
+Every gap in the 1.5.0 review closed: sepsis spans the clinical spectrum, the
+oximeter follows skin tone, every write-up carries the same facts, Axis 5 has a
+pass mark, models can be tested by URL or LLM API, and published clinical scores
+run as reference models whose results match the literature.
+
 ### Changed
 
 - Sepsis true cases span the clinical spectrum: about 60% have a normal blood
@@ -31,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Lint, format and type checks in CI (ruff 0.4.10, black 24.4.2, mypy), with
+  the whole codebase passing; a release builds and attaches the installable
+  package, with notes from this file.
 - Test a model behind a web address (`--url`, page option, `url` on the local
   API) or an LLM API (`--llm openai|anthropic`, any OpenAI-compatible server
   via `--llm-base-url`). Endpoint query strings and headers are never recorded;

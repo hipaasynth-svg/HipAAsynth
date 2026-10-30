@@ -48,20 +48,27 @@ DOCUMENTED LIMITATION:
   populations) may have higher mean BMI; those overrides are applied at
   the profile level, not in this generator.
 """
-import random
 from hipaasynth.core.schema import Anthropometrics
+
 
 def _clip(value, lower, upper):
     return min(max(value, lower), upper)
 
+
 def _bmi_category(bmi):
     """Standard WHO BMI classification for adults [A4]."""
-    if bmi < 18.5: return "underweight"
-    if bmi < 25.0: return "normal"
-    if bmi < 30.0: return "overweight"
-    if bmi < 35.0: return "obesity_class_1"
-    if bmi < 40.0: return "obesity_class_2"
+    if bmi < 18.5:
+        return "underweight"
+    if bmi < 25.0:
+        return "normal"
+    if bmi < 30.0:
+        return "overweight"
+    if bmi < 35.0:
+        return "obesity_class_1"
+    if bmi < 40.0:
+        return "obesity_class_2"
     return "obesity_class_3"
+
 
 def _generate_height_cm(rng, age, sex):
     """Generate height in cm.
@@ -71,9 +78,12 @@ def _generate_height_cm(rng, age, sex):
       Women: mean 161.8 cm, SD ~7.1 cm (modeled as 162 cm, SD 7)
     Clamped to physiologically plausible adult range 140-205 cm.
     """
-    if sex == "male": value = rng.gauss(176.0, 7.0)
-    elif sex == "female": value = rng.gauss(162.0, 7.0)
-    else: raise ValueError(f"Unsupported sex: {sex!r}")
+    if sex == "male":
+        value = rng.gauss(176.0, 7.0)
+    elif sex == "female":
+        value = rng.gauss(162.0, 7.0)
+    else:
+        raise ValueError(f"Unsupported sex: {sex!r}")
     adult_height = round(_clip(value, 140.0, 205.0), 1)
     if age >= 18:
         return adult_height
@@ -85,10 +95,14 @@ def _generate_height_cm(rng, age, sex):
 
 def _bmi_category_pediatric(bmi):
     # Simplified pediatric categories for engine testing; not clinical growth-chart percentiles.
-    if bmi < 14.0: return "underweight"
-    if bmi < 22.0: return "normal"
-    if bmi < 25.0: return "overweight"
-    if bmi < 30.0: return "obesity_class_1"
+    if bmi < 14.0:
+        return "underweight"
+    if bmi < 22.0:
+        return "normal"
+    if bmi < 25.0:
+        return "overweight"
+    if bmi < 30.0:
+        return "obesity_class_1"
     return "obesity_class_2"
 
 
@@ -102,9 +116,12 @@ def _generate_bmi(rng, age, sex):
     Age adjustments: younger adults (18-24) tend toward lower BMI; older
     adults (65+) show slight decrease due to body composition changes [A3].
     """
-    if sex == "female": sex_offset = 0.3
-    elif sex == "male": sex_offset = 0.0
-    else: raise ValueError(f"Unsupported sex: {sex!r}")
+    if sex == "female":
+        sex_offset = 0.3
+    elif sex == "male":
+        sex_offset = 0.0
+    else:
+        raise ValueError(f"Unsupported sex: {sex!r}")
 
     if age < 18:
         # Pediatric BMI mean rises from ~15 at age 1 to ~22 by age 17.
@@ -113,8 +130,10 @@ def _generate_bmi(rng, age, sex):
         return bmi, _bmi_category_pediatric(bmi)
 
     mean = 29.0  # NHANES 2015-2018 US adult mean [A1][A2]
-    if age < 25: mean -= 2.0   # Younger adults trend lower [A3]
-    elif age >= 65: mean -= 0.5  # Slight decrease in older adults [A3]
+    if age < 25:
+        mean -= 2.0  # Younger adults trend lower [A3]
+    elif age >= 65:
+        mean -= 0.5  # Slight decrease in older adults [A3]
     mean += sex_offset
     return round(_clip(rng.gauss(mean, 5.0), 15.0, 60.0), 1), None
 
@@ -124,5 +143,5 @@ def generate_anthropometrics(rng, age, sex):
     bmi, pediatric_category = _generate_bmi(rng, age, sex)
     category = pediatric_category if pediatric_category is not None else _bmi_category(bmi)
     height_m = height_cm / 100.0
-    weight_kg = round(bmi * (height_m ** 2), 1)
+    weight_kg = round(bmi * (height_m**2), 1)
     return Anthropometrics(height_cm=height_cm, weight_kg=weight_kg, bmi=bmi, bmi_category=category)

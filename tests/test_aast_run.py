@@ -102,10 +102,10 @@ def test_group_axis_catches_a_race_biased_record_model():
     report = run_7aast(demo_adapter("demo_biased", "stroke", "record"), "stroke", n=400)
     groups = report.axis("2").metrics["groups"]
     assert report.axis("2").status == FAIL
-    assert "ethnicity=black" in report.axis("2").summary or "ethnicity=native" in (
-        report.axis("2").summary
-    )
+    # The largest gap can show on race or on dark skin tone, which tracks it.
+    assert any(g in report.axis("2").summary for g in ("ethnicity=", "skin_tone=monk_7-10"))
     for group in ("ethnicity=black", "ethnicity=native"):  # the groups the demo is biased against
+        assert groups[group]["status"] == FAIL
         assert groups[group]["miss_rate"] > 0.3
         assert groups[group]["gap_vs_rest"]["estimate"] > 0.15
 

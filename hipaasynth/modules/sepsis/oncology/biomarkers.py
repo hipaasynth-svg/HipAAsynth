@@ -69,7 +69,6 @@ class BiomarkerModule:
             "ki67_percent": [0.0] * self.n,
             "brca_mutation": [None] * self.n,
             "subtype": [None] * self.n,
-
             # Lung
             "never_smoker": [False] * self.n,
             "egfr_status": [None] * self.n,
@@ -79,7 +78,6 @@ class BiomarkerModule:
             "kras_status": [None] * self.n,
             "pd_l1_tps": [0] * self.n,
             "histology": [None] * self.n,
-
             # Colon
             "msi_status": [None] * self.n,
             "nras_status": [None] * self.n,
@@ -129,16 +127,10 @@ class BiomarkerModule:
             else self._choice(["+", "-"], [0.20, 0.80])
         )
 
-        ki67 = (
-            self._gauss(40, 15) if her2 == "+" else self._gauss(20, 12)
-        )
+        ki67 = self._gauss(40, 15) if her2 == "+" else self._gauss(20, 12)
         ki67 = self._clip(ki67, 1, 95)
 
-        brca = (
-            "positive"
-            if self.rng.random() < (0.10 if age < 40 else 0.05)
-            else "negative"
-        )
+        brca = "positive" if self.rng.random() < (0.10 if age < 40 else 0.05) else "negative"
 
         # subtype logic
         if er == "+" and her2 == "-":
@@ -184,11 +176,7 @@ class BiomarkerModule:
         else:
             kras = "+" if self.rng.random() < 0.30 else "-"
 
-        pdl1 = int(
-            self._clip(
-                self._betavariate(2, 8) * 100, 0, 100
-            )
-        )
+        pdl1 = int(self._clip(self._betavariate(2, 8) * 100, 0, 100))
 
         hist = (
             "adenocarcinoma"
@@ -221,12 +209,8 @@ class BiomarkerModule:
         right = self.rng.random() < 0.60
         msi = "MSI-H" if self.rng.random() < (0.22 if right else 0.03) else "MSS"
 
-        braf = (
-            "+" if self.rng.random() < (0.50 if msi == "MSI-H" else 0.10) else "-"
-        )
-        kras = (
-            "+" if self.rng.random() < (0.20 if msi == "MSI-H" else 0.40) else "-"
-        )
+        braf = "+" if self.rng.random() < (0.50 if msi == "MSI-H" else 0.10) else "-"
+        kras = "+" if self.rng.random() < (0.20 if msi == "MSI-H" else 0.40) else "-"
 
         nras = "-" if kras == "+" else ("+" if self.rng.random() < 0.08 else "-")
 

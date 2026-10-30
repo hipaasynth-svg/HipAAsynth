@@ -40,6 +40,7 @@ def cohort_data():
 
 # ── reverse vocabulary lookup ────────────────────────────────────────────────
 
+
 def test_terms_for_concept_id_resolves_condition():
     terms = terms_for_concept_id(319835)
     assert ("conditions", "congestive_heart_failure") in terms
@@ -57,6 +58,7 @@ def test_terms_for_concept_id_prefers_allowed_when_multiple():
 
 
 # ── parsing ──────────────────────────────────────────────────────────────────
+
 
 def test_parse_matches_and_unmatches(cohort_data):
     plan = parse_atlas_cohort(cohort_data)
@@ -90,6 +92,7 @@ def test_coverage_summary_mentions_index(cohort_data):
 
 # ── loading variants ─────────────────────────────────────────────────────────
 
+
 def test_load_from_path():
     plan = load_atlas_cohort(FIXTURE)
     assert plan.required_condition == "congestive_heart_failure"
@@ -108,6 +111,7 @@ def test_load_from_webapi_wrapped_expression(cohort_data):
 
 
 # ── config bridge + end-to-end generation ────────────────────────────────────
+
 
 def test_to_generation_config(cohort_data):
     plan = parse_atlas_cohort(cohort_data)
@@ -133,9 +137,21 @@ def test_ungeneratable_cohort_raises():
     data = {
         "Name": "Unsupported",
         "ConceptSets": [
-            {"id": 0, "name": "Dementia", "expression": {"items": [
-                {"concept": {"CONCEPT_ID": 4182210, "CONCEPT_NAME": "Dementia",
-                             "DOMAIN_ID": "Condition"}}]}}
+            {
+                "id": 0,
+                "name": "Dementia",
+                "expression": {
+                    "items": [
+                        {
+                            "concept": {
+                                "CONCEPT_ID": 4182210,
+                                "CONCEPT_NAME": "Dementia",
+                                "DOMAIN_ID": "Condition",
+                            }
+                        }
+                    ]
+                },
+            }
         ],
         "PrimaryCriteria": {"CriteriaList": [{"ConditionOccurrence": {"CodesetId": 0}}]},
     }

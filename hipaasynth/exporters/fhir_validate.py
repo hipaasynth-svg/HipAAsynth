@@ -78,24 +78,50 @@ _REQUIRED_FIELDS = {
 # Value-set-bound fields we can check offline (small, closed code systems).
 _GENDER_VALUES = {"male", "female", "other", "unknown"}
 _OBSERVATION_STATUS = {
-    "registered", "preliminary", "final", "amended", "corrected",
-    "cancelled", "entered-in-error", "unknown",
+    "registered",
+    "preliminary",
+    "final",
+    "amended",
+    "corrected",
+    "cancelled",
+    "entered-in-error",
+    "unknown",
 }
 # R5 Encounter.status value set.
 _ENCOUNTER_STATUS = {
-    "planned", "in-progress", "on-hold", "discharged", "completed",
-    "cancelled", "discontinued", "entered-in-error", "unknown",
+    "planned",
+    "in-progress",
+    "on-hold",
+    "discharged",
+    "completed",
+    "cancelled",
+    "discontinued",
+    "entered-in-error",
+    "unknown",
 }
 # R5 MedicationStatement.status value set.
 _MEDSTATEMENT_STATUS = {"recorded", "entered-in-error", "draft"}
 # R5 MedicationRequest.status / .intent value sets.
 _MEDREQUEST_STATUS = {
-    "active", "on-hold", "ended", "stopped", "completed", "cancelled",
-    "entered-in-error", "draft", "unknown",
+    "active",
+    "on-hold",
+    "ended",
+    "stopped",
+    "completed",
+    "cancelled",
+    "entered-in-error",
+    "draft",
+    "unknown",
 }
 _MEDREQUEST_INTENT = {
-    "proposal", "plan", "order", "original-order", "reflex-order",
-    "filler-order", "instance-order", "option",
+    "proposal",
+    "plan",
+    "order",
+    "original-order",
+    "reflex-order",
+    "filler-order",
+    "instance-order",
+    "option",
 }
 
 # CodeableConcept-typed fields to check per resource type. Nested paths use a
@@ -173,9 +199,7 @@ def _check_value_sets(resource: dict, rtype: str) -> list[str]:
     errors = []
     if rtype == "Patient" and "gender" in resource:
         if resource["gender"] not in _GENDER_VALUES:
-            errors.append(
-                f"gender '{resource['gender']}' not in AdministrativeGender value set"
-            )
+            errors.append(f"gender '{resource['gender']}' not in AdministrativeGender value set")
     if rtype == "Observation" and "status" in resource:
         if resource["status"] not in _OBSERVATION_STATUS:
             errors.append(f"status '{resource['status']}' not a valid Observation status")
@@ -193,9 +217,7 @@ def _check_value_sets(resource: dict, rtype: str) -> list[str]:
                 f"status '{resource.get('status')}' not a valid R5 MedicationRequest status"
             )
         if resource.get("intent") not in _MEDREQUEST_INTENT:
-            errors.append(
-                f"intent '{resource.get('intent')}' not a valid MedicationRequest intent"
-            )
+            errors.append(f"intent '{resource.get('intent')}' not a valid MedicationRequest intent")
     return errors
 
 
@@ -270,12 +292,15 @@ def validate_resources(resources: Iterable[dict]) -> FhirValidationReport:
         # Referential integrity for intra-bundle urn:uuid references.
         for ref in _iter_references(resource):
             if ref.startswith("urn:uuid:"):
-                target = ref[len("urn:uuid:"):]
+                target = ref[len("urn:uuid:") :]
                 if target not in ids:
-                    report.errors.append({
-                        "resourceType": rtype, "id": rid,
-                        "message": f"dangling reference '{ref}' (no such resource in set)",
-                    })
+                    report.errors.append(
+                        {
+                            "resourceType": rtype,
+                            "id": rid,
+                            "message": f"dangling reference '{ref}' (no such resource in set)",
+                        }
+                    )
     return report
 
 
@@ -283,8 +308,7 @@ def validate_bundle(bundle: dict) -> FhirValidationReport:
     """Validate a FHIR Bundle dict (as written by ``export_fhir``)."""
     if not isinstance(bundle, dict) or bundle.get("resourceType") != "Bundle":
         report = FhirValidationReport(total=0)
-        report.errors.append({"resourceType": None, "id": None,
-                              "message": "not a FHIR Bundle"})
+        report.errors.append({"resourceType": None, "id": None, "message": "not a FHIR Bundle"})
         return report
     resources = [e.get("resource", {}) for e in bundle.get("entry", [])]
     return validate_resources(resources)
@@ -306,13 +330,14 @@ def validate_ndjson_dir(ndjson_dir) -> FhirValidationReport:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Structural FHIR validator for HipAAsynth exporter output. "
-                    "NOT a substitute for the official HL7 FHIR IG validator.")
+        "NOT a substitute for the official HL7 FHIR IG validator."
+    )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--bundle", type=Path, help="Path to a FHIR Bundle JSON file.")
-    group.add_argument("--ndjson-dir", type=Path,
-                       help="Directory of {ResourceType}.ndjson files.")
-    parser.add_argument("--json", type=Path, default=None,
-                        help="Write the full JSON report to this path.")
+    group.add_argument("--ndjson-dir", type=Path, help="Directory of {ResourceType}.ndjson files.")
+    parser.add_argument(
+        "--json", type=Path, default=None, help="Write the full JSON report to this path."
+    )
     args = parser.parse_args(argv)
 
     if args.bundle:
@@ -324,10 +349,14 @@ def main(argv=None) -> int:
         args.json.write_text(json.dumps(report.as_dict(), indent=2), encoding="utf-8")
         print(f"Wrote JSON report to {args.json}")
 
-    print(f"Validated {report.total} resources: "
-          f"{'PASS' if report.ok else f'{len(report.errors)} error(s)'}")
-    print("NOTE: structural R5 check only — run the official HL7 FHIR IG "
-          "validator before any conformance claim.")
+    print(
+        f"Validated {report.total} resources: "
+        f"{'PASS' if report.ok else f'{len(report.errors)} error(s)'}"
+    )
+    print(
+        "NOTE: structural R5 check only — run the official HL7 FHIR IG "
+        "validator before any conformance claim."
+    )
     for err in report.errors[:50]:
         print(f"  [{err['resourceType']}/{err['id']}] {err['message']}")
     return 0 if report.ok else 1

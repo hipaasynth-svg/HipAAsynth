@@ -40,8 +40,9 @@ class _Always:
 
 
 def _audit(model, condition="stroke", **cfg):
-    gen = GenerationConfig(patient_count=8, seed=1, required_condition=condition,
-                           run_date="2026-01-01")
+    gen = GenerationConfig(
+        patient_count=8, seed=1, required_condition=condition, run_date="2026-01-01"
+    )
     return run_audit(model, generate_patients, gen, DIFConfig(**cfg))
 
 
@@ -69,9 +70,7 @@ def test_floor_can_be_disabled():
     assert all(p.passed() for p in _audit(_Always(False), accuracy_threshold=0.0))
 
 
-@pytest.mark.parametrize(
-    "n_wrong, expected", [(0, True), (1, True), (2, False), (7, False)]
-)
+@pytest.mark.parametrize("n_wrong, expected", [(0, True), (1, True), (2, False), (7, False)])
 def test_threshold_boundary_one_wrong_form_of_seven_passes(n_wrong, expected):
     forms = [f"form{i}" for i in range(7)]
     decisions = {f: (i >= n_wrong) for i, f in enumerate(forms)}  # wrong ones are False
@@ -91,8 +90,16 @@ def test_no_decisions_fails_accuracy():
 
 
 def test_older_constructor_without_accuracy_still_works():
-    m = PolymorphicMetrics(dcs=1.0, isg=0.0, lfdi=0.0, saf=0.0,
-                           dcs_pass=True, isg_pass=True, lfdi_pass=True, saf_pass=True)
+    m = PolymorphicMetrics(
+        dcs=1.0,
+        isg=0.0,
+        lfdi=0.0,
+        saf=0.0,
+        dcs_pass=True,
+        isg_pass=True,
+        lfdi_pass=True,
+        saf_pass=True,
+    )
     assert m.all_pass()
 
 

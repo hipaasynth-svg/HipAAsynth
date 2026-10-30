@@ -43,19 +43,30 @@ def _patient(*, conditions, labs, medications=(), visits=None, pid="P1"):
     demo = Demographics(patient_id=pid, seed=1, age=60, sex="male", ethnicity="white")
     anth = Anthropometrics(height_cm=175, weight_kg=85, bmi=27.8, bmi_category="overweight")
     if visits is None:
-        visits = [Visit(visit_id="V1", visit_type="outpatient", visit_date="2024-06-01",
-                        primary_diagnosis=conditions[0].name if conditions else "routine_check",
-                        labs=list(labs))]
+        visits = [
+            Visit(
+                visit_id="V1",
+                visit_type="outpatient",
+                visit_date="2024-06-01",
+                primary_diagnosis=conditions[0].name if conditions else "routine_check",
+                labs=list(labs),
+            )
+        ]
     return Patient(
-        demographics=demo, anthropometrics=anth,
-        conditions=list(conditions), visits=list(visits),
-        engine_version="x", schema_version="y", medications=list(medications),
+        demographics=demo,
+        anthropometrics=anth,
+        conditions=list(conditions),
+        visits=list(visits),
+        engine_version="x",
+        schema_version="y",
+        medications=list(medications),
     )
 
 
 def _lab(name, value):
-    return LabResult(lab_name=name, value=value, unit="u", reference_range="r",
-                     date_recorded="2024-06-01")
+    return LabResult(
+        lab_name=name, value=value, unit="u", reference_range="r", date_recorded="2024-06-01"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -124,9 +135,16 @@ def test_lab_floor_only_applies_when_condition_is_carried():
 
 def test_generated_cohort_has_no_lab_diagnosis_contradictions():
     # The engine guarantees the floors, so a real cohort must be clean.
-    cfg = GenerationConfig(patient_count=200, seed=11, age_min=40, age_max=90,
-                           include_visits=True, include_labs=True,
-                           visits_min=1, visits_max=3)
+    cfg = GenerationConfig(
+        patient_count=200,
+        seed=11,
+        age_min=40,
+        age_max=90,
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=3,
+    )
     patients = generate_patients(cfg)
     all_findings = []
     for p in patients:
@@ -135,9 +153,15 @@ def test_generated_cohort_has_no_lab_diagnosis_contradictions():
 
 
 def test_generated_sepsis_cohort_has_no_contradictions():
-    cfg = GenerationConfig(patient_count=60, seed=5, required_condition="sepsis",
-                           include_visits=True, include_labs=True,
-                           visits_min=1, visits_max=2)
+    cfg = GenerationConfig(
+        patient_count=60,
+        seed=5,
+        required_condition="sepsis",
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=2,
+    )
     patients = generate_patients(cfg)
     assert find_clinical_plausibility_issues(patients) == []
 
@@ -182,9 +206,15 @@ def test_check_clinical_plausibility_combines_rules():
         conditions=[Condition("chronic_kidney_disease", onset_age=55, active=True)],
         labs=[_lab("Creatinine", 0.6)],
         medications=[Medication(name="furosemide", active=True)],
-        visits=[Visit(visit_id="V1", visit_type="outpatient", visit_date="2024-06-01",
-                      primary_diagnosis="chronic_kidney_disease",
-                      labs=[_lab("Creatinine", 0.6)])],
+        visits=[
+            Visit(
+                visit_id="V1",
+                visit_type="outpatient",
+                visit_date="2024-06-01",
+                primary_diagnosis="chronic_kidney_disease",
+                labs=[_lab("Creatinine", 0.6)],
+            )
+        ],
     )
     findings = check_clinical_plausibility(p)
     kinds = {f["kind"] for f in findings}

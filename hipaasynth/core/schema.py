@@ -17,6 +17,7 @@
 from dataclasses import dataclass, asdict, field
 from typing import List, Any
 
+
 @dataclass(frozen=True)
 class Demographics:
     patient_id: str
@@ -25,6 +26,7 @@ class Demographics:
     sex: str
     ethnicity: str
 
+
 @dataclass(frozen=True)
 class Anthropometrics:
     height_cm: float
@@ -32,11 +34,13 @@ class Anthropometrics:
     bmi: float
     bmi_category: str
 
+
 @dataclass(frozen=True)
 class Condition:
     name: str
     onset_age: int
     active: bool
+
 
 @dataclass(frozen=True)
 class LabResult:
@@ -46,10 +50,12 @@ class LabResult:
     reference_range: str
     date_recorded: str
 
+
 @dataclass(frozen=True)
 class Medication:
     name: str
     active: bool = True
+
 
 @dataclass(frozen=True)
 class Visit:
@@ -58,6 +64,7 @@ class Visit:
     visit_date: str
     primary_diagnosis: str
     labs: List[LabResult]
+
 
 @dataclass(frozen=True)
 class Patient:

@@ -19,3 +19,11 @@ from hipaasynth.modules.diabetes.glycemic import GlycemicGenerator
 from hipaasynth.modules.diabetes.complications import ComplicationGenerator
 from hipaasynth.modules.diabetes.treatments import TreatmentGenerator
 from hipaasynth.modules.diabetes.outcomes import OutcomeGenerator
+
+__all__ = [
+    "ComplicationGenerator",
+    "DiabetesPopulationGenerator",
+    "GlycemicGenerator",
+    "OutcomeGenerator",
+    "TreatmentGenerator",
+]

@@ -17,7 +17,11 @@ shared-responsibility posture.
 ## Install
 
 ```bash
-# Core engine (nothing else pulled in)
+# A released version (no clone needed): download the wheel from the GitHub
+# release page, or install straight from the tag
+pip install "git+https://github.com/hipaasynth-svg/HipAAsynth.git@v1.6.0"
+
+# Core engine from a clone (nothing else pulled in)
 pip install -e .
 
 # With dev tooling (tests, coverage, linters, pre-commit)
@@ -36,6 +40,17 @@ python -m pytest --cov       # with coverage (floor enforced in pyproject.toml)
 ```
 
 ## Run
+
+Stress-test a model on a laptop (opens the 7AAST page, 127.0.0.1 only):
+
+```bash
+hipaasynth ui
+hipaasynth 7aast run --condition sepsis --input record --reference qsofa --report r.html
+```
+
+See [`7AAST.md`](7AAST.md) for every way to plug in a model. In a container,
+`docker compose up --build` serves the API and pages on port 8000; model URLs
+are refused there by design.
 
 Generate an auditable sample cohort:
 
@@ -63,7 +78,8 @@ result = PSFAudit().run(your_model, PSFConfig(n_per_level=200, seed=42))
 ## Operational model
 
 - **Stateless & offline.** Each run is self-contained, writes to a
-  `runs/<run_id>/` directory (or the path you specify), and makes no network calls.
+  `runs/<run_id>/` directory (or the path you specify), and makes no network calls
+  unless a 7AAST run is pointed at a model endpoint.
 - **Reproducible.** Re-running with the same `(module, seed, n)` reproduces outputs
   byte-for-byte. Keep seeds/profiles/config; regenerate data rather than archiving
   it.

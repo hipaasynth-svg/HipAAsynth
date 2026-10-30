@@ -15,21 +15,36 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Proves determinism: same seed = identical output, different seed = different output."""
-import sys, os, json, hashlib
+import sys
+import os
+import json
+import hashlib
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from datetime import date
 from hipaasynth.core.config import GenerationConfig, DEFAULT_SYNTHETIC_DISCLAIMER
 from hipaasynth.pipelines.population_pipeline import generate_patients
 
+
 def run(seed, n=100):
-    cfg = GenerationConfig(patient_count=n, seed=seed, age_min=18, age_max=90,
-                           required_condition=None, sex_ratio_female=0.5,
-                           ethnicity_weights=None, include_visits=True, include_labs=True,
-                           visits_min=1, visits_max=2, synthetic_disclaimer=DEFAULT_SYNTHETIC_DISCLAIMER,
-                           run_date="2026-05-06")
+    cfg = GenerationConfig(
+        patient_count=n,
+        seed=seed,
+        age_min=18,
+        age_max=90,
+        required_condition=None,
+        sex_ratio_female=0.5,
+        ethnicity_weights=None,
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=2,
+        synthetic_disclaimer=DEFAULT_SYNTHETIC_DISCLAIMER,
+        run_date="2026-05-06",
+    )
     patients = generate_patients(cfg)
     raw = json.dumps([p.to_dict() for p in patients], sort_keys=True, default=str)
     return hashlib.sha256(raw.encode()).hexdigest()
+
 
 if __name__ == "__main__":
     print("HipAAsynth Determinism Proof")

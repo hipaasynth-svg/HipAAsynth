@@ -26,16 +26,16 @@ legacy numeric schema gracefully.
 class Reducer:
     def __init__(self, evaluator, model_fn):
         self.evaluator = evaluator
-        self.model_fn  = model_fn
+        self.model_fn = model_fn
 
     def reduce(self, failures):
         current = failures[:]
         while len(current) > 10:
-            half = current[:len(current) // 2]
+            half = current[: len(current) // 2]
             if self._still_fails(half):
                 current = half
             else:
-                current = current[len(current) // 2:]
+                current = current[len(current) // 2 :]
         return current
 
     def _still_fails(self, subset):
@@ -45,6 +45,4 @@ class Reducer:
             if pid not in timelines:
                 timelines[pid] = {"patient_id": pid, "timeline": []}
             timelines[pid]["timeline"].append(item["state"])
-        return len(self.evaluator.evaluate(
-            list(timelines.values()), self.model_fn
-        )) > 0
+        return len(self.evaluator.evaluate(list(timelines.values()), self.model_fn)) > 0

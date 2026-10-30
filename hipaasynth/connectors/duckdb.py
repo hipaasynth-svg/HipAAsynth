@@ -108,8 +108,7 @@ def _insert_rows(con, table: str, columns, ltypes, rows):
     placeholders = ", ".join(["?"] * len(columns))
     stmt = f"INSERT INTO {_quote_ident(table)} VALUES ({placeholders})"
     data = [
-        tuple(_coerce(row.get(col, ""), lt) for col, lt in zip(columns, ltypes))
-        for row in rows
+        tuple(_coerce(row.get(col, ""), lt) for col, lt in zip(columns, ltypes)) for row in rows
     ]
     con.executemany(stmt, data)
     return len(data)
@@ -129,16 +128,28 @@ def _load_omop(con, patients, if_exists):
 # Flat patient table: base fields have known types; observation columns are typed
 # as DOUBLE when every present value is numeric, else VARCHAR.
 _FLAT_BASE_TYPES = {
-    "patient_id": "VARCHAR", "seed": "BIGINT", "age": "BIGINT",
-    "sex": "VARCHAR", "ethnicity": "VARCHAR",
-    "height_cm": "DOUBLE", "weight_kg": "DOUBLE", "bmi": "DOUBLE",
-    "bmi_category": "VARCHAR", "conditions": "VARCHAR",
-    "num_visits": "BIGINT", "num_labs": "BIGINT",
-    "engine_version": "VARCHAR", "schema_version": "VARCHAR",
-    "synthetic": "BOOLEAN", "disclaimer": "VARCHAR",
+    "patient_id": "VARCHAR",
+    "seed": "BIGINT",
+    "age": "BIGINT",
+    "sex": "VARCHAR",
+    "ethnicity": "VARCHAR",
+    "height_cm": "DOUBLE",
+    "weight_kg": "DOUBLE",
+    "bmi": "DOUBLE",
+    "bmi_category": "VARCHAR",
+    "conditions": "VARCHAR",
+    "num_visits": "BIGINT",
+    "num_labs": "BIGINT",
+    "engine_version": "VARCHAR",
+    "schema_version": "VARCHAR",
+    "synthetic": "BOOLEAN",
+    "disclaimer": "VARCHAR",
 }
 _SQL_TO_LOGICAL = {
-    "VARCHAR": "string", "BIGINT": "int", "DOUBLE": "float", "BOOLEAN": "bool",
+    "VARCHAR": "string",
+    "BIGINT": "int",
+    "DOUBLE": "float",
+    "BOOLEAN": "bool",
 }
 
 
@@ -188,8 +199,9 @@ def _load_flat(con, patients, table_name, if_exists):
     return {table_name: len(rows)}
 
 
-def load(cohort, database, *, mode: str = "omop", if_exists: str = "replace",
-         flat_table: str = "patient") -> dict:
+def load(
+    cohort, database, *, mode: str = "omop", if_exists: str = "replace", flat_table: str = "patient"
+) -> dict:
     """Load a cohort into a DuckDB database and return ``{table: row_count}``.
 
     Args:
@@ -208,9 +220,11 @@ def load(cohort, database, *, mode: str = "omop", if_exists: str = "replace",
     con = duckdb.connect(str(database))
     try:
         if mode == "omop":
-            return _load_omop(con, patients, if_exists)
+            loaded: dict = _load_omop(con, patients, if_exists)
+            return loaded
         if mode == "flat":
-            return _load_flat(con, patients, flat_table, if_exists)
+            flat: dict = _load_flat(con, patients, flat_table, if_exists)
+            return flat
         raise ValueError(f"mode must be 'omop' or 'flat', got {mode!r}")
     finally:
         con.close()

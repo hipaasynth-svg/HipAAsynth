@@ -40,17 +40,21 @@ from hipaasynth.pipelines.population_pipeline import generate_patients
 _PATIENTS_PER_YEAR = 50
 
 _TREATMENT_CONDITIONS = {
-    "hypertension", "type2_diabetes", "coronary_artery_disease",
-    "congestive_heart_failure", "atrial_fibrillation", "chronic_kidney_disease",
+    "hypertension",
+    "type2_diabetes",
+    "coronary_artery_disease",
+    "congestive_heart_failure",
+    "atrial_fibrillation",
+    "chronic_kidney_disease",
 }
 
 
 def run_pipeline(config=None, context=None) -> list[dict]:
-    seed     = getattr(context, "seed", 42)
+    seed = getattr(context, "seed", 42)
     metadata = getattr(context, "metadata", {})
 
     # Allow profile and condition routing via metadata
-    profile   = metadata.get("profile_path", None)
+    profile = metadata.get("profile_path", None)
     condition = metadata.get("required_condition", None)
 
     cfg = GenerationConfig(
@@ -61,7 +65,7 @@ def run_pipeline(config=None, context=None) -> list[dict]:
         required_condition=condition,
         sex_ratio_female=0.5,
         ethnicity_weights=None,
-        include_visits=True,    # visits needed for lab values in obs prompts
+        include_visits=True,  # visits needed for lab values in obs prompts
         include_labs=True,
         visits_min=1,
         visits_max=2,
@@ -74,17 +78,19 @@ def run_pipeline(config=None, context=None) -> list[dict]:
     rows = []
 
     for p in patients:
-        active     = [c for c in p.conditions if c.active]
+        active = [c for c in p.conditions if c.active]
         cond_names = {c.name for c in active}
-        has_treat  = int(bool(cond_names & _TREATMENT_CONDITIONS))
+        has_treat = int(bool(cond_names & _TREATMENT_CONDITIONS))
 
-        rows.append({
-            "patient_id":    p.demographics.patient_id,
-            "age":           p.demographics.age,
-            "comorbidities": len(active),
-            "treatment":     has_treat,
-            "_patient_dict": p.to_dict(),   # full schema for evaluator
-            "_meta":         metadata,
-        })
+        rows.append(
+            {
+                "patient_id": p.demographics.patient_id,
+                "age": p.demographics.age,
+                "comorbidities": len(active),
+                "treatment": has_treat,
+                "_patient_dict": p.to_dict(),  # full schema for evaluator
+                "_meta": metadata,
+            }
+        )
 
     return rows

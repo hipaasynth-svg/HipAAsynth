@@ -27,7 +27,6 @@ import random
 import math
 import hashlib
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
 
 from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
 
@@ -161,7 +160,7 @@ class FabryCohortGenerator:
             patient = self._generate_patient(
                 patient_id=f"FABRY-{self.seed}-{i:05d}",
                 include_biomarkers=include_biomarkers,
-                include_organ_progression=include_organ_progression
+                include_organ_progression=include_organ_progression,
             )
             cohort.append(patient)
         return cohort
@@ -174,8 +173,7 @@ class FabryCohortGenerator:
         phenotype = self._assign_phenotype(sex)
 
         mutation_type = self._tracked_choice(
-            MUTATION_TYPES,
-            [p.missense_rate, p.nonsense_rate, p.splice_rate, p.rearrangement_rate]
+            MUTATION_TYPES, [p.missense_rate, p.nonsense_rate, p.splice_rate, p.rearrangement_rate]
         )
 
         if mutation_type == "missense":
@@ -193,7 +191,11 @@ class FabryCohortGenerator:
         diagnosis_age = onset_age + diagnosis_delay
 
         on_ert = self._tracked_random() < self.treatment_rate
-        ert_type = self._tracked_choice(["agalsidase_alfa", "agalsidase_beta"], [0.5, 0.5]) if on_ert else None
+        ert_type = (
+            self._tracked_choice(["agalsidase_alfa", "agalsidase_beta"], [0.5, 0.5])
+            if on_ert
+            else None
+        )
         if not on_ert:
             self.call_count += 1
             self._rng.random()
@@ -239,12 +241,22 @@ class FabryCohortGenerator:
         if sex == "M":
             return self._tracked_choice(
                 FABRY_PHENOTYPES,
-                [p.male_classic_rate, p.male_late_cardiac_rate, p.male_late_renal_rate, p.male_asymptomatic_rate]
+                [
+                    p.male_classic_rate,
+                    p.male_late_cardiac_rate,
+                    p.male_late_renal_rate,
+                    p.male_asymptomatic_rate,
+                ],
             )
         else:
             return self._tracked_choice(
                 FABRY_PHENOTYPES,
-                [p.female_classic_rate, p.female_late_cardiac_rate, p.female_late_renal_rate, p.female_asymptomatic_rate]
+                [
+                    p.female_classic_rate,
+                    p.female_late_cardiac_rate,
+                    p.female_late_renal_rate,
+                    p.female_asymptomatic_rate,
+                ],
             )
 
     def _calculate_onset_age(self, phenotype):
@@ -252,7 +264,9 @@ class FabryCohortGenerator:
         if phenotype == "classic":
             return max(2.0, self._tracked_gauss(p.classic_onset_mean, p.classic_onset_std))
         elif phenotype == "late_cardiac":
-            return max(20.0, self._tracked_gauss(p.late_cardiac_onset_mean, p.late_cardiac_onset_std))
+            return max(
+                20.0, self._tracked_gauss(p.late_cardiac_onset_mean, p.late_cardiac_onset_std)
+            )
         elif phenotype == "late_renal":
             return max(18.0, self._tracked_gauss(p.late_renal_onset_mean, p.late_renal_onset_std))
         else:
@@ -273,8 +287,12 @@ class FabryCohortGenerator:
         if phenotype == "classic":
             data["has_neuropathic_pain"] = True
             data["age_pain_onset_years"] = round(onset_age + self._tracked_exponential(2), 2)
-            data["pain_severity_0_10"] = round(_clamp(self._tracked_gauss(p.pain_severity_mean, 1.5), 1, 10), 1)
-            data["pain_episodes_per_month"] = max(0, self._tracked_poisson(p.pain_episodes_per_month))
+            data["pain_severity_0_10"] = round(
+                _clamp(self._tracked_gauss(p.pain_severity_mean, 1.5), 1, 10), 1
+            )
+            data["pain_episodes_per_month"] = max(
+                0, self._tracked_poisson(p.pain_episodes_per_month)
+            )
         else:
             data["has_neuropathic_pain"] = False
             data["age_pain_onset_years"] = None
@@ -291,15 +309,25 @@ class FabryCohortGenerator:
         has_lvh = lvh_onset is not None
         data["has_left_ventricular_hypertrophy"] = has_lvh
         data["age_lvh_onset_years"] = round(lvh_onset, 2) if has_lvh else None
-        data["ivs_thickness_mm"] = round(self._tracked_gauss(15, 3) if has_lvh else self._tracked_gauss(9, 1), 1)
+        data["ivs_thickness_mm"] = round(
+            self._tracked_gauss(15, 3) if has_lvh else self._tracked_gauss(9, 1), 1
+        )
 
         if phenotype in ("classic", "late_renal"):
             if phenotype == "classic":
                 proteinuria_onset = self._tracked_gauss(p.proteinuria_onset_mean, 5)
-                esrd_onset = self._tracked_gauss(p.esrd_onset_classic_mean, 8) if self._tracked_random() < 0.50 else None
+                esrd_onset = (
+                    self._tracked_gauss(p.esrd_onset_classic_mean, 8)
+                    if self._tracked_random() < 0.50
+                    else None
+                )
             else:
                 proteinuria_onset = self._tracked_gauss(40, 8)
-                esrd_onset = self._tracked_gauss(p.esrd_onset_late_renal_mean, 10) if self._tracked_random() < 0.30 else None
+                esrd_onset = (
+                    self._tracked_gauss(p.esrd_onset_late_renal_mean, 10)
+                    if self._tracked_random() < 0.30
+                    else None
+                )
 
             if esrd_onset is not None and on_ert:
                 esrd_onset += p.ert_esrd_delay_years
@@ -320,7 +348,9 @@ class FabryCohortGenerator:
 
         had_stroke_tia = self._tracked_random() < stroke_base_risk
         data["had_stroke_or_tia"] = had_stroke_tia
-        data["age_stroke_tia_years"] = round(self._tracked_gauss(45, 10), 2) if had_stroke_tia else None
+        data["age_stroke_tia_years"] = (
+            round(self._tracked_gauss(45, 10), 2) if had_stroke_tia else None
+        )
         if not had_stroke_tia:
             self.call_count += 1
             self._rng.random()
@@ -389,8 +419,7 @@ class FabryCohortGenerator:
 
 def _cohort_checksum(cohort, seed):
     key_data = "|".join(
-        f"{r['patient_id']}:{r['sex']}:{r['phenotype']}:{r['age_at_onset_years']}"
-        for r in cohort
+        f"{r['patient_id']}:{r['sex']}:{r['phenotype']}:{r['age_at_onset_years']}" for r in cohort
     )
     return hashlib.sha256(f"{key_data}:{seed}".encode()).hexdigest()[:32]
 
@@ -417,11 +446,19 @@ def main():
 
     males = [r for r in cohort if r["sex"] == "M"]
     females = [r for r in cohort if r["sex"] == "F"]
-    male_classic_pct = sum(1 for r in males if r["phenotype"] == "classic") / len(males) * 100 if males else 0
-    female_classic_pct = sum(1 for r in females if r["phenotype"] == "classic") / len(females) * 100 if females else 0
+    male_classic_pct = (
+        sum(1 for r in males if r["phenotype"] == "classic") / len(males) * 100 if males else 0
+    )
+    female_classic_pct = (
+        sum(1 for r in females if r["phenotype"] == "classic") / len(females) * 100
+        if females
+        else 0
+    )
 
     classic_lyso = sorted([r["lyso_gb3_ng_ml"] for r in cohort if r["phenotype"] == "classic"])
-    late_lyso = sorted([r["lyso_gb3_ng_ml"] for r in cohort if r["phenotype"] in ("late_cardiac", "late_renal")])
+    late_lyso = sorted(
+        [r["lyso_gb3_ng_ml"] for r in cohort if r["phenotype"] in ("late_cardiac", "late_renal")]
+    )
 
     def _median(vals):
         n = len(vals)

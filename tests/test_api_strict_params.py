@@ -44,8 +44,9 @@ def server():
 
 def _request(url, method="GET", body=None):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method,
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(
+        url, data=data, method=method, headers={"Content-Type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.status, resp.headers, resp.read()
@@ -53,11 +54,14 @@ def _request(url, method="GET", body=None):
         return err.code, err.headers, err.read()
 
 
-@pytest.mark.parametrize("path", [
-    "/generate?count=2&modul=stroke",
-    "/viz/demographics?count=5&colour=red",
-    "/viz/fairness?count=5&modle=fair",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/generate?count=2&modul=stroke",
+        "/viz/demographics?count=5&colour=red",
+        "/viz/fairness?count=5&modle=fair",
+    ],
+)
 def test_unknown_query_param_is_400(server, path):
     status, headers, body = _request(server + path)
     assert status == 400
@@ -71,13 +75,16 @@ def test_unknown_json_body_key_is_400(server):
     assert status == 400 and "modul" in json.loads(body)["error"]
 
 
-@pytest.mark.parametrize("path", [
-    "/generate?count=2&seed=1&module=stroke&format=csv",
-    "/generate?count=2&scenario=tribal_stroke",
-    "/viz/demographics?count=5&seed=1&module=stroke&profile=minot_nd",
-    "/viz/demographics?count=5&format=json",  # format tolerated on viz routes
-    "/viz/fairness?count=5&seed=1&scenario=tribal_stroke&model=biased",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/generate?count=2&seed=1&module=stroke&format=csv",
+        "/generate?count=2&scenario=tribal_stroke",
+        "/viz/demographics?count=5&seed=1&module=stroke&profile=minot_nd",
+        "/viz/demographics?count=5&format=json",  # format tolerated on viz routes
+        "/viz/fairness?count=5&seed=1&scenario=tribal_stroke&model=biased",
+    ],
+)
 def test_every_parameter_the_web_ui_sends_is_accepted(server, path):
     status, _, _ = _request(server + path)
     assert status == 200

@@ -71,6 +71,7 @@ class AtlasCohortPlan:
     what seeds :meth:`to_generation_config`. ``matched`` / ``unmatched`` describe
     coverage of every concept referenced by the definition's concept sets.
     """
+
     source_name: Optional[str]
     required_condition: Optional[str]
     matched: list = field(default_factory=list)
@@ -84,11 +85,14 @@ class AtlasCohortPlan:
 
     def coverage_summary(self) -> str:
         total = len(self.matched) + len(self.unmatched)
-        return (f"{len(self.matched)}/{total} concept(s) map to HipAAsynth terms; "
-                f"index condition = {self.required_condition!r}")
+        return (
+            f"{len(self.matched)}/{total} concept(s) map to HipAAsynth terms; "
+            f"index condition = {self.required_condition!r}"
+        )
 
-    def to_generation_config(self, patient_count: int = 100, seed: int = 42,
-                             **kwargs) -> GenerationConfig:
+    def to_generation_config(
+        self, patient_count: int = 100, seed: int = 42, **kwargs
+    ) -> GenerationConfig:
         """Build a GenerationConfig seeded with the cohort's index condition.
 
         Extra keyword args pass through to GenerationConfig (e.g. profile
@@ -99,7 +103,8 @@ class AtlasCohortPlan:
             raise ValueError(
                 "Cohort definition has no condition concept HipAAsynth can "
                 "generate; cannot build a GenerationConfig. Unmatched concepts: "
-                + ", ".join(f"{u.concept_id} ({u.concept_name})" for u in self.unmatched))
+                + ", ".join(f"{u.concept_id} ({u.concept_name})" for u in self.unmatched)
+            )
         return GenerationConfig(
             patient_count=patient_count,
             seed=seed,
@@ -119,8 +124,8 @@ def _prefer_generatable_term(candidates: list) -> Optional[str]:
     condition_terms = [term for section, term in candidates if section == "conditions"]
     for term in condition_terms:
         if term in ALLOWED_CONDITIONS:
-            return term
-    return condition_terms[0] if condition_terms else None
+            return str(term)
+    return str(condition_terms[0]) if condition_terms else None
 
 
 def _iter_concept_set_items(data: dict):
@@ -160,17 +165,25 @@ def parse_atlas_cohort(data: dict) -> AtlasCohortPlan:
         candidates = terms_for_concept_id(cid)
         term = _prefer_generatable_term(candidates)
         if term is not None:
-            matched.append(MatchedConcept(
-                concept_id=int(cid), concept_name=name, domain_id=domain,
-                hipaasynth_term=term, codeset_id=codeset_id))
+            matched.append(
+                MatchedConcept(
+                    concept_id=int(cid),
+                    concept_name=name,
+                    domain_id=domain,
+                    hipaasynth_term=term,
+                    codeset_id=codeset_id,
+                )
+            )
             if codeset_id is not None and codeset_id not in codeset_condition_term:
                 codeset_condition_term[codeset_id] = term
         else:
             if cid is None:
                 continue
-            unmatched.append(UnmatchedConcept(
-                concept_id=int(cid), concept_name=name, domain_id=domain,
-                codeset_id=codeset_id))
+            unmatched.append(
+                UnmatchedConcept(
+                    concept_id=int(cid), concept_name=name, domain_id=domain, codeset_id=codeset_id
+                )
+            )
 
     primary_ids = _primary_codeset_ids(data)
     required_condition = None

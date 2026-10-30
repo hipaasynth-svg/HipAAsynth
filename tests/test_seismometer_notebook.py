@@ -51,10 +51,16 @@ def test_notebook_exists_and_is_valid_json():
 def test_disclaimer_cell_present_with_required_points():
     """The disclaimer markdown cell must exist and carry all three required points."""
     md = "\n".join(_markdown_sources()).lower()
-    assert "synthetic placeholder" in md, "disclaimer must state ModelScore is a synthetic placeholder"
+    assert (
+        "synthetic placeholder" in md
+    ), "disclaimer must state ModelScore is a synthetic placeholder"
     assert "no model score" in md, "disclaimer must state HipAAsynth emits no model score"
-    assert "not a performance result" in md, "disclaimer must state AUROC/AUPRC is not a performance result"
-    assert "censor_min_count" in md, "disclaimer must frame the demo around the censoring/fairness pipeline"
+    assert (
+        "not a performance result" in md
+    ), "disclaimer must state AUROC/AUPRC is not a performance result"
+    assert (
+        "censor_min_count" in md
+    ), "disclaimer must frame the demo around the censoring/fairness pipeline"
 
 
 def test_disclaimer_appears_before_any_code():

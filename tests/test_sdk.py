@@ -29,7 +29,7 @@ def test_generate_returns_cohort_of_requested_size():
     cohort = generate(count=5, seed=42)
     assert isinstance(cohort, Cohort)
     assert len(cohort) == 5
-    assert len(list(cohort)) == 5           # iterable
+    assert len(list(cohort)) == 5  # iterable
     assert cohort[0] is cohort.patients[0]  # indexable
 
 
@@ -126,6 +126,7 @@ def test_to_parquet_writes_file(tmp_path):
 def test_api_uses_sdk_module_map():
     """The REST API and SDK share one module map (no drift)."""
     from hipaasynth.api import MODULE_TO_CONDITION
+
     assert MODULE_TO_CONDITION is MODULES
 
 

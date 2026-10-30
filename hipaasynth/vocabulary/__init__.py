@@ -3,6 +3,7 @@
 Public API for mapping HipAAsynth internal terms to standard clinical
 terminologies and OMOP standard concept_ids.
 """
+
 from .concept_map import (
     ConceptMapping,
     lookup_condition,

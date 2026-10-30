@@ -107,7 +107,7 @@ class ConceptDriftResult:
     metric: str
     baseline: float
     comparison: float
-    drift: float       # comparison - baseline
+    drift: float  # comparison - baseline
     abs_drift: float
     threshold: float
     drifted: bool
@@ -134,10 +134,17 @@ def concept_drift(
         b = fn(baseline)
         c = fn(comparison)
         d = c - b
-        out.append(ConceptDriftResult(
-            metric=name, baseline=b, comparison=c, drift=d, abs_drift=abs(d),
-            threshold=threshold, drifted=abs(d) > threshold,
-        ))
+        out.append(
+            ConceptDriftResult(
+                metric=name,
+                baseline=b,
+                comparison=c,
+                drift=d,
+                abs_drift=abs(d),
+                threshold=threshold,
+                drifted=abs(d) > threshold,
+            )
+        )
     return out
 
 
@@ -189,8 +196,13 @@ def bootstrap_uncertainty(
     lo = _percentile(ordered, 2.5)
     hi = _percentile(ordered, 97.5)
     return BootstrapUncertainty(
-        metric=metric, point_estimate=point, std_error=se,
-        ci95_low=lo, ci95_high=hi, n_resamples=n_resamples, n_cohort=n,
+        metric=metric,
+        point_estimate=point,
+        std_error=se,
+        ci95_low=lo,
+        ci95_high=hi,
+        n_resamples=n_resamples,
+        n_cohort=n,
     )
 
 
@@ -211,14 +223,14 @@ def _percentile(ordered: Sequence[float], pct: float) -> float:
 # ─────────────────────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class ThresholdSensitivity:
-    pass_metric: str        # e.g. "dcs_pass_rate"
-    value_attr: str         # per-patient metric compared to threshold, e.g. "dcs"
+    pass_metric: str  # e.g. "dcs_pass_rate"
+    value_attr: str  # per-patient metric compared to threshold, e.g. "dcs"
     base_threshold: float
     delta: float
-    rate_minus: float       # pass rate at (threshold - delta)
+    rate_minus: float  # pass rate at (threshold - delta)
     rate_base: float
-    rate_plus: float        # pass rate at (threshold + delta)
-    sensitivity: float      # central-difference d(pass_rate)/d(threshold)
+    rate_plus: float  # pass rate at (threshold + delta)
+    sensitivity: float  # central-difference d(pass_rate)/d(threshold)
 
 
 # How each pass-rate relates a per-patient metric value to a threshold. ``ge``
@@ -368,7 +380,9 @@ def stability_report(
             baseline, metric=uncertainty_metric, n_resamples=n_resamples, seed=bootstrap_seed
         ),
         sensitivity=threshold_sensitivity(
-            baseline, threshold_name=threshold_name,
-            base_threshold=base_threshold, delta=delta,
+            baseline,
+            threshold_name=threshold_name,
+            base_threshold=base_threshold,
+            delta=delta,
         ),
     )

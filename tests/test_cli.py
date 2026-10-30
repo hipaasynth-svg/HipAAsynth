@@ -86,8 +86,7 @@ def test_multiple_formats(tmp_path):
 
 
 def test_validate_passes_on_clean_cohort(tmp_path, capsys):
-    rc = main(["--count", "3", "--out", str(tmp_path),
-               "--format", "fhir-bundle", "--validate"])
+    rc = main(["--count", "3", "--out", str(tmp_path), "--format", "fhir-bundle", "--validate"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "FHIR validation" in out and "PASS" in out
@@ -95,8 +94,7 @@ def test_validate_passes_on_clean_cohort(tmp_path, capsys):
 
 def test_validate_without_fhir_format_uses_in_memory(tmp_path, capsys):
     """--validate is meaningful even when no FHIR format is written."""
-    rc = main(["--count", "3", "--out", str(tmp_path),
-               "--format", "csv", "--validate"])
+    rc = main(["--count", "3", "--out", str(tmp_path), "--format", "csv", "--validate"])
     assert rc == 0
     assert "in-memory FHIR resources" in capsys.readouterr().out
 

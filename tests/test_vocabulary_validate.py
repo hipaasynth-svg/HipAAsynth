@@ -34,18 +34,30 @@ from hipaasynth.vocabulary.validate import (
 )
 
 _CONCEPT_COLUMNS = [
-    "concept_id", "concept_name", "domain_id", "vocabulary_id",
-    "concept_class_id", "standard_concept", "concept_code",
-    "valid_start_date", "valid_end_date", "invalid_reason",
+    "concept_id",
+    "concept_name",
+    "domain_id",
+    "vocabulary_id",
+    "concept_class_id",
+    "standard_concept",
+    "concept_code",
+    "valid_start_date",
+    "valid_end_date",
+    "invalid_reason",
 ]
 
 
 def _row(concept_id, name, domain, vocab, code, standard="S"):
     return {
-        "concept_id": concept_id, "concept_name": name, "domain_id": domain,
-        "vocabulary_id": vocab, "concept_class_id": "Clinical Finding",
-        "standard_concept": standard, "concept_code": code,
-        "valid_start_date": "20000101", "valid_end_date": "20991231",
+        "concept_id": concept_id,
+        "concept_name": name,
+        "domain_id": domain,
+        "vocabulary_id": vocab,
+        "concept_class_id": "Clinical Finding",
+        "standard_concept": standard,
+        "concept_code": code,
+        "valid_start_date": "20000101",
+        "valid_end_date": "20991231",
         "invalid_reason": "",
     }
 
@@ -67,9 +79,11 @@ def _full_valid_table():
     raw = concept_map._raw_map()
     rows = []
     seen = set()
-    for section, domain in (("conditions", "Condition"),
-                            ("measurements", "Measurement"),
-                            ("visits", "Visit")):
+    for section, domain in (
+        ("conditions", "Condition"),
+        ("measurements", "Measurement"),
+        ("visits", "Visit"),
+    ):
         for term, entry in raw[section].items():
             cid = entry["omop_concept_id"]
             if cid in seen:
@@ -155,18 +169,27 @@ def test_medication_atc_class_wrong_standard_flag(tmp_path):
     # ATC classes must be classification concepts ('C'); 'S' is a defect.
     rows = _full_valid_table()
     for r in rows:
-        if r["domain_id"] == "Drug" and r["vocabulary_id"] == "ATC" and r["concept_name"] == "beta_blocker":
+        if (
+            r["domain_id"] == "Drug"
+            and r["vocabulary_id"] == "ATC"
+            and r["concept_name"] == "beta_blocker"
+        ):
             r["standard_concept"] = "S"
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
     findings = validate_map(load_concept_table(path))
-    assert any(f.section == "medications" and "standard_concept expected 'C'" in f.problem
-               for f in findings)
+    assert any(
+        f.section == "medications" and "standard_concept expected 'C'" in f.problem
+        for f in findings
+    )
 
 
 def test_medication_missing_rxnorm_code(tmp_path):
-    rows = [r for r in _full_valid_table()
-            if not (r["vocabulary_id"] == "RxNorm" and r["concept_code"] == "3407")]
+    rows = [
+        r
+        for r in _full_valid_table()
+        if not (r["vocabulary_id"] == "RxNorm" and r["concept_code"] == "3407")
+    ]
     path = tmp_path / "CONCEPT.csv"
     _build_concept_csv(path, rows)
     findings = validate_map(load_concept_table(path))
@@ -185,10 +208,12 @@ def test_resolve_medication_concept_ids(tmp_path):
 
 def test_write_status_fills_medication_concept_ids(tmp_path, monkeypatch):
     import json
+
     original = concept_map._raw_map()
     temp_map = tmp_path / "concept_map.json"
     temp_map.write_text(json.dumps(original, indent=2), encoding="utf-8")
     from hipaasynth.vocabulary import validate as validate_mod
+
     monkeypatch.setattr(validate_mod, "_MAP_PATH", temp_map)
 
     concept_csv = tmp_path / "CONCEPT.csv"
@@ -237,11 +262,13 @@ def test_cli_missing_file_returns_two(tmp_path):
 def test_write_status_flips_metadata(tmp_path, monkeypatch):
     # Redirect the map path to a temp copy so we don't mutate the shipped file.
     import json
+
     original = concept_map._raw_map()
     temp_map = tmp_path / "concept_map.json"
     temp_map.write_text(json.dumps(original, indent=2), encoding="utf-8")
 
     from hipaasynth.vocabulary import validate as validate_mod
+
     monkeypatch.setattr(validate_mod, "_MAP_PATH", temp_map)
 
     concept_csv = tmp_path / "CONCEPT.csv"

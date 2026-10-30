@@ -130,9 +130,7 @@ class MockClinicalModel(ModelInterface):
             completeness = self._CC_COMPLETENESS.get(patient["continuity_profile"], 0.0)
             clinical = patient.get("clinical", {})
             populated = sum(
-                1
-                for v in clinical.values()
-                if v is not None and v != [] and v != {} and v != ""
+                1 for v in clinical.values() if v is not None and v != [] and v != {} and v != ""
             )
             completeness += min(populated / 12.0, 0.20)
         else:
@@ -143,9 +141,7 @@ class MockClinicalModel(ModelInterface):
         # Gaussian-ish noise using the Box-Muller transform.
         u1 = self.rng.random()
         u2 = self.rng.random()
-        z0 = math.sqrt(max(-2.0 * math.log(u1), 0.0)) * math.cos(
-            2.0 * math.pi * u2
-        )
+        z0 = math.sqrt(max(-2.0 * math.log(u1), 0.0)) * math.cos(2.0 * math.pi * u2)
         noise = z0 * 0.03
 
         score = completeness * reliability + noise
@@ -217,16 +213,10 @@ class ScoredMockModel(ModelInterface):
         elif "Black" in race:
             adjustment -= 0.02
 
-        geography = patient.get(
-            "geography_type", patient.get("geography", "")
-        )
+        geography = patient.get("geography_type", patient.get("geography", ""))
         if "Suburban" in geography:
             adjustment += 0.02
-        elif (
-            "Frontier" in geography
-            or "Rural" in geography
-            or "Tribal" in geography
-        ):
+        elif "Frontier" in geography or "Rural" in geography or "Tribal" in geography:
             adjustment -= 0.03
         elif "Urban core" in geography:
             adjustment -= 0.01
@@ -237,9 +227,7 @@ class ScoredMockModel(ModelInterface):
         elif ses == "Low":
             adjustment -= 0.03
 
-        insurance = patient.get(
-            "insurance_type", patient.get("insurance_status", "")
-        )
+        insurance = patient.get("insurance_type", patient.get("insurance_status", ""))
         if "Commercial" in insurance:
             adjustment += 0.02
         elif "Uninsured" in insurance or "Self-pay" in insurance:
@@ -258,18 +246,12 @@ class ScoredMockModel(ModelInterface):
             A score in [0, 1].
         """
         if "sparsity_level" in patient:
-            completeness = self._PSF_COMPLETENESS.get(
-                patient["sparsity_level"], 0.0
-            )
+            completeness = self._PSF_COMPLETENESS.get(patient["sparsity_level"], 0.0)
         elif "continuity_profile" in patient:
-            completeness = self._CC_COMPLETENESS.get(
-                patient["continuity_profile"], 0.0
-            )
+            completeness = self._CC_COMPLETENESS.get(patient["continuity_profile"], 0.0)
             clinical = patient.get("clinical", {})
             populated = sum(
-                1
-                for v in clinical.values()
-                if v is not None and v != [] and v != {} and v != ""
+                1 for v in clinical.values() if v is not None and v != [] and v != {} and v != ""
             )
             completeness += min(populated / 12.0, 0.15)
         else:
@@ -280,9 +262,7 @@ class ScoredMockModel(ModelInterface):
         # Gaussian-ish noise using the Box-Muller transform.
         u1 = self.rng.random()
         u2 = self.rng.random()
-        z0 = math.sqrt(max(-2.0 * math.log(u1), 0.0)) * math.cos(
-            2.0 * math.pi * u2
-        )
+        z0 = math.sqrt(max(-2.0 * math.log(u1), 0.0)) * math.cos(2.0 * math.pi * u2)
         noise = z0 * 0.025
 
         score = completeness + demographic_adj + noise

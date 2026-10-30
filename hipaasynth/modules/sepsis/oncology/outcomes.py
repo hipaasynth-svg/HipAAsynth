@@ -43,12 +43,12 @@ class OutcomesModule:
             targeted = treatments["targeted_therapy"][i]
             io = treatments["immunotherapy"][i]
 
-            egfr = biomarkers.get("egfr_status", [None]*self.n)[i]
-            her2 = biomarkers.get("her2_status", [None]*self.n)[i]
-            msi = biomarkers.get("msi_status", [None]*self.n)[i]
-            pdl1 = biomarkers.get("pd_l1_tps", [0]*self.n)[i]
+            egfr = biomarkers.get("egfr_status", [None] * self.n)[i]
+            her2 = biomarkers.get("her2_status", [None] * self.n)[i]
+            msi = biomarkers.get("msi_status", [None] * self.n)[i]
+            pdl1 = biomarkers.get("pd_l1_tps", [0] * self.n)[i]
 
-            cci = comorbidity.get("charlson_index", [0]*self.n)[i]
+            cci = comorbidity.get("charlson_index", [0] * self.n)[i]
 
             # ---------------- RESPONSE ----------------
             response = None
@@ -105,7 +105,7 @@ class OutcomesModule:
             elif response == "PD":
                 median_os *= 0.6
 
-            median_os *= (0.9 ** cci)
+            median_os *= 0.9**cci
 
             death = self.rng.random() > os_5yr
             if death:
@@ -124,10 +124,10 @@ class OutcomesModule:
         survival (below) is where the three sites diverge sharply.
         """
         table = {
-            "I":   (0.15, 36),
-            "II":  (0.30, 24),
+            "I": (0.15, 36),
+            "II": (0.30, 24),
             "III": (0.50, 18),
-            "IV":  (0.90, 6),
+            "IV": (0.90, 6),
         }
         return table.get(stage, (0.90, 6))
 
@@ -143,9 +143,9 @@ class OutcomesModule:
     #            IV 8.1%). https://doi.org/10.1093/jnci/djh275
     # median_os (months) is a modeling parameter scaled from the 5-year figure.
     _SURVIVAL = {
-        "breast": {"I": (0.99, 180), "II": (0.93, 150), "III": (0.86, 96),  "IV": (0.30, 36)},
-        "lung":   {"I": (0.65, 96),  "II": (0.53, 60),  "III": (0.37, 36),  "IV": (0.09, 12)},
-        "colon":  {"I": (0.93, 150), "II": (0.84, 120), "III": (0.64, 60),  "IV": (0.11, 18)},
+        "breast": {"I": (0.99, 180), "II": (0.93, 150), "III": (0.86, 96), "IV": (0.30, 36)},
+        "lung": {"I": (0.65, 96), "II": (0.53, 60), "III": (0.37, 36), "IV": (0.09, 12)},
+        "colon": {"I": (0.93, 150), "II": (0.84, 120), "III": (0.64, 60), "IV": (0.11, 18)},
     }
 
     def _stage_survival(self, site, stage):
@@ -157,7 +157,7 @@ class OutcomesModule:
 
     def _weibull(self, scale):
         shape = 1.5
-        return scale * (-math.log(1 - self.rng.random())) ** (1/shape)
+        return scale * (-math.log(1 - self.rng.random())) ** (1 / shape)
 
     def _randint(self, a, b):
         return a + int(self.rng.random() * (b - a))
@@ -174,11 +174,11 @@ class OutcomesModule:
 
     def _empty(self):
         return {
-            "best_response": [None]*self.n,
-            "response_month": [None]*self.n,
-            "progression": [False]*self.n,
-            "progression_month": [None]*self.n,
-            "progression_site": [None]*self.n,
-            "death": [False]*self.n,
-            "death_month": [None]*self.n,
+            "best_response": [None] * self.n,
+            "response_month": [None] * self.n,
+            "progression": [False] * self.n,
+            "progression_month": [None] * self.n,
+            "progression_site": [None] * self.n,
+            "death": [False] * self.n,
+            "death_month": [None] * self.n,
         }

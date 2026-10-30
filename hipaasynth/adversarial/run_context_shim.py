@@ -38,7 +38,7 @@ class RunContext:
     when a full audit run is needed.
     """
 
-    def __init__(self, seed: int = 42, metadata: dict = None):
+    def __init__(self, seed: int = 42, metadata: dict | None = None):
         self.seed = seed
         self.metadata = metadata or {}
 

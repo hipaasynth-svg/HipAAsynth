@@ -42,24 +42,43 @@ Calibration sources:
        doi:10.1016/j.kint.2023.10.018
        Creatinine floor: <0.4 mg/dL physiologically implausible in adults.
 """
-import random
 import math
 from datetime import datetime, timedelta
-from hipaasynth.core.schema import LabResult, Visit, Condition
+from hipaasynth.core.schema import LabResult, Visit
 
 LAB_DEFINITIONS = {
     # Glucose: reference range per ADA 2024 [N4]; baseline mean from NHANES
     # fasting glucose distribution in non-diabetic adults (~95 mg/dL) [N1].
-    "Glucose": {"unit": "mg/dL", "reference_range": "70-99", "baseline_mean": 95.0, "baseline_std": 18.0},
+    "Glucose": {
+        "unit": "mg/dL",
+        "reference_range": "70-99",
+        "baseline_mean": 95.0,
+        "baseline_std": 18.0,
+    },
     # Creatinine: population mean ~1.0 mg/dL (pooled sex); NHANES III [N3].
     # Std 0.25 reflects sex-stratified SD (women ~0.15, men ~0.20) averaged.
-    "Creatinine": {"unit": "mg/dL", "reference_range": "0.6-1.3", "baseline_mean": 1.0, "baseline_std": 0.25},
+    "Creatinine": {
+        "unit": "mg/dL",
+        "reference_range": "0.6-1.3",
+        "baseline_mean": 1.0,
+        "baseline_std": 0.25,
+    },
     # LDL: mean 111.7 mg/dL in US adults 20+, NHANES 2017-2018 [N2].
     # Std 32 mg/dL reflects published SD from the same cohort.
-    "LDL": {"unit": "mg/dL", "reference_range": "<100", "baseline_mean": 111.0, "baseline_std": 32.0},
+    "LDL": {
+        "unit": "mg/dL",
+        "reference_range": "<100",
+        "baseline_mean": 111.0,
+        "baseline_std": 32.0,
+    },
     # WBC: normal adult reference range 4.5-11.0 K/uL; baseline mean 7.0 [N5].
     # Std 2.0 reflects population distribution in non-infected adults.
-    "WBC": {"unit": "10^9/L", "reference_range": "4.0-11.0", "baseline_mean": 7.0, "baseline_std": 2.0},
+    "WBC": {
+        "unit": "10^9/L",
+        "reference_range": "4.0-11.0",
+        "baseline_mean": 7.0,
+        "baseline_std": 2.0,
+    },
 }
 
 CONDITION_LAB_MODIFIERS = {
@@ -80,11 +99,13 @@ CONDITION_LAB_MODIFIERS = {
 
 _REFERENCE_DATE = datetime(2024, 6, 15)
 
+
 def _normal_distribution(rng, mean, std):
     u1 = rng.random()
     u2 = rng.random()
     z0 = math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
     return mean + z0 * std
+
 
 def _generate_lab_value(rng, lab_name, condition_names):
     lab_def = LAB_DEFINITIONS[lab_name]
@@ -102,27 +123,37 @@ def _generate_lab_value(rng, lab_name, condition_names):
     # Sources: ADA 2024 [N4] (glucose); KDIGO 2024 [N7] (creatinine);
     # AHA/ACC 2018 [N6] (LDL); Sepsis-3 [N5] (WBC).
     FLOORS = {
-        "Glucose": 65.0,    # ADA: severe hypoglycemia <54; 65 is conservative clinical floor [N4]
+        "Glucose": 65.0,  # ADA: severe hypoglycemia <54; 65 is conservative clinical floor [N4]
         "Creatinine": 0.4,  # Below 0.4 mg/dL not physiologically plausible in adults [N7]
-        "LDL": 20.0,        # Below 20 mg/dL only in severe malnutrition or aggressive therapy [N6]
-        "WBC": 2.0,         # Extreme leukopenia floor; Sepsis-3 defines <4 as abnormal [N5]
+        "LDL": 20.0,  # Below 20 mg/dL only in severe malnutrition or aggressive therapy [N6]
+        "WBC": 2.0,  # Extreme leukopenia floor; Sepsis-3 defines <4 as abnormal [N5]
     }
     floor = FLOORS.get(lab_name, 0.0)
     return round(max(floor, baseline), 2)
+
 
 def _generate_visit_date(rng):
     offset_days = rng.randint(0, 365)
     visit_date = _REFERENCE_DATE - timedelta(days=offset_days)
     return visit_date.strftime("%Y-%m-%d")
 
+
 def generate_labs_for_visit(rng, conditions, visit_date):
     condition_names = {c.name for c in conditions}
     labs = []
     for lab_name, lab_def in LAB_DEFINITIONS.items():
         value = _generate_lab_value(rng, lab_name, condition_names)
-        labs.append(LabResult(lab_name=lab_name, value=value, unit=lab_def["unit"],
-                              reference_range=lab_def["reference_range"], date_recorded=visit_date))
+        labs.append(
+            LabResult(
+                lab_name=lab_name,
+                value=value,
+                unit=lab_def["unit"],
+                reference_range=lab_def["reference_range"],
+                date_recorded=visit_date,
+            )
+        )
     return labs
+
 
 def generate_visits(rng, patient_seed, conditions, visits_min, visits_max, include_labs):
     visits = []
@@ -136,6 +167,13 @@ def generate_visits(rng, patient_seed, conditions, visits_min, visits_max, inclu
         labs = []
         if include_labs:
             labs = generate_labs_for_visit(rng, conditions, visit_date)
-        visits.append(Visit(visit_id=visit_id, visit_type=visit_type, visit_date=visit_date,
-                            primary_diagnosis=primary_diagnosis, labs=labs))
+        visits.append(
+            Visit(
+                visit_id=visit_id,
+                visit_type=visit_type,
+                visit_date=visit_date,
+                primary_diagnosis=primary_diagnosis,
+                labs=labs,
+            )
+        )
     return visits

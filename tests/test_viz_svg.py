@@ -40,10 +40,19 @@ from hipaasynth.viz import (
 
 def _cohort(n=40, seed=7, condition="stroke"):
     cfg = GenerationConfig(
-        patient_count=n, seed=seed, age_min=18, age_max=90,
-        required_condition=condition, sex_ratio_female=0.5, ethnicity_weights=None,
-        include_visits=True, include_labs=True, visits_min=1, visits_max=2,
-        synthetic_disclaimer="synthetic", run_date="2026-07-29",
+        patient_count=n,
+        seed=seed,
+        age_min=18,
+        age_max=90,
+        required_condition=condition,
+        sex_ratio_female=0.5,
+        ethnicity_weights=None,
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=2,
+        synthetic_disclaimer="synthetic",
+        run_date="2026-07-29",
     )
     return cfg, generate_patients(cfg)
 
@@ -81,8 +90,12 @@ def test_demographics_svg_reflects_actual_sex_split():
 
 def test_per_form_error_rates_biased_model_hits_patient_forms():
     cfg, _ = _cohort(n=25)
-    passports = run_audit(MockBiasedModel(), generate_patients, cfg,
-                          DIFConfig(device_name="Biased", device_version="0.1"))
+    passports = run_audit(
+        MockBiasedModel(),
+        generate_patients,
+        cfg,
+        DIFConfig(device_name="Biased", device_version="0.1"),
+    )
     rates = per_form_error_rates(passports)
     # The biased model under-triages patient/LEP forms but not clinician forms.
     assert rates["FHIR_STRUCTURED"] == 0.0
@@ -92,8 +105,12 @@ def test_per_form_error_rates_biased_model_hits_patient_forms():
 
 def test_fairness_heatmap_svg_is_wellformed():
     cfg, _ = _cohort(n=30)
-    passports = run_audit(MockBiasedModel(), generate_patients, cfg,
-                          DIFConfig(device_name="Biased", device_version="0.1"))
+    passports = run_audit(
+        MockBiasedModel(),
+        generate_patients,
+        cfg,
+        DIFConfig(device_name="Biased", device_version="0.1"),
+    )
     svg = fairness_heatmap_svg(passports)
     minidom.parseString(svg)
     # All seven form labels and all four metric names are present.
@@ -105,8 +122,9 @@ def test_fairness_heatmap_svg_is_wellformed():
 
 def test_fair_model_heatmap_all_zero_error():
     cfg, _ = _cohort(n=20)
-    passports = run_audit(MockFairModel(), generate_patients, cfg,
-                          DIFConfig(device_name="Fair", device_version="0.1"))
+    passports = run_audit(
+        MockFairModel(), generate_patients, cfg, DIFConfig(device_name="Fair", device_version="0.1")
+    )
     rates = per_form_error_rates(passports)
     assert all(rate == 0.0 for rate in rates.values())
 
@@ -172,10 +190,21 @@ def test_viz_fairness_rejects_oversized_count(server):
 def test_cli_viz_writes_svg_file(tmp_path):
     from hipaasynth.run.main import main
 
-    rc = main([
-        "--scenario", "us_baseline_sepsis", "--count", "10", "--seed", "1",
-        "--format", "json", "--viz", "--out", str(tmp_path),
-    ])
+    rc = main(
+        [
+            "--scenario",
+            "us_baseline_sepsis",
+            "--count",
+            "10",
+            "--seed",
+            "1",
+            "--format",
+            "json",
+            "--viz",
+            "--out",
+            str(tmp_path),
+        ]
+    )
     assert rc == 0
     svg_path = tmp_path / "demographics.svg"
     assert svg_path.exists()

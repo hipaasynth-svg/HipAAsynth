@@ -129,15 +129,14 @@ class Cohort:
         return self.patients[idx]
 
     def __repr__(self) -> str:
-        module = next((k for k, v in MODULES.items()
-                       if v == self.config.required_condition), None)
-        return (f"<Cohort n={len(self.patients)} seed={self.config.seed} "
-                f"module={module!r}>")
+        module = next((k for k, v in MODULES.items() if v == self.config.required_condition), None)
+        return f"<Cohort n={len(self.patients)} seed={self.config.seed} " f"module={module!r}>"
 
     # ── summaries ────────────────────────────────────────────────────────────
     def summary(self) -> dict:
         """Aggregate stats (counts, age/BMI, sex & condition breakdowns)."""
-        return summary_stats(self.patients)
+        stats: dict = summary_stats(self.patients)
+        return stats
 
     # ── FHIR helpers ─────────────────────────────────────────────────────────
     def fhir_resources(self) -> list[dict]:
@@ -150,8 +149,7 @@ class Cohort:
             "resourceType": "Bundle",
             "type": "collection",
             "entry": [
-                {"fullUrl": f"urn:uuid:{r['id']}", "resource": r}
-                for r in self.fhir_resources()
+                {"fullUrl": f"urn:uuid:{r['id']}", "resource": r} for r in self.fhir_resources()
             ],
         }
 
@@ -203,8 +201,7 @@ class Cohort:
         if path is not None:
             export_json(self.patients, str(path))
             return Path(path)
-        return json.dumps([p.to_dict() for p in self.patients],
-                          indent=2, ensure_ascii=False)
+        return json.dumps([p.to_dict() for p in self.patients], indent=2, ensure_ascii=False)
 
     def to_csv(self, path: Optional[PathLike] = None):
         if path is not None:
@@ -281,9 +278,7 @@ def generate(
     if not 0 <= seed <= SEED_MAX:
         raise ValueError(f"seed must be between 0 and {SEED_MAX}, got {seed}")
     if module not in MODULES:
-        raise ValueError(
-            f"unknown module {module!r}; choose one of: {', '.join(MODULES)}"
-        )
+        raise ValueError(f"unknown module {module!r}; choose one of: {', '.join(MODULES)}")
     profile_path = _resolve_profile(profile)
     profile_data = load_population_profile(profile_path) if profile_path else None
     cfg = GenerationConfig(

@@ -70,11 +70,13 @@ class TestDIFAudit:
         for passport in acute_positive_passports:
             assert not passport.passed()
             # Under-triage should make at least some patient/LEP decisions wrong.
-            assert any([
-                passport.decisions[Form.PATIENT_HIGH_LITERACY.value] != passport.ground_truth,
-                passport.decisions[Form.PATIENT_LOW_LITERACY.value] != passport.ground_truth,
-                passport.decisions[Form.LEP_TRANSLATED.value] != passport.ground_truth,
-            ])
+            assert any(
+                [
+                    passport.decisions[Form.PATIENT_HIGH_LITERACY.value] != passport.ground_truth,
+                    passport.decisions[Form.PATIENT_LOW_LITERACY.value] != passport.ground_truth,
+                    passport.decisions[Form.LEP_TRANSLATED.value] != passport.ground_truth,
+                ]
+            )
 
     def test_passport_markdown_contains_required_sections(self, dif_config) -> None:
         from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER, GenerationConfig

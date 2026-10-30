@@ -89,9 +89,13 @@ def test_rural_stroke_profiles_carry_the_late_presenter_tail():
     assert p90("nd_tribal_region_a") > 270  # documented rural tail: >270 min
     assert p90("us_default") <= 300  # documented non-rural ceiling
     assert statistics.median(
-        [p.observations["onset_to_door_minutes"]
-         for p in generate(count=300, seed=7, module="stroke", profile="nd_tribal_region_a")]
+        [
+            p.observations["onset_to_door_minutes"]
+            for p in generate(count=300, seed=7, module="stroke", profile="nd_tribal_region_a")
+        ]
     ) >= statistics.median(
-        [p.observations["onset_to_door_minutes"]
-         for p in generate(count=300, seed=7, module="stroke", profile="us_default")]
+        [
+            p.observations["onset_to_door_minutes"]
+            for p in generate(count=300, seed=7, module="stroke", profile="us_default")
+        ]
     )

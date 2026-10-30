@@ -87,8 +87,10 @@ def _lab_lookup(visits: list, lab_name: str):
     return None
 
 
-def _pick_infection_source(rng, age: int, sex: str, ckd: bool, diabetes: bool, copd: bool, rural: bool) -> str:
-    weights = [
+def _pick_infection_source(
+    rng, age: int, sex: str, ckd: bool, diabetes: bool, copd: bool, rural: bool
+) -> str:
+    weights: list[list] = [
         ["pneumonia", 0.34],
         ["uti", 0.21],
         ["intra_abdominal", 0.16],
@@ -97,36 +99,45 @@ def _pick_infection_source(rng, age: int, sex: str, ckd: bool, diabetes: bool, c
     ]
     if age >= 65:
         for row in weights:
-            if row[0] == 'uti': row[1] += 0.08
-            if row[0] == 'pneumonia': row[1] += 0.04
-    if sex == 'female':
+            if row[0] == "uti":
+                row[1] += 0.08
+            if row[0] == "pneumonia":
+                row[1] += 0.04
+    if sex == "female":
         for row in weights:
-            if row[0] == 'uti': row[1] += 0.06
+            if row[0] == "uti":
+                row[1] += 0.06
     if diabetes:
         for row in weights:
-            if row[0] == 'skin_soft_tissue': row[1] += 0.05
-            if row[0] == 'uti': row[1] += 0.02
+            if row[0] == "skin_soft_tissue":
+                row[1] += 0.05
+            if row[0] == "uti":
+                row[1] += 0.02
     if copd:
         for row in weights:
-            if row[0] == 'pneumonia': row[1] += 0.08
+            if row[0] == "pneumonia":
+                row[1] += 0.08
     if ckd:
         for row in weights:
-            if row[0] == 'uti': row[1] += 0.03
+            if row[0] == "uti":
+                row[1] += 0.03
     if rural:
         for row in weights:
-            if row[0] == 'pneumonia': row[1] += 0.02
+            if row[0] == "pneumonia":
+                row[1] += 0.02
     total = sum(w for _, w in weights)
     x = rng.random() * total
     acc = 0.0
     for label, weight in weights:
         acc += weight
         if x <= acc:
-            return label
-    return weights[-1][0]
+            return str(label)
+    return str(weights[-1][0])
 
 
-def _oxygen_support(rng, spo2: int, severity: float, copd: bool, chf: bool,
-                    infection_source: str) -> tuple[str, float, Any]:
+def _oxygen_support(
+    rng, spo2: int, severity: float, copd: bool, chf: bool, infection_source: str
+) -> tuple[str, float, Any]:
     """
     Determine oxygen device, FiO2, and ventilation mode based on SpO2 and severity.
     Returns (oxygen_device, fio2_percent, ventilation_mode).
@@ -137,46 +148,47 @@ def _oxygen_support(rng, spo2: int, severity: float, copd: bool, chf: bool,
     A 90% SpO2 on room air vs. HFNC at 80% FiO2 implies entirely different physiology.
     """
     if spo2 >= 95 and severity < 0.35:
-        device = 'nasal_cannula'
+        device = "nasal_cannula"
         fio2 = round(_clamp(_normal(rng, 30.0, 5.0), 24.0, 44.0), 0)
         mode = None
     elif spo2 >= 92 or severity < 0.50:
         r = rng.random()
         if r < 0.55:
-            device = 'simple_face_mask'
+            device = "simple_face_mask"
             fio2 = round(_clamp(_normal(rng, 42.0, 8.0), 35.0, 55.0), 0)
             mode = None
         else:
-            device = 'non_rebreather_mask'
+            device = "non_rebreather_mask"
             fio2 = round(_clamp(_normal(rng, 78.0, 8.0), 60.0, 95.0), 0)
             # FiO2 >= 70% on NRB: escalation to intubation typically considered [S4]
-            mode = 'NRB_escalation_indicated' if fio2 >= 70 else 'NRB'
+            mode = "NRB_escalation_indicated" if fio2 >= 70 else "NRB"
     elif spo2 >= 88 or severity < 0.65:
         r = rng.random()
         if r < 0.55:
-            device = 'high_flow_nasal_cannula'
+            device = "high_flow_nasal_cannula"
             fio2 = round(_clamp(_normal(rng, 72.0, 12.0), 50.0, 100.0), 0)
-            mode = 'HFNC'
+            mode = "HFNC"
         else:
-            device = 'noninvasive_ventilation'
+            device = "noninvasive_ventilation"
             fio2 = round(_clamp(_normal(rng, 65.0, 12.0), 40.0, 90.0), 0)
-            mode = 'BiPAP' if rng.random() < 0.65 else 'CPAP'
+            mode = "BiPAP" if rng.random() < 0.65 else "CPAP"
     else:
-        device = 'mechanical_ventilation'
+        device = "mechanical_ventilation"
         fio2 = round(_clamp(_normal(rng, 80.0, 12.0), 50.0, 100.0), 0)
-        mode = 'CMV_AC' if rng.random() < 0.70 else 'SIMV'
+        mode = "CMV_AC" if rng.random() < 0.70 else "SIMV"
 
     # COPD: prefer NIV over mechanical when possible (avoid barotrauma)
-    if copd and device == 'mechanical_ventilation' and rng.random() < 0.30:
-        device = 'noninvasive_ventilation'
-        mode = 'BiPAP'
+    if copd and device == "mechanical_ventilation" and rng.random() < 0.30:
+        device = "noninvasive_ventilation"
+        mode = "BiPAP"
         fio2 = round(_clamp(_normal(rng, 55.0, 10.0), 35.0, 80.0), 0)
 
     return device, float(fio2), mode
 
 
-def _urine_output(rng, weight_kg: float, severity: float,
-                  delayed_hypotension: bool, ckd: bool) -> float:
+def _urine_output(
+    rng, weight_kg: float, severity: float, delayed_hypotension: bool, ckd: bool
+) -> float:
     """
     Hourly urine output in mL/hr. Oliguria threshold: <0.5 mL/kg/hr [S7].
     Oliguria is a key early marker of renal hypoperfusion in sepsis.
@@ -186,15 +198,18 @@ def _urine_output(rng, weight_kg: float, severity: float,
     oliguria_threshold = 0.5 * weight_kg
     if severity > 0.60 or (delayed_hypotension and severity > 0.40) or ckd:
         uo_mean = max(5.0, oliguria_threshold * (0.55 - 0.35 * severity))
-        uo = _clamp(_normal(rng, uo_mean, max(4.0, uo_mean * 0.3)), 3.0, oliguria_threshold - 0.5, 1)
+        uo = _clamp(
+            _normal(rng, uo_mean, max(4.0, uo_mean * 0.3)), 3.0, oliguria_threshold - 0.5, 1
+        )
     else:
         uo_mean = oliguria_threshold + (1.0 - severity) * 35.0
         uo = _clamp(_normal(rng, uo_mean, 14.0), oliguria_threshold, 100.0, 1)
-    return uo
+    return float(uo)
 
 
-def _fluid_balance(rng, weight_kg: float, severity: float,
-                   ckd: bool, chf: bool, urine_output_ml_hr: float) -> tuple[float, float]:
+def _fluid_balance(
+    rng, weight_kg: float, severity: float, ckd: bool, chf: bool, urine_output_ml_hr: float
+) -> tuple[float, float]:
     """
     Returns (fluid_input_6h_ml, fluid_balance_6h_ml).
     Fluid input based on SSC 30 mL/kg resuscitation [S4]; conserved for CKD/CHF.
@@ -208,12 +223,16 @@ def _fluid_balance(rng, weight_kg: float, severity: float,
         input_mean = 2800.0 + severity * 1800.0
         fluid_input = _clamp(_normal(rng, input_mean, 600.0), 800.0, 6500.0, 0)
 
-    total_output_6h = urine_output_ml_hr * 6.0 + max(80.0, _clamp(_normal(rng, 220.0, 70.0), 80.0, 500.0, 0))
+    total_output_6h = urine_output_ml_hr * 6.0 + max(
+        80.0, _clamp(_normal(rng, 220.0, 70.0), 80.0, 500.0, 0)
+    )
     fluid_balance = round(fluid_input - total_output_6h, 0)
     return float(fluid_input), float(fluid_balance)
 
 
-def build_sepsis_observations(*, rng, demographics, anthropometrics, conditions, visits, cfg) -> dict[str, Any]:
+def build_sepsis_observations(
+    *, rng, demographics, anthropometrics, conditions, visits, cfg
+) -> dict[str, Any]:
     names = {c.name for c in conditions}
     age = demographics.age
     sex = demographics.sex
@@ -298,7 +317,9 @@ def build_sepsis_observations(*, rng, demographics, anthropometrics, conditions,
     ams_prob = min(ams_prob, 0.50)
     altered_mental_status = rng.random() < ams_prob
 
-    delayed_hypotension_prob = 0.18 + (0.10 if age >= 65 else 0.0) + (0.04 if diabetes else 0.0) + (0.04 if ckd else 0.0)
+    delayed_hypotension_prob = (
+        0.18 + (0.10 if age >= 65 else 0.0) + (0.04 if diabetes else 0.0) + (0.04 if ckd else 0.0)
+    )
     delayed_hypotension_prob = min(delayed_hypotension_prob, 0.55)
     delayed_hypotension = rng.random() < delayed_hypotension_prob
 
@@ -309,37 +330,49 @@ def build_sepsis_observations(*, rng, demographics, anthropometrics, conditions,
     # ----------------------------------------------------------------
     r_deter = rng.random()
     if r_deter < 0.18:
-        deterioration_pattern = 'sudden_collapse'
+        deterioration_pattern = "sudden_collapse"
     elif r_deter < 0.42:
-        deterioration_pattern = 'stable_then_crash'
+        deterioration_pattern = "stable_then_crash"
     elif r_deter < 0.72:
-        deterioration_pattern = 'gradual_decline'
+        deterioration_pattern = "gradual_decline"
     else:
-        deterioration_pattern = 'fluctuating'
+        deterioration_pattern = "fluctuating"
 
     # Sudden-collapse pattern: compress time-to-event fields dramatically
-    sudden = deterioration_pattern == 'sudden_collapse'
+    sudden = deterioration_pattern == "sudden_collapse"
 
     if afebrile:
         temp = _clamp(_normal(rng, 37.1 + 0.3 * severity, 0.45), 35.4, 38.0)
     else:
         temp = _clamp(_normal(rng, 38.2 + 0.6 * severity, 0.5), 36.0, 40.8)
 
-    heart_rate = int(round(max(82, min(156, _normal(rng, 101 + 22 * severity + (4 if temp >= 38.5 else 0), 10)))))
-    resp_rate = int(round(max(20, min(38, _normal(rng, 22 + 8 * severity + (2 if copd else 0), 3.2)))))
+    heart_rate = int(
+        round(max(82, min(156, _normal(rng, 101 + 22 * severity + (4 if temp >= 38.5 else 0), 10))))
+    )
+    resp_rate = int(
+        round(max(20, min(38, _normal(rng, 22 + 8 * severity + (2 if copd else 0), 3.2))))
+    )
 
     if delayed_hypotension:
-        sbp = int(round(max(94, min(126, _normal(rng, 109 - 4 * severity - (5 if age >= 65 else 0), 7)))))
+        sbp = int(
+            round(max(94, min(126, _normal(rng, 109 - 4 * severity - (5 if age >= 65 else 0), 7))))
+        )
         if sudden:
             hours_to_hypotension = int(max(0, min(4, round(_normal(rng, 1.5, 1.0)))))
         else:
-            hours_to_hypotension = int(max(1, min(24, round(_normal(rng, 7 + 8 * (1 - severity), 4.0)))))
+            hours_to_hypotension = int(
+                max(1, min(24, round(_normal(rng, 7 + 8 * (1 - severity), 4.0))))
+            )
     else:
-        sbp = int(round(max(72, min(102, _normal(rng, 93 - 9 * severity - (4 if age >= 65 else 0), 7)))))
+        sbp = int(
+            round(max(72, min(102, _normal(rng, 93 - 9 * severity - (4 if age >= 65 else 0), 7))))
+        )
         if sudden:
             hours_to_hypotension = int(max(0, min(2, round(_normal(rng, 0.5, 0.5)))))
         else:
-            hours_to_hypotension = int(max(0, min(8, round(_normal(rng, 2.0 + 3.5 * (1 - severity), 1.8)))))
+            hours_to_hypotension = int(
+                max(0, min(8, round(_normal(rng, 2.0 + 3.5 * (1 - severity), 1.8))))
+            )
 
     map_target = max(52, min(78, 64 - 5 * severity + (2 if delayed_hypotension else -2)))
     dbp = int(round(max(40, min(82, (3 * map_target - sbp) / 2))))
@@ -379,7 +412,9 @@ def build_sepsis_observations(*, rng, demographics, anthropometrics, conditions,
     else:
         glucose_initial = float(glucose_initial)
 
-    lactate_mean = 1.9 + 1.7 * severity + (0.4 if delayed_hypotension else 0.0) + (0.3 if ckd else 0.0)
+    lactate_mean = (
+        1.9 + 1.7 * severity + (0.4 if delayed_hypotension else 0.0) + (0.3 if ckd else 0.0)
+    )
     lactate_initial = _clamp(_normal(rng, lactate_mean, 0.7), 0.8, 8.0, 2)
 
     # ----------------------------------------------------------------
@@ -450,7 +485,9 @@ def build_sepsis_observations(*, rng, demographics, anthropometrics, conditions,
     # signal patterns that should not be "cleaned" by downstream models.
     # ----------------------------------------------------------------
     # Cryptic shock: preserved BP but tissue hypoperfusion (lactate ≥2)
-    cryptic_shock = (sbp >= 90) and (lactate_initial >= 2.0) and (not delayed_hypotension) and (severity > 0.45)
+    cryptic_shock = (
+        (sbp >= 90) and (lactate_initial >= 2.0) and (not delayed_hypotension) and (severity > 0.45)
+    )
     # Sepsis without leukocytosis (normal or low WBC)
     normal_wbc_elevated_lactate = (wbc_initial < 11.0) and (lactate_initial >= 2.0)
     # Afebrile but clearly tachycardic (atypical presentation, common in elderly)

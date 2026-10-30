@@ -15,3 +15,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 from .observations import build_sepsis_observations
+
+__all__ = [
+    "build_sepsis_observations",
+]

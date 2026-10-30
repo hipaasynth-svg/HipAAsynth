@@ -57,7 +57,9 @@ def _normalize_age_bands(data: dict) -> list[tuple[int, int, float]]:
         raw = data["age_band_weights"]
         if not isinstance(raw, list):
             raise ProfileError("age_band_weights must be a list")
-        return [(_int_band_field(b, 0), _int_band_field(b, 1), _float_band_field(b, 2)) for b in raw]
+        return [
+            (_int_band_field(b, 0), _int_band_field(b, 1), _float_band_field(b, 2)) for b in raw
+        ]
     if "age_bands" in data:
         raw = data["age_bands"]
         if not isinstance(raw, list):

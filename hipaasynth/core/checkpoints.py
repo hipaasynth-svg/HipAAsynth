@@ -35,6 +35,7 @@ def _append_hash(context, relative_path, digest):
     lock_path = hashes_path + ".lock"
     try:
         import fcntl
+
         with open(lock_path, "w") as lockfile:
             fcntl.flock(lockfile.fileno(), fcntl.LOCK_EX)
             try:

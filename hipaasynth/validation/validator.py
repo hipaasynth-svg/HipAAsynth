@@ -72,15 +72,15 @@ LAB_DIAGNOSIS_FLOORS = {
 def _deduplicate_conditions(conditions: list[Condition]) -> list[Condition]:
     """
     Deduplicate conditions by name, keeping the earliest onset age.
-    
+
     Args:
         conditions: List of conditions (may contain duplicates)
-        
+
     Returns:
         Deduplicated list of conditions
     """
     condition_map: dict[str, Condition] = {}
-    
+
     for cond in conditions:
         if cond.name not in condition_map:
             condition_map[cond.name] = cond
@@ -89,19 +89,19 @@ def _deduplicate_conditions(conditions: list[Condition]) -> list[Condition]:
             existing = condition_map[cond.name]
             if cond.onset_age < existing.onset_age:
                 condition_map[cond.name] = cond
-    
+
     return list(condition_map.values())
 
 
 def _validate_visit_diagnoses(visits: list[Visit]) -> list[Visit]:
     """
     Ensure every visit has a non-empty primary_diagnosis.
-    
+
     If a visit has an empty primary_diagnosis, it is replaced with "routine_check".
-    
+
     Args:
         visits: List of visits to validate
-        
+
     Returns:
         List of validated visits
     """
@@ -109,13 +109,15 @@ def _validate_visit_diagnoses(visits: list[Visit]) -> list[Visit]:
     for visit in visits:
         if not visit.primary_diagnosis or visit.primary_diagnosis.strip() == "":
             # Create new visit with fallback diagnosis
-            validated.append(Visit(
-                visit_id=visit.visit_id,
-                visit_type=visit.visit_type,
-                visit_date=visit.visit_date,
-                primary_diagnosis="routine_check",
-                labs=visit.labs,
-            ))
+            validated.append(
+                Visit(
+                    visit_id=visit.visit_id,
+                    visit_type=visit.visit_type,
+                    visit_date=visit.visit_date,
+                    primary_diagnosis="routine_check",
+                    labs=visit.labs,
+                )
+            )
         else:
             validated.append(visit)
     return validated
@@ -124,35 +126,32 @@ def _validate_visit_diagnoses(visits: list[Visit]) -> list[Visit]:
 def validate_patient(patient: Patient) -> Patient:
     """
     Validate and clean a patient record.
-    
+
     Performs the following validations:
     1. Removes age-inappropriate conditions for patients under 10
     2. Deduplicates conditions after modifications
     3. Ensures all visits have a non-empty primary_diagnosis
-    
+
     Args:
         patient: Patient record to validate
-        
+
     Returns:
         Validated patient record (may be modified)
     """
     age = patient.demographics.age
     conditions = patient.conditions
     visits = patient.visits
-    
+
     # Remove age-restricted conditions for young patients
     if age < MIN_AGE_FOR_RESTRICTED_CONDITIONS:
-        conditions = [
-            cond for cond in conditions
-            if cond.name not in AGE_RESTRICTED_CONDITIONS
-        ]
-    
+        conditions = [cond for cond in conditions if cond.name not in AGE_RESTRICTED_CONDITIONS]
+
     # Deduplicate conditions after modifications
     conditions = _deduplicate_conditions(conditions)
-    
+
     # Validate visit diagnoses
     visits = _validate_visit_diagnoses(visits)
-    
+
     # Return validated patient (create new instance since dataclasses are frozen)
     return Patient(
         demographics=patient.demographics,
@@ -170,10 +169,10 @@ def validate_patient(patient: Patient) -> Patient:
 def validate_patients(patients: list[Patient]) -> list[Patient]:
     """
     Validate a list of patient records.
-    
+
     Args:
         patients: List of patient records to validate
-        
+
     Returns:
         List of validated patient records
     """
@@ -215,15 +214,17 @@ def check_lab_diagnosis_consistency(patient: Patient) -> list[dict]:
         for visit in patient.visits:
             for lab in visit.labs:
                 if lab.lab_name == lab_name and lab.value < floor:
-                    findings.append({
-                        "patient_id": patient.demographics.patient_id,
-                        "kind": "lab_below_diagnosis_floor",
-                        "condition": condition,
-                        "lab": lab_name,
-                        "value": lab.value,
-                        "floor": floor,
-                        "visit_id": visit.visit_id,
-                    })
+                    findings.append(
+                        {
+                            "patient_id": patient.demographics.patient_id,
+                            "kind": "lab_below_diagnosis_floor",
+                            "condition": condition,
+                            "lab": lab_name,
+                            "value": lab.value,
+                            "floor": floor,
+                            "visit_id": visit.visit_id,
+                        }
+                    )
     return findings
 
 
@@ -247,22 +248,21 @@ def check_medication_timeline(patient: Patient) -> list[dict]:
     """
     meds = list(getattr(patient, "medications", ()) or ())
     if meds and not patient.visits:
-        return [{
-            "patient_id": patient.demographics.patient_id,
-            "kind": "medication_without_anchoring_visit",
-            "medications": [m.name for m in meds],
-            "detail": "medication present but no visit to anchor a drug-exposure "
-                      "date; OMOP drug_exposure_start_date would be NULL",
-        }]
+        return [
+            {
+                "patient_id": patient.demographics.patient_id,
+                "kind": "medication_without_anchoring_visit",
+                "medications": [m.name for m in meds],
+                "detail": "medication present but no visit to anchor a drug-exposure "
+                "date; OMOP drug_exposure_start_date would be NULL",
+            }
+        ]
     return []
 
 
 def check_clinical_plausibility(patient: Patient) -> list[dict]:
     """Run every clinical-plausibility rule and return the combined findings."""
-    return (
-        check_lab_diagnosis_consistency(patient)
-        + check_medication_timeline(patient)
-    )
+    return check_lab_diagnosis_consistency(patient) + check_medication_timeline(patient)
 
 
 def find_clinical_plausibility_issues(patients: list[Patient]) -> list[dict]:

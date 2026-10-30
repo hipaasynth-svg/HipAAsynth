@@ -38,7 +38,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples" / "se
 
 from seismometer_adapter import (  # noqa: E402
     CHF_PROFILE,
-    COPD_PROFILE,
     OUD_PROFILE,
     PROFILES,
     SchemaMismatchError,
@@ -122,10 +121,18 @@ class TestScoreAndFrames:
         assert str(s1.dtype) == "float64"
 
     def test_higher_risk_factors_raise_score(self):
-        low = derive_score(_cohort(1, naloxone_access=True, moud_current="buprenorphine"), OUD_PROFILE).iloc[0]
+        low = derive_score(
+            _cohort(1, naloxone_access=True, moud_current="buprenorphine"), OUD_PROFILE
+        ).iloc[0]
         high = derive_score(
-            _cohort(1, iv_drug_use=True, fentanyl_exposure_risk=True, naloxone_access=False,
-                    moud_current="no_moud", homelessness_unstable_housing=True),
+            _cohort(
+                1,
+                iv_drug_use=True,
+                fentanyl_exposure_risk=True,
+                naloxone_access=False,
+                moud_current="no_moud",
+                homelessness_unstable_housing=True,
+            ),
             OUD_PROFILE,
         ).iloc[0]
         assert high > low
@@ -245,7 +252,15 @@ class TestMultiModule:
 
         assert set(generate_demo_cohort.SUPPORTED_MODULES) == set(PROFILES)
         assert set(PROFILES) == {
-            "oud", "chf", "copd", "dmd", "fabry", "sma", "diabetes", "sepsis", "stroke"
+            "oud",
+            "chf",
+            "copd",
+            "dmd",
+            "fabry",
+            "sma",
+            "diabetes",
+            "sepsis",
+            "stroke",
         }
 
     @pytest.mark.parametrize("module", ["dmd", "fabry", "sma", "diabetes", "sepsis", "stroke"])
@@ -279,9 +294,7 @@ class TestMultiModule:
         import collections
         import generate_demo_cohort
 
-        pj, _ = generate_demo_cohort.generate(
-            out_dir=str(tmp_path), module="oud", n=n, seed=seed
-        )
+        pj, _ = generate_demo_cohort.generate(out_dir=str(tmp_path), module="oud", n=n, seed=seed)
         patients = json.loads(open(pj).read())["patients"]
         rurality = collections.Counter(p["rurality"] for p in patients)
         ethnicity = collections.Counter(p["ethnicity"] for p in patients)

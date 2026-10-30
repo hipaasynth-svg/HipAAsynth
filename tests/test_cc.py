@@ -109,9 +109,9 @@ class TestCCAudit:
         result = CCAudit().run(model, CCConfig(n_per_profile=30, seed=42))
         scores = [result.per_profile_scores[p] for p in CONTINUITY_PROFILES]
         for i in range(len(scores) - 1):
-            assert scores[i] >= scores[i + 1] - 0.05, (
-                f"Score inversion at {CONTINUITY_PROFILES[i]} vs {CONTINUITY_PROFILES[i+1]}"
-            )
+            assert (
+                scores[i] >= scores[i + 1] - 0.05
+            ), f"Score inversion at {CONTINUITY_PROFILES[i]} vs {CONTINUITY_PROFILES[i+1]}"
 
     def test_cdi_fails_for_biased_model(self) -> None:
         """MockClinicalModel completeness for PROFILE_D is near 0; CDI should FAIL."""
@@ -125,16 +125,16 @@ class TestCCAudit:
         model = MockClinicalModel(seed=42)
         result = CCAudit().run(model, CCConfig(n_per_profile=50, n_matched_pairs=30, seed=42))
         positive = sum(1 for d in result.transition_deltas if d > 0)
-        assert positive > len(result.transition_deltas) * 0.7, (
-            f"Only {positive}/{len(result.transition_deltas)} deltas positive"
-        )
+        assert (
+            positive > len(result.transition_deltas) * 0.7
+        ), f"Only {positive}/{len(result.transition_deltas)} deltas positive"
 
     def test_mean_transition_delta_positive(self) -> None:
         model = MockClinicalModel(seed=42)
         result = CCAudit().run(model, CCConfig(n_per_profile=50, n_matched_pairs=30, seed=42))
-        assert result.mean_transition_delta > 0, (
-            f"Expected positive mean delta, got {result.mean_transition_delta}"
-        )
+        assert (
+            result.mean_transition_delta > 0
+        ), f"Expected positive mean delta, got {result.mean_transition_delta}"
 
     def test_result_raw_scores_length(self) -> None:
         model = MockClinicalModel(seed=42)

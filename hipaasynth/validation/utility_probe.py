@@ -112,10 +112,7 @@ class LogisticModel:
     feature_stds: List[float]
 
     def _standardize(self, row: Sequence[float]) -> List[float]:
-        return [
-            (row[j] - self.feature_means[j]) / self.feature_stds[j]
-            for j in range(len(row))
-        ]
+        return [(row[j] - self.feature_means[j]) / self.feature_stds[j] for j in range(len(row))]
 
     def score(self, row: Sequence[float]) -> float:
         z = self.bias + sum(w * x for w, x in zip(self.weights, self._standardize(row)))
@@ -206,14 +203,14 @@ def _impute(rows: List[List[Optional[float]]]) -> List[List[float]]:
     d = len(rows[0])
     col_means: List[float] = []
     for j in range(d):
-        present = [r[j] for r in rows if r[j] is not None]
+        present = [float(v) for r in rows if (v := r[j]) is not None]
         col_means.append(sum(present) / len(present) if present else 0.0)
-    return [[(r[j] if r[j] is not None else col_means[j]) for j in range(d)] for r in rows]
+    return [
+        [(float(v) if (v := r[j]) is not None else col_means[j]) for j in range(d)] for r in rows
+    ]
 
 
-def _split(
-    n: int, test_fraction: float, seed: int
-) -> Tuple[List[int], List[int]]:
+def _split(n: int, test_fraction: float, seed: int) -> Tuple[List[int], List[int]]:
     """Deterministic index split into (train, test)."""
     idx = list(range(n))
     random.Random(seed).shuffle(idx)
@@ -282,9 +279,7 @@ def downstream_utility_probe(
         labels.append(1 if any(c.name == target for c in p.conditions) else 0)
 
     if len(set(labels)) < 2:
-        raise ValueError(
-            f"target {target!r} has only one class in this cohort; probe needs both"
-        )
+        raise ValueError(f"target {target!r} has only one class in this cohort; probe needs both")
 
     X = _impute(raw_rows)
     train_idx, test_idx = _split(len(patients), test_fraction, seed)
@@ -296,9 +291,7 @@ def downstream_utility_probe(
             "size, raise target prevalence, or change the split seed"
         )
 
-    model = train_logistic(
-        [X[i] for i in train_idx], y_train, epochs=epochs, lr=lr
-    )
+    model = train_logistic([X[i] for i in train_idx], y_train, epochs=epochs, lr=lr)
 
     scores = [model.score(X[i]) for i in test_idx]
     preds = [1 if s >= 0.5 else 0 for s in scores]
@@ -321,5 +314,5 @@ def downstream_utility_probe(
         accuracy_lift=acc - baseline,
         feature_names=list(FEATURE_NAMES),
         note="Pure-Python logistic-regression signal-existence probe; not a "
-             "production model. AUC>>0.5 indicates learnable feature->label signal.",
+        "production model. AUC>>0.5 indicates learnable feature->label signal.",
     )

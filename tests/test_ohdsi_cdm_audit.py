@@ -46,6 +46,7 @@ def tables(patients):
 
 # ── data-quality checks ──────────────────────────────────────────────────────
 
+
 def test_clean_cohort_passes_all_checks(tables):
     report = audit_cdm(tables)
     failed = [c for c in report["data_quality"]["checks"] if c["status"] == "FAIL"]
@@ -93,6 +94,7 @@ def test_unmapped_drug_class_does_not_fail_condition_mapping(patients):
 
 # ── characterization ─────────────────────────────────────────────────────────
 
+
 def test_characterization_shape(tables, patients):
     ch = characterize(tables)
     assert ch["person_count"] == len(patients)
@@ -112,12 +114,13 @@ def test_measurement_summary_has_stats(tables):
 
 # ── loading from CSV dir + CLI + markdown ────────────────────────────────────
 
+
 def test_audit_from_exported_dir(patients, tmp_path):
     out = tmp_path / "omop_cdm"
     export_omop(patients, str(out))
     loaded = load_cdm_dir(out)
     assert loaded["person"]  # non-empty
-    report = audit_cdm(out)   # accepts a path directly
+    report = audit_cdm(out)  # accepts a path directly
     assert report["passed"] is True
 
 

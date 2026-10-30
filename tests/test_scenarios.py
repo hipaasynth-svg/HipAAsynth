@@ -139,10 +139,20 @@ def test_generate_via_scenario_over_http(server):
 def test_cli_scenario_generates(tmp_path):
     from hipaasynth.run.main import main
 
-    rc = main([
-        "--scenario", "us_baseline_sepsis", "--count", "4", "--seed", "3",
-        "--format", "json", "--out", str(tmp_path),
-    ])
+    rc = main(
+        [
+            "--scenario",
+            "us_baseline_sepsis",
+            "--count",
+            "4",
+            "--seed",
+            "3",
+            "--format",
+            "json",
+            "--out",
+            str(tmp_path),
+        ]
+    )
     assert rc == 0
     cohort = json.loads((tmp_path / "cohort.json").read_text())
     assert len(cohort) == 4
@@ -152,7 +162,13 @@ def test_cli_scenario_conflicts_with_module(tmp_path):
     from hipaasynth.run.main import main
 
     with pytest.raises(SystemExit):  # argparse parser.error
-        main([
-            "--scenario", "us_baseline_sepsis", "--module", "stroke",
-            "--out", str(tmp_path),
-        ])
+        main(
+            [
+                "--scenario",
+                "us_baseline_sepsis",
+                "--module",
+                "stroke",
+                "--out",
+                str(tmp_path),
+            ]
+        )

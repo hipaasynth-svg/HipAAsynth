@@ -68,8 +68,21 @@ def test_out_is_a_file(capsys, tmp_path):
 
 
 def test_bundled_profile_name_works(tmp_path):
-    assert main(["--profile", "karachi_pakistan", "--module", "dka", "--count", "3",
-                 "--out", str(tmp_path)]) == 0
+    assert (
+        main(
+            [
+                "--profile",
+                "karachi_pakistan",
+                "--module",
+                "dka",
+                "--count",
+                "3",
+                "--out",
+                str(tmp_path),
+            ]
+        )
+        == 0
+    )
     assert (tmp_path / "cohort.json").is_file()
 
 
@@ -81,7 +94,9 @@ def test_bundled_name_and_path_give_identical_output(tmp_path):
     path = Path(hipaasynth.__file__).resolve().parent / "profiles" / "minot_nd.json"
     main(["--profile", "minot_nd", "--count", "3", "--out", str(tmp_path / "a")])
     main(["--profile", str(path), "--count", "3", "--out", str(tmp_path / "b")])
-    assert (tmp_path / "a" / "cohort.csv").read_text() == (tmp_path / "b" / "cohort.csv").read_text()
+    assert (tmp_path / "a" / "cohort.csv").read_text() == (
+        tmp_path / "b" / "cohort.csv"
+    ).read_text()
 
 
 def test_runtime_error_is_one_line(capsys, tmp_path, monkeypatch):

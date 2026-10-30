@@ -26,9 +26,9 @@ import pytest
 
 duckdb = pytest.importorskip("duckdb")
 
-from hipaasynth import generate
-from hipaasynth.connectors import duckdb as dc
-from hipaasynth.exporters.omop import build_cdm_tables
+from hipaasynth import generate  # noqa: E402
+from hipaasynth.connectors import duckdb as dc  # noqa: E402
+from hipaasynth.exporters.omop import build_cdm_tables  # noqa: E402
 
 
 @pytest.fixture
@@ -53,8 +53,7 @@ def test_data_is_queryable_in_real_db_file(cohort, tmp_path):
         assert con.execute("SELECT COUNT(*) FROM person").fetchone()[0] == 20
         # A real join across CDM tables works.
         joined = con.execute(
-            "SELECT COUNT(*) FROM condition_occurrence c "
-            "JOIN person p USING(person_id)"
+            "SELECT COUNT(*) FROM condition_occurrence c " "JOIN person p USING(person_id)"
         ).fetchone()[0]
         assert joined == len(build_cdm_tables(cohort.patients)["condition_occurrence"])
     finally:
@@ -66,10 +65,12 @@ def test_columns_are_typed_not_all_varchar(cohort, tmp_path):
     dc.load(cohort, db)
     con = duckdb.connect(str(db))
     try:
+
         def dtype(table, col):
             return con.execute(
                 "SELECT data_type FROM information_schema.columns "
-                "WHERE table_name=? AND column_name=?", [table, col]
+                "WHERE table_name=? AND column_name=?",
+                [table, col],
             ).fetchone()[0]
 
         assert dtype("person", "person_id") == "BIGINT"
@@ -88,9 +89,9 @@ def test_empty_omop_values_become_null(cohort, tmp_path):
     con = duckdb.connect(str(db))
     try:
         # birth_datetime is always '' in the exporter -> must be NULL in the DB.
-        nulls = con.execute(
-            "SELECT COUNT(*) FROM person WHERE birth_datetime IS NULL"
-        ).fetchone()[0]
+        nulls = con.execute("SELECT COUNT(*) FROM person WHERE birth_datetime IS NULL").fetchone()[
+            0
+        ]
         assert nulls == 20
     finally:
         con.close()
@@ -130,14 +131,14 @@ def test_flat_mode_loads_single_typed_table(cohort, tmp_path):
 
 def test_if_exists_replace_vs_append(cohort, tmp_path):
     db = tmp_path / "cohort.duckdb"
-    dc.load(cohort, db)                       # replace (default)
-    dc.load(cohort, db, if_exists="append")   # append same cohort
+    dc.load(cohort, db)  # replace (default)
+    dc.load(cohort, db, if_exists="append")  # append same cohort
     con = duckdb.connect(str(db))
     try:
         assert con.execute("SELECT COUNT(*) FROM person").fetchone()[0] == 40
     finally:
         con.close()
-    dc.load(cohort, db)                        # replace again -> back to 20
+    dc.load(cohort, db)  # replace again -> back to 20
     con = duckdb.connect(str(db))
     try:
         assert con.execute("SELECT COUNT(*) FROM person").fetchone()[0] == 20

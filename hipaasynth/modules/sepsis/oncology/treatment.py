@@ -37,22 +37,23 @@ class TreatmentModule:
             stage = stages[i]
 
             # pull biomarkers safely
-            er = biomarkers.get("er_status", [None]*self.n)[i]
-            her2 = biomarkers.get("her2_status", [None]*self.n)[i]
-            egfr = biomarkers.get("egfr_status", [None]*self.n)[i]
-            alk = biomarkers.get("alk_status", [None]*self.n)[i]
-            pdl1 = biomarkers.get("pd_l1_tps", [0]*self.n)[i]
-            msi = biomarkers.get("msi_status", [None]*self.n)[i]
-            kras = biomarkers.get("kras_status", [None]*self.n)[i]
-            nras = biomarkers.get("nras_status", [None]*self.n)[i]
-            side = biomarkers.get("primary_side", ["right"]*self.n)[i]
+            er = biomarkers.get("er_status", [None] * self.n)[i]
+            her2 = biomarkers.get("her2_status", [None] * self.n)[i]
+            egfr = biomarkers.get("egfr_status", [None] * self.n)[i]
+            alk = biomarkers.get("alk_status", [None] * self.n)[i]
+            pdl1 = biomarkers.get("pd_l1_tps", [0] * self.n)[i]
+            msi = biomarkers.get("msi_status", [None] * self.n)[i]
+            kras = biomarkers.get("kras_status", [None] * self.n)[i]
+            nras = biomarkers.get("nras_status", [None] * self.n)[i]
+            side = biomarkers.get("primary_side", ["right"] * self.n)[i]
 
             # ---------------- BREAST ----------------
             if site == "breast":
                 if stage in ["I", "II", "III"]:
                     data["surgery"][i] = True
                     data["surgery_type"][i] = (
-                        "lumpectomy" if self.rng.random() < (0.6 if stage == "I" else 0.4)
+                        "lumpectomy"
+                        if self.rng.random() < (0.6 if stage == "I" else 0.4)
                         else "mastectomy"
                     )
 
@@ -62,9 +63,7 @@ class TreatmentModule:
                 if stage in ["II", "III"]:
                     if her2 == "+" or stage == "III":
                         data["chemotherapy"][i] = True
-                        data["chemo_regimen"][i] = self._choice(
-                            ["AC-T", "TC", "AC-THP"]
-                        )
+                        data["chemo_regimen"][i] = self._choice(["AC-T", "TC", "AC-THP"])
                         data["chemo_cycles"][i] = self._choice([4, 6])
 
                     if her2 == "+":
@@ -90,17 +89,13 @@ class TreatmentModule:
                         )
                     else:
                         data["chemotherapy"][i] = True
-                        data["chemo_regimen"][i] = self._choice(
-                            ["carboplatin", "taxane"]
-                        )
+                        data["chemo_regimen"][i] = self._choice(["carboplatin", "taxane"])
 
             # ---------------- LUNG ----------------
             elif site == "lung":
                 if stage in ["I", "II"]:
                     data["surgery"][i] = True
-                    data["surgery_type"][i] = self._choice(
-                        ["lobectomy", "segmentectomy", "wedge"]
-                    )
+                    data["surgery_type"][i] = self._choice(["lobectomy", "segmentectomy", "wedge"])
 
                     if stage == "II":
                         data["chemotherapy"][i] = True
@@ -147,9 +142,7 @@ class TreatmentModule:
 
                     if stage == "III":
                         data["chemotherapy"][i] = True
-                        data["chemo_regimen"][i] = self._choice(
-                            ["FOLFOX", "CAPOX"]
-                        )
+                        data["chemo_regimen"][i] = self._choice(["FOLFOX", "CAPOX"])
                         data["chemo_cycles"][i] = self._choice([8, 12])
 
                 elif stage == "IV":
@@ -178,13 +171,10 @@ class TreatmentModule:
 
             if data["immunotherapy"][i]:
                 if self.rng.random() < 0.2:
-                    tox = self._choice(
-                        ["colitis", "pneumonitis", "thyroiditis"]
-                    )
+                    tox = self._choice(["colitis", "pneumonitis", "thyroiditis"])
                     data["io_toxicity_type"][i] = tox
                     data["io_discontinuation"][i] = (
-                        tox in ["colitis", "pneumonitis"]
-                        and self.rng.random() < 0.7
+                        tox in ["colitis", "pneumonitis"] and self.rng.random() < 0.7
                     )
 
         return data
@@ -194,22 +184,21 @@ class TreatmentModule:
 
     def _empty(self):
         return {
-            "surgery": [False]*self.n,
-            "surgery_type": [None]*self.n,
-            "radiation": [False]*self.n,
-            "chemotherapy": [False]*self.n,
-            "chemo_regimen": [None]*self.n,
-            "chemo_cycles": [0]*self.n,
-            "targeted_therapy": [False]*self.n,
-            "targeted_agent": [None]*self.n,
-            "immunotherapy": [False]*self.n,
-            "io_agent": [None]*self.n,
-            "io_cycles": [0]*self.n,
-            "endocrine_therapy": [False]*self.n,
-            "endocrine_agent": [None]*self.n,
-
-            "chemo_toxicity_grade": [None]*self.n,
-            "chemo_discontinuation": [False]*self.n,
-            "io_toxicity_type": [None]*self.n,
-            "io_discontinuation": [False]*self.n,
+            "surgery": [False] * self.n,
+            "surgery_type": [None] * self.n,
+            "radiation": [False] * self.n,
+            "chemotherapy": [False] * self.n,
+            "chemo_regimen": [None] * self.n,
+            "chemo_cycles": [0] * self.n,
+            "targeted_therapy": [False] * self.n,
+            "targeted_agent": [None] * self.n,
+            "immunotherapy": [False] * self.n,
+            "io_agent": [None] * self.n,
+            "io_cycles": [0] * self.n,
+            "endocrine_therapy": [False] * self.n,
+            "endocrine_agent": [None] * self.n,
+            "chemo_toxicity_grade": [None] * self.n,
+            "chemo_discontinuation": [False] * self.n,
+            "io_toxicity_type": [None] * self.n,
+            "io_discontinuation": [False] * self.n,
         }

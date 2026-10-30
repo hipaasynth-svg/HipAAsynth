@@ -28,8 +28,14 @@ from hipaasynth.polymorphic.metrics import PolymorphicMetrics
 
 def _passing_metrics():
     return PolymorphicMetrics(
-        dcs=1.0, isg=0.0, lfdi=0.0, saf=0.0,
-        dcs_pass=True, isg_pass=True, lfdi_pass=True, saf_pass=True,
+        dcs=1.0,
+        isg=0.0,
+        lfdi=0.0,
+        saf=0.0,
+        dcs_pass=True,
+        isg_pass=True,
+        lfdi_pass=True,
+        saf_pass=True,
     )
 
 
@@ -70,9 +76,9 @@ class TestWritePassportBundle:
             assert patient_id in body
             assert "back to cohort summary" in body
             file_verdict = "PASS" if "**Overall result:** PASS" in body else "FAIL"
-            assert file_verdict == verdict, (
-                f"{rel_path}: summary claims {verdict}, the file itself says {file_verdict}"
-            )
+            assert (
+                file_verdict == verdict
+            ), f"{rel_path}: summary claims {verdict}, the file itself says {file_verdict}"
 
     def test_patients_directory_has_no_orphans_and_no_gaps(
         self, tmp_path, gen_config, fair_model, dif_config

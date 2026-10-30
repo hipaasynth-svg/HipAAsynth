@@ -38,12 +38,12 @@ def stamp_population(population: List[Dict], anchor) -> List[Dict]:
     return stamped
 
 
-def build_metadata(anchor, extra: Dict = None) -> Dict:
+def build_metadata(anchor, extra: Dict | None = None) -> Dict:
     """
     Build dataset-level metadata block.
     """
 
-    meta = anchor.export()
+    meta: Dict = anchor.export()
 
     if extra:
         meta.update(extra)

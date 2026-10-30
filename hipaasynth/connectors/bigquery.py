@@ -105,8 +105,9 @@ def table_schema_json(table: str) -> list[dict]:
     ]
 
 
-def table_ddl(table: str, dataset: str, project: str | None = None,
-              *, if_not_exists: bool = False) -> str:
+def table_ddl(
+    table: str, dataset: str, project: str | None = None, *, if_not_exists: bool = False
+) -> str:
     """`CREATE TABLE` GoogleSQL DDL for one OMOP CDM table."""
     cols = [(c, sql_type(c, _DIALECT)) for c in table_columns(table)]
     body = ",\n".join(f"  {col} {typ}" for col, typ in cols)
@@ -114,16 +115,22 @@ def table_ddl(table: str, dataset: str, project: str | None = None,
     return f"CREATE TABLE {ine}{qualified_name(table, dataset, project)} (\n{body}\n)"
 
 
-def schema_ddl(dataset: str, project: str | None = None,
-               *, if_not_exists: bool = False) -> str:
+def schema_ddl(dataset: str, project: str | None = None, *, if_not_exists: bool = False) -> str:
     """`CREATE TABLE` DDL for the full OMOP CDM 5.4 table set (semicolon-separated)."""
     stmts = [table_ddl(t, dataset, project, if_not_exists=if_not_exists) for t in OMOP_TABLES]
     return ";\n\n".join(stmts) + ";"
 
 
-def load_data_sql(table: str, uris, dataset: str, project: str | None = None,
-                  *, source_format: str = "CSV", overwrite: bool = False,
-                  skip_leading_rows: int = 1) -> str:
+def load_data_sql(
+    table: str,
+    uris,
+    dataset: str,
+    project: str | None = None,
+    *,
+    source_format: str = "CSV",
+    overwrite: bool = False,
+    skip_leading_rows: int = 1,
+) -> str:
     """GoogleSQL ``LOAD DATA`` statement to bulk-load file(s) into an OMOP table.
 
     ``uris`` is a GCS URI string or an iterable of them. ``overwrite=True`` emits
@@ -144,9 +151,16 @@ def load_data_sql(table: str, uris, dataset: str, project: str | None = None,
     )
 
 
-def bq_load_command(table: str, uri: str, dataset: str, project: str | None = None,
-                    *, source_format: str = "CSV", skip_leading_rows: int = 1,
-                    replace: bool = False) -> str:
+def bq_load_command(
+    table: str,
+    uri: str,
+    dataset: str,
+    project: str | None = None,
+    *,
+    source_format: str = "CSV",
+    skip_leading_rows: int = 1,
+    replace: bool = False,
+) -> str:
     """The equivalent ``bq load`` CLI invocation (string)."""
     parts = ["bq", "load", f"--source_format={source_format}"]
     if source_format.upper() == "CSV":
@@ -158,14 +172,14 @@ def bq_load_command(table: str, uri: str, dataset: str, project: str | None = No
     return " ".join(parts)
 
 
-def load_all_sql(dataset: str, gcs_prefix: str, project: str | None = None,
-                 *, overwrite: bool = False) -> dict[str, str]:
+def load_all_sql(
+    dataset: str, gcs_prefix: str, project: str | None = None, *, overwrite: bool = False
+) -> dict[str, str]:
     """Map every OMOP table -> its ``LOAD DATA`` statement, expecting CSVs named
     ``{gcs_prefix}/{table}.csv`` (matching :func:`hipaasynth.exporters.export_omop`).
     """
     prefix = gcs_prefix.rstrip("/")
     return {
-        table: load_data_sql(table, f"{prefix}/{table}.csv", dataset, project,
-                             overwrite=overwrite)
+        table: load_data_sql(table, f"{prefix}/{table}.csv", dataset, project, overwrite=overwrite)
         for table in OMOP_TABLES
     }

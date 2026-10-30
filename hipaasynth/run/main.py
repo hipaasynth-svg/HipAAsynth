@@ -31,13 +31,22 @@ from pathlib import Path
 from hipaasynth.core.config import GenerationConfig, DEFAULT_SYNTHETIC_DISCLAIMER, ENGINE_VERSION
 from hipaasynth.pipelines.population_pipeline import generate_patients
 from hipaasynth.exporters.exporters import (
-    export_json, export_csv, export_fhir, export_fhir_ndjson, export_parquet,
+    export_json,
+    export_csv,
+    export_fhir,
+    export_fhir_ndjson,
+    export_parquet,
     _patient_to_fhir,
-    summary_stats, print_summary, profile_fit_stats, print_profile_fit,
+    summary_stats,
+    print_summary,
+    profile_fit_stats,
+    print_profile_fit,
 )
 from hipaasynth.exporters.omop import export_omop
 from hipaasynth.exporters.fhir_validate import (
-    validate_bundle, validate_ndjson_dir, validate_resources,
+    validate_bundle,
+    validate_ndjson_dir,
+    validate_resources,
 )
 from hipaasynth.core.profile_loader import load_population_profile
 from hipaasynth.scenarios import (
@@ -72,43 +81,64 @@ def _seed_arg(text):
 def build_parser():
     parser = argparse.ArgumentParser(description="Generate synthetic healthcare cohorts")
     parser.add_argument("--demo", action="store_true")
-    parser.add_argument("--count", type=_count_arg, default=2000,
-                        help="Patients to generate (>= 1; default %(default)s).")
-    parser.add_argument("--seed", type=_seed_arg, default=42,
-                        help=f"RNG seed, 0..{SEED_MAX} (default %(default)s).")
-    parser.add_argument("--out", type=str, default="output",
-                        help="Output directory (default %(default)s).")
     parser.add_argument(
-        "--profile", type=str, default=None,
-        help="Population profile: a bundled name (" + " ".join(available_profiles())
-             + ") or a path to a profile JSON file.",
+        "--count",
+        type=_count_arg,
+        default=2000,
+        help="Patients to generate (>= 1; default %(default)s).",
     )
     parser.add_argument(
-        "--module", choices=list(MODULES), default=None, metavar="MODULE",
+        "--seed", type=_seed_arg, default=42, help=f"RNG seed, 0..{SEED_MAX} (default %(default)s)."
+    )
+    parser.add_argument(
+        "--out", type=str, default="output", help="Output directory (default %(default)s)."
+    )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        help="Population profile: a bundled name ("
+        + " ".join(available_profiles())
+        + ") or a path to a profile JSON file.",
+    )
+    parser.add_argument(
+        "--module",
+        choices=list(MODULES),
+        default=None,
+        metavar="MODULE",
         help="Decision module whose condition to require: " + " ".join(MODULES) + ". "
-             "Omit to keep the legacy behavior (no required condition).",
+        "Omit to keep the legacy behavior (no required condition).",
     )
     parser.add_argument(
-        "--scenario", choices=available_scenarios(), default=None, metavar="NAME",
+        "--scenario",
+        choices=available_scenarios(),
+        default=None,
+        metavar="NAME",
         help="A named blueprint that resolves to a --module + --profile pair "
-             "(see the shortcuts in hipaasynth/scenarios.json). Mutually exclusive "
-             "with --module/--profile.",
+        "(see the shortcuts in hipaasynth/scenarios.json). Mutually exclusive "
+        "with --module/--profile.",
     )
     parser.add_argument(
-        "--format", nargs="+", choices=FORMATS, default=None, metavar="FORMAT",
+        "--format",
+        nargs="+",
+        choices=FORMATS,
+        default=None,
+        metavar="FORMAT",
         help="One or more export formats: " + " ".join(FORMATS) + ". "
-             "Omit to keep the legacy behavior (json + csv + fhir-bundle).",
+        "Omit to keep the legacy behavior (json + csv + fhir-bundle).",
     )
     parser.add_argument(
-        "--viz", action="store_true",
+        "--viz",
+        action="store_true",
         help="Also write a hand-rolled SVG of the cohort's age/sex/ethnicity "
-             "distribution to <out>/demographics.svg (stdlib-only; no PHI).",
+        "distribution to <out>/demographics.svg (stdlib-only; no PHI).",
     )
     parser.add_argument(
-        "--validate", action="store_true",
+        "--validate",
+        action="store_true",
         help="Run the structural FHIR validator over the generated cohort. "
-             "Exits non-zero if the FHIR resources fail structural validation. "
-             "NOT a substitute for the official HL7 FHIR IG validator.",
+        "Exits non-zero if the FHIR resources fail structural validation. "
+        "NOT a substitute for the official HL7 FHIR IG validator.",
     )
     return parser
 
@@ -151,6 +181,7 @@ def _run_validation(patients, formats, output_dir):
     """
     if "fhir-bundle" in formats:
         import json
+
         bundle = json.loads((output_dir / "cohort_fhir.json").read_text(encoding="utf-8"))
         report = validate_bundle(bundle)
         source = "written FHIR bundle"
@@ -163,8 +194,10 @@ def _run_validation(patients, formats, output_dir):
         source = "in-memory FHIR resources"
     status = "PASS" if report.ok else f"{len(report.errors)} error(s)"
     print(f"\n  FHIR validation ({source}): {report.total} resources — {status}")
-    print("  NOTE: structural R5 check only — run the official HL7 FHIR IG "
-          "validator before any conformance claim.")
+    print(
+        "  NOTE: structural R5 check only — run the official HL7 FHIR IG "
+        "validator before any conformance claim."
+    )
     for err in report.errors[:20]:
         print(f"    [{err['resourceType']}/{err['id']}] {err['message']}")
     return report
@@ -189,9 +222,7 @@ def _resolve_scenario_args(args, parser):
             parser.error(str(err))
     if args.scenario:
         if args.module or args.profile:
-            parser.error(
-                "--scenario is a shortcut for --module + --profile; do not combine them"
-            )
+            parser.error("--scenario is a shortcut for --module + --profile; do not combine them")
         try:
             scenario = get_scenario(args.scenario)
         except ScenarioError as err:  # pragma: no cover - argparse choices guard
@@ -253,12 +284,17 @@ def _generate_and_export(args, module, profile_path, profile_data, output_dir):
     print()
     start_time = time.time()
     cfg = GenerationConfig(
-        patient_count=args.count, seed=args.seed,
-        age_min=18, age_max=90,
+        patient_count=args.count,
+        seed=args.seed,
+        age_min=18,
+        age_max=90,
         required_condition=MODULES[module] if module is not None else None,
         sex_ratio_female=profile_data["sex_ratio_female"] if profile_data else 0.5,
         ethnicity_weights=profile_data["ethnicity_weights"] if profile_data else None,
-        include_visits=True, include_labs=True, visits_min=1, visits_max=3,
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=3,
         synthetic_disclaimer=DEFAULT_SYNTHETIC_DISCLAIMER,
         run_date=date.today().isoformat(),
         age_band_weights=profile_data.get("age_band_weights") if profile_data else None,
@@ -267,8 +303,7 @@ def _generate_and_export(args, module, profile_path, profile_data, output_dir):
     )
     patients = generate_patients(cfg)
     # Export in the canonical FORMATS order so output is deterministic.
-    written = [_export_one(fmt, patients, output_dir)
-               for fmt in FORMATS if fmt in formats]
+    written = [_export_one(fmt, patients, output_dir) for fmt in FORMATS if fmt in formats]
     elapsed = round(time.time() - start_time, 2)
     stats = summary_stats(patients)
     print_summary(stats)
@@ -278,6 +313,7 @@ def _generate_and_export(args, module, profile_path, profile_data, output_dir):
         print(f"  {line}")
     if args.viz:
         from hipaasynth.viz import demographics_distribution_svg
+
         viz_path = output_dir / "demographics.svg"
         viz_path.write_text(demographics_distribution_svg(patients), encoding="utf-8")
         print(f"  SVG viz     : {viz_path}")
@@ -287,6 +323,7 @@ def _generate_and_export(args, module, profile_path, profile_data, output_dir):
         if not report.ok:
             exit_code = 1
     return exit_code
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

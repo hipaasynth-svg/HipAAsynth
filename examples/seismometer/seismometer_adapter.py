@@ -182,11 +182,20 @@ _OUD_SCORE = ScoreModel(
         ("iv_drug_use", lambda r: 0.9 * _b(r.get("iv_drug_use"))),
         ("fentanyl_exposure_risk", lambda r: 0.8 * _b(r.get("fentanyl_exposure_risk"))),
         ("uds_benzodiazepine(polysubstance)", lambda r: 0.5 * _b(r.get("uds_benzodiazepine"))),
-        ("homelessness_unstable_housing", lambda r: 0.5 * _b(r.get("homelessness_unstable_housing"))),
+        (
+            "homelessness_unstable_housing",
+            lambda r: 0.5 * _b(r.get("homelessness_unstable_housing")),
+        ),
         ("naloxone_access(protective)", lambda r: -0.7 * _b(r.get("naloxone_access"))),
-        ("on_moud(protective)", lambda r: -0.6 * (str(r.get("moud_current", "no_moud")) != "no_moud")),
+        (
+            "on_moud(protective)",
+            lambda r: -0.6 * (str(r.get("moud_current", "no_moud")) != "no_moud"),
+        ),
         ("dsm5_criteria_count", lambda r: 0.12 * (_num(r.get("dsm5_criteria_count"), 4) - 4)),
-        ("distance_to_moud_provider_miles", lambda r: 0.004 * (_num(r.get("distance_to_moud_provider_miles"), 20) - 20)),
+        (
+            "distance_to_moud_provider_miles",
+            lambda r: 0.004 * (_num(r.get("distance_to_moud_provider_miles"), 20) - 20),
+        ),
         ("cows_score", lambda r: 0.03 * (_num(r.get("cows_score"), 8) - 8)),
     ],
     feature_columns=[
@@ -215,7 +224,9 @@ OUD_PROFILE = ModuleProfile(
             "object",
             definition="RUCA-style rurality band (urban/suburban/rural/frontier); the sparse-population axis this audit targets.",
         ),
-        CohortSpec("insurance_status", "Insurance", "object", definition="Payer / insurance status."),
+        CohortSpec(
+            "insurance_status", "Insurance", "object", definition="Payer / insurance status."
+        ),
         CohortSpec("housing_status", "Housing", "object", definition="Housing stability status."),
     ],
     outcome=OutcomeSpec(
@@ -237,7 +248,10 @@ OUD_PROFILE = ModuleProfile(
 _CHF_SCORE = ScoreModel(
     intercept=-0.5,
     terms=[
-        ("low_ejection_fraction", lambda r: -0.04 * (_num(r.get("ejection_fraction_pct"), 40) - 40)),
+        (
+            "low_ejection_fraction",
+            lambda r: -0.04 * (_num(r.get("ejection_fraction_pct"), 40) - 40),
+        ),
         ("ntprobnp_elevated", lambda r: 0.00003 * (_num(r.get("ntprobnp_pgml"), 1000) - 1000)),
         ("low_egfr", lambda r: -0.010 * (_num(r.get("egfr_ml_min_173m2"), 60) - 60)),
         ("hyponatremia", lambda r: -0.05 * (_num(r.get("sodium_meql"), 138) - 138)),
@@ -267,8 +281,15 @@ CHF_PROFILE = ModuleProfile(
         CohortSpec("age", "Age", "int", splits=[55, 75], definition="Patient age in years."),
         CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
         CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
-        CohortSpec("nyha_class", "NYHA class", "object", definition="NYHA functional class (I–IV)."),
-        CohortSpec("acc_aha_stage", "ACC/AHA stage", "object", definition="ACC/AHA heart-failure stage (A–D)."),
+        CohortSpec(
+            "nyha_class", "NYHA class", "object", definition="NYHA functional class (I–IV)."
+        ),
+        CohortSpec(
+            "acc_aha_stage",
+            "ACC/AHA stage",
+            "object",
+            definition="ACC/AHA heart-failure stage (A–D).",
+        ),
     ],
     outcome=OutcomeSpec(
         source="prior_hf_admissions_1yr",
@@ -317,8 +338,12 @@ COPD_PROFILE = ModuleProfile(
         CohortSpec("age", "Age", "int", splits=[55, 70], definition="Patient age in years."),
         CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
         CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
-        CohortSpec("gold_stage", "GOLD stage", "object", definition="GOLD spirometric stage (1–4)."),
-        CohortSpec("gold_abcd_group", "GOLD ABCD", "object", definition="GOLD ABCD symptom/risk group."),
+        CohortSpec(
+            "gold_stage", "GOLD stage", "object", definition="GOLD spirometric stage (1–4)."
+        ),
+        CohortSpec(
+            "gold_abcd_group", "GOLD ABCD", "object", definition="GOLD ABCD symptom/risk group."
+        ),
     ],
     outcome=OutcomeSpec(
         source="hospitalized_prior_yr",
@@ -350,9 +375,21 @@ DMD_PROFILE = ModuleProfile(
     name="dmd",
     entity_id="patient_id",
     cohorts=[
-        CohortSpec("current_age", "Age", "int", splits=[8, 15], definition="Current patient age in years."),
-        CohortSpec("mutation_type", "Mutation type", "object", definition="Dystrophin mutation class (deletion/duplication/point)."),
-        CohortSpec("on_steroids", "On steroids", "object", definition="Corticosteroid treatment status (treatment-access axis)."),
+        CohortSpec(
+            "current_age", "Age", "int", splits=[8, 15], definition="Current patient age in years."
+        ),
+        CohortSpec(
+            "mutation_type",
+            "Mutation type",
+            "object",
+            definition="Dystrophin mutation class (deletion/duplication/point).",
+        ),
+        CohortSpec(
+            "on_steroids",
+            "On steroids",
+            "object",
+            definition="Corticosteroid treatment status (treatment-access axis).",
+        ),
     ],
     outcome=OutcomeSpec(
         source="non_ambulatory",
@@ -371,7 +408,10 @@ DMD_PROFILE = ModuleProfile(
 _FABRY_SCORE = ScoreModel(
     intercept=-1.5,
     terms=[
-        ("low_enzyme_activity", lambda r: -0.02 * (_num(r.get("alpha_galactosidase_a_percent_normal"), 40) - 40)),
+        (
+            "low_enzyme_activity",
+            lambda r: -0.02 * (_num(r.get("alpha_galactosidase_a_percent_normal"), 40) - 40),
+        ),
         ("high_lyso_gb3", lambda r: 0.004 * (_num(r.get("lyso_gb3_ng_ml"), 50) - 50)),
         ("has_proteinuria", lambda r: 0.8 * _b(r.get("has_proteinuria"))),
         ("has_lvh", lambda r: 0.4 * _b(r.get("has_left_ventricular_hypertrophy"))),
@@ -391,8 +431,19 @@ FABRY_PROFILE = ModuleProfile(
     entity_id="patient_id",
     cohorts=[
         CohortSpec("sex", "Sex", "object", definition="Recorded sex (Fabry affects both)."),
-        CohortSpec("age_at_diagnosis_years", "Age at diagnosis", "int", splits=[18, 40], definition="Age at Fabry diagnosis in years."),
-        CohortSpec("phenotype", "Phenotype", "object", definition="Clinical phenotype (classic/late-onset/asymptomatic)."),
+        CohortSpec(
+            "age_at_diagnosis_years",
+            "Age at diagnosis",
+            "int",
+            splits=[18, 40],
+            definition="Age at Fabry diagnosis in years.",
+        ),
+        CohortSpec(
+            "phenotype",
+            "Phenotype",
+            "object",
+            definition="Clinical phenotype (classic/late-onset/asymptomatic).",
+        ),
         CohortSpec("mutation_type", "Mutation type", "object", definition="GLA mutation class."),
     ],
     outcome=OutcomeSpec(
@@ -431,9 +482,26 @@ SMA_PROFILE = ModuleProfile(
     name="sma",
     entity_id="patient_id",
     cohorts=[
-        CohortSpec("sma_type", "SMA type", "object", definition="SMA clinical type (I–IV); primary severity axis."),
-        CohortSpec("smn2_copies", "SMN2 copies", "int", splits=[2, 3], definition="SMN2 copy number (genetic severity modifier)."),
-        CohortSpec("age_at_diagnosis_months", "Age at dx (mo)", "int", splits=[6, 18], definition="Age at diagnosis in months."),
+        CohortSpec(
+            "sma_type",
+            "SMA type",
+            "object",
+            definition="SMA clinical type (I–IV); primary severity axis.",
+        ),
+        CohortSpec(
+            "smn2_copies",
+            "SMN2 copies",
+            "int",
+            splits=[2, 3],
+            definition="SMN2 copy number (genetic severity modifier).",
+        ),
+        CohortSpec(
+            "age_at_diagnosis_months",
+            "Age at dx (mo)",
+            "int",
+            splits=[6, 18],
+            definition="Age at diagnosis in months.",
+        ),
     ],
     outcome=OutcomeSpec(
         source="needs_ventilation",
@@ -473,10 +541,14 @@ DIABETES_PROFILE = ModuleProfile(
     name="diabetes",
     entity_id="patient_id",
     cohorts=[
-        CohortSpec("current_age", "Age", "int", splits=[40, 65], definition="Current patient age in years."),
+        CohortSpec(
+            "current_age", "Age", "int", splits=[40, 65], definition="Current patient age in years."
+        ),
         CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
         CohortSpec("race", "Race", "object", definition="Race / ethnicity category."),
-        CohortSpec("diabetes_type", "Diabetes type", "object", definition="Type 1 vs type 2 diabetes."),
+        CohortSpec(
+            "diabetes_type", "Diabetes type", "object", definition="Type 1 vs type 2 diabetes."
+        ),
     ],
     outcome=OutcomeSpec(
         source="nephropathy_any",
@@ -501,7 +573,13 @@ _SEPSIS_SCORE = ScoreModel(
         ("ckd", lambda r: 0.4 * _b(r.get("ckd_flag"))),
         ("hypertension", lambda r: 0.2 * _b(r.get("hypertension_flag"))),
     ],
-    feature_columns=["lactate_initial", "creatinine_initial", "age", "ckd_flag", "hypertension_flag"],
+    feature_columns=[
+        "lactate_initial",
+        "creatinine_initial",
+        "age",
+        "ckd_flag",
+        "hypertension_flag",
+    ],
 )
 
 SEPSIS_PROFILE = ModuleProfile(
@@ -511,7 +589,12 @@ SEPSIS_PROFILE = ModuleProfile(
         CohortSpec("age", "Age", "int", splits=[50, 70], definition="Patient age in years."),
         CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
         CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
-        CohortSpec("suspected_infection_source", "Infection source", "object", definition="Suspected source of infection."),
+        CohortSpec(
+            "suspected_infection_source",
+            "Infection source",
+            "object",
+            definition="Suspected source of infection.",
+        ),
     ],
     outcome=OutcomeSpec(
         source="delayed_hypotension_flag",
@@ -531,12 +614,21 @@ _STROKE_SCORE = ScoreModel(
     intercept=-0.5,
     terms=[
         ("nihss_score", lambda r: 0.03 * (_num(r.get("nihss_score"), 8) - 8)),
-        ("onset_to_door(delay lowers tPA)", lambda r: -0.006 * (_num(r.get("onset_to_door_minutes"), 120) - 120)),
+        (
+            "onset_to_door(delay lowers tPA)",
+            lambda r: -0.006 * (_num(r.get("onset_to_door_minutes"), 120) - 120),
+        ),
         ("age", lambda r: -0.005 * (_num(r.get("age"), 65) - 65)),
         ("atrial_fibrillation", lambda r: 0.2 * _b(r.get("atrial_fibrillation"))),
         ("prior_stroke", lambda r: -0.2 * _b(r.get("prior_stroke"))),
     ],
-    feature_columns=["nihss_score", "onset_to_door_minutes", "age", "atrial_fibrillation", "prior_stroke"],
+    feature_columns=[
+        "nihss_score",
+        "onset_to_door_minutes",
+        "age",
+        "atrial_fibrillation",
+        "prior_stroke",
+    ],
 )
 
 STROKE_PROFILE = ModuleProfile(
@@ -546,8 +638,15 @@ STROKE_PROFILE = ModuleProfile(
         CohortSpec("age", "Age", "int", splits=[55, 75], definition="Patient age in years."),
         CohortSpec("sex", "Sex", "object", definition="Recorded sex."),
         CohortSpec("ethnicity", "Race", "object", definition="Race / ethnicity category."),
-        CohortSpec("stroke_type", "Stroke type", "object", definition="Ischemic / hemorrhagic / TIA."),
-        CohortSpec("rural_presentation", "Rural presentation", "object", definition="Presented at a rural site (sparse-population axis)."),
+        CohortSpec(
+            "stroke_type", "Stroke type", "object", definition="Ischemic / hemorrhagic / TIA."
+        ),
+        CohortSpec(
+            "rural_presentation",
+            "Rural presentation",
+            "object",
+            definition="Presented at a rural site (sparse-population axis).",
+        ),
     ],
     outcome=OutcomeSpec(
         source="tpa_administered",
@@ -639,7 +738,9 @@ def load_canonical(patients_json: Optional[str | Path], results_csv: Optional[st
     pd = _require_pandas()
 
     if not patients_json and not results_csv:
-        raise SchemaMismatchError("Provide at least one of patients.json or results.csv; both were empty.")
+        raise SchemaMismatchError(
+            "Provide at least one of patients.json or results.csv; both were empty."
+        )
 
     json_df = None
     module_name = None
@@ -662,7 +763,9 @@ def load_canonical(patients_json: Optional[str | Path], results_csv: Optional[st
         elif isinstance(raw, list):
             records = raw
         else:
-            raise SchemaMismatchError(f"patients.json must be a list or an object with 'patients' ({p}).")
+            raise SchemaMismatchError(
+                f"patients.json must be a list or an object with 'patients' ({p})."
+            )
         if not records:
             raise SchemaMismatchError(f"patients.json contains zero patients ({p}).")
         json_df = pd.DataFrame(records)
@@ -707,8 +810,10 @@ def load_canonical(patients_json: Optional[str | Path], results_csv: Optional[st
                 how="left",
                 suffixes=("", "_json"),
             )
-            df = merged.drop(columns=[col for col in merged.columns if col.endswith("_json") or col == "key_0"],
-                             errors="ignore")
+            df = merged.drop(
+                columns=[col for col in merged.columns if col.endswith("_json") or col == "key_0"],
+                errors="ignore",
+            )
     else:
         df = json_df if json_df is not None else csv_df
 
@@ -858,7 +963,9 @@ def build_events(df, profile: ModuleProfile):
 # --------------------------------------------------------------------------- #
 # Censor audit — mirrors seismometer.seismogram.Seismogram.create_cohorts
 # --------------------------------------------------------------------------- #
-def censor_audit(predictions, profile: ModuleProfile, censor_min_count: int) -> tuple[list[SubgroupAudit], list[str]]:
+def censor_audit(
+    predictions, profile: ModuleProfile, censor_min_count: int
+) -> tuple[list[SubgroupAudit], list[str]]:
     """Reproduce Seismometer's cohort-visibility gate.
 
     Seismometer keeps a subgroup only when ``value_counts() > censor_min_count``
@@ -873,7 +980,9 @@ def censor_audit(predictions, profile: ModuleProfile, censor_min_count: int) -> 
         if c.splits:
             edges = [-math.inf, *c.splits, math.inf]
             labels = _numeric_labels(c.splits)
-            binned = pd.cut(pd.to_numeric(predictions[c.source]), bins=edges, labels=labels, right=False)
+            binned = pd.cut(
+                pd.to_numeric(predictions[c.source]), bins=edges, labels=labels, right=False
+            )
             counts = binned.value_counts()
         else:
             counts = predictions[c.source].value_counts()
@@ -905,9 +1014,11 @@ def _yaml_dump(obj: Any) -> str:
     return yaml.safe_dump(obj, sort_keys=False, default_flow_style=False, allow_unicode=True)
 
 
-def write_package(df, profile: ModuleProfile, out_dir: str | Path, censor_min_count: int = 10) -> AdapterResult:
+def write_package(
+    df, profile: ModuleProfile, out_dir: str | Path, censor_min_count: int = 10
+) -> AdapterResult:
     """Write every Seismometer artifact into ``out_dir`` and return the result."""
-    pd = _require_pandas()
+    _pd = _require_pandas()
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -922,11 +1033,17 @@ def write_package(df, profile: ModuleProfile, out_dir: str | Path, censor_min_co
         predictions.to_parquet(pred_path, index=False)
         events.to_parquet(ev_path, index=False)
     except Exception as exc:  # pyarrow missing or dtype problem — surface clearly
-        raise SchemaMismatchError(f"Failed to write parquet ({exc}). Ensure pyarrow is installed.") from exc
+        raise SchemaMismatchError(
+            f"Failed to write parquet ({exc}). Ensure pyarrow is installed."
+        ) from exc
 
     # dictionary.yml — one file, both prediction + event dictionaries.
     pred_items = [
-        {"name": profile.entity_id, "dtype": "object", "definition": "Synthetic patient entity id (join key)."},
+        {
+            "name": profile.entity_id,
+            "dtype": "object",
+            "definition": "Synthetic patient entity id (join key).",
+        },
         {"name": profile.score_col, "definition": profile.score_definition},
     ]
     for c in profile.cohorts:
@@ -1088,12 +1205,12 @@ def run(
 # to ASCII and encode-with-replace as a safety net so print_report can never die
 # with UnicodeEncodeError on a bare `python seismometer_adapter.py` run.
 _ASCII_TRANSLIT = {
-    "→": "->",   # →
-    "≥": ">=",   # ≥
-    "≤": "<=",   # ≤
-    "—": "-",    # — em dash
-    "–": "-",    # – en dash
-    "’": "'",    # ’ curly apostrophe
+    "→": "->",  # →
+    "≥": ">=",  # ≥
+    "≤": "<=",  # ≤
+    "—": "-",  # — em dash
+    "–": "-",  # – en dash
+    "’": "'",  # ’ curly apostrophe
     "‘": "'",
     "“": '"',
     "”": '"',
@@ -1146,13 +1263,19 @@ def print_report(result: AdapterResult, stream=sys.stdout) -> None:
     censored = result.censored_subgroups
     p("")
     if not censored and not result.dropped_cohorts:
-        p(f"  RESULT: ALL {len(result.audit)} subgroups survive censor_min_count="
-          f"{result.censor_min_count}. Cohort renders fully; no larger N required.")
+        p(
+            f"  RESULT: ALL {len(result.audit)} subgroups survive censor_min_count="
+            f"{result.censor_min_count}. Cohort renders fully; no larger N required."
+        )
     else:
-        p(f"  RESULT: {len(censored)} subgroup(s) censored, "
-          f"{len(result.dropped_cohorts)} cohort attribute(s) dropped entirely.")
+        p(
+            f"  RESULT: {len(censored)} subgroup(s) censored, "
+            f"{len(result.dropped_cohorts)} cohort attribute(s) dropped entirely."
+        )
         for a in censored:
-            p(f"    - {a.cohort}='{a.subgroup}' has n={a.count} (needs > {result.censor_min_count}).")
+            p(
+                f"    - {a.cohort}='{a.subgroup}' has n={a.count} (needs > {result.censor_min_count})."
+            )
         p("  -> Increase generated N for these cohorts to clear the fairness audit.")
     p("=" * 72)
     p("")
@@ -1166,15 +1289,28 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     ap.add_argument("--patients", help="Path to canonical patients.json")
     ap.add_argument("--results", help="Path to canonical results.csv")
-    ap.add_argument("--out", required=True, help="Output directory for the Seismometer config package")
-    ap.add_argument("--module", help="Module/profile name (e.g. oud). Inferred from data when omitted.")
-    ap.add_argument("--outcome-field", help="Override the canonical column used as the binary outcome.")
-    ap.add_argument("--censor-min-count", type=int, default=10, help="Seismometer censor_min_count (default 10).")
+    ap.add_argument(
+        "--out", required=True, help="Output directory for the Seismometer config package"
+    )
+    ap.add_argument(
+        "--module", help="Module/profile name (e.g. oud). Inferred from data when omitted."
+    )
+    ap.add_argument(
+        "--outcome-field", help="Override the canonical column used as the binary outcome."
+    )
+    ap.add_argument(
+        "--censor-min-count",
+        type=int,
+        default=10,
+        help="Seismometer censor_min_count (default 10).",
+    )
     args = ap.parse_args(argv)
 
     if args.censor_min_count < 10:
         # Seismometer's own model pins this to >= 10; mirror that constraint loudly.
-        print("ERROR: --censor-min-count must be >= 10 (Seismometer enforces this).", file=sys.stderr)
+        print(
+            "ERROR: --censor-min-count must be >= 10 (Seismometer enforces this).", file=sys.stderr
+        )
         return 2
 
     try:

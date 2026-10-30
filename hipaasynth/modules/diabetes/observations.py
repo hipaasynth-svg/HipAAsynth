@@ -100,11 +100,11 @@ def build_dka_observations(
     Deterministic: all randomness comes from the passed-in anchor-rooted rng.
     """
     names = {c.name for c in conditions}
-    age = demographics.age
+    _age = demographics.age
     required = getattr(cfg, "required_condition", None)
 
-    has_context = (required in DKA_REQUIRED_KEYS) or ("dka" in names) or (
-        "diabetic_ketoacidosis" in names
+    has_context = (
+        (required in DKA_REQUIRED_KEYS) or ("dka" in names) or ("diabetic_ketoacidosis" in names)
     )
 
     # Rural / access dimension — mirrors the stroke hook so downstream
@@ -115,7 +115,7 @@ def build_dka_observations(
     if rural is None:
         rural = rng.random() < 0.17
 
-    diabetes = ("type2_diabetes" in names) or ("type1_diabetes" in names)
+    _diabetes = ("type2_diabetes" in names) or ("type1_diabetes" in names)
     ckd = "chronic_kidney_disease" in names
 
     if not has_context:

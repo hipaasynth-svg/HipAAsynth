@@ -39,18 +39,29 @@ import json
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from hipaasynth.modules.copd.copd_generator import generate_copd_cohort, save_cohort as save_copd
-from hipaasynth.modules.chf.chf_generator   import generate_chf_cohort,  save_cohort as save_chf
-from hipaasynth.modules.oud.oud_generator   import generate_oud_cohort,   save_cohort as save_oud
-from hipaasynth.modules.calibration_validator import run_all
-from hipaasynth.modules.calibration_validator_ext import run_extended
+from hipaasynth.modules.copd.copd_generator import (  # noqa: E402
+    generate_copd_cohort,
+    save_cohort as save_copd,
+)
+from hipaasynth.modules.chf.chf_generator import (  # noqa: E402
+    generate_chf_cohort,
+    save_cohort as save_chf,
+)
+from hipaasynth.modules.oud.oud_generator import (  # noqa: E402
+    generate_oud_cohort,
+    save_cohort as save_oud,
+)
+from hipaasynth.modules.calibration_validator import run_all  # noqa: E402
+from hipaasynth.modules.calibration_validator_ext import run_extended  # noqa: E402
 
 BASE = os.path.join(os.path.dirname(__file__), "output")
+
 
 def banner(text):
     print(f"\n{'='*60}")
     print(f"  {text}")
     print(f"{'='*60}")
+
 
 def run():
     banner("COPD MODULE — HuggingFace cohort (n=50)")
@@ -106,12 +117,15 @@ def run():
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
     print(f"\n  Unified calibration report: {report_path}")
-    print(f"  SUITE TOTAL: {total_pass} PASS / {total_fail} FAIL across {len(report['modules'])} modules")
+    print(
+        f"  SUITE TOTAL: {total_pass} PASS / {total_fail} FAIL across {len(report['modules'])} modules"
+    )
 
     banner("COMPLETE")
     print("  All cohorts generated and calibrated.")
     print(f"  Output directory: {BASE}")
     print()
+
 
 if __name__ == "__main__":
     run()

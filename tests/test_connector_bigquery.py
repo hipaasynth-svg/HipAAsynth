@@ -85,20 +85,19 @@ def test_load_data_sql_append_and_overwrite():
     assert "uris = ['gs://bkt/person.csv']" in into
     assert "skip_leading_rows = 1" in into
 
-    over = bq.load_data_sql("person", "gs://bkt/person.csv", dataset="omop",
-                            overwrite=True)
+    over = bq.load_data_sql("person", "gs://bkt/person.csv", dataset="omop", overwrite=True)
     assert over.startswith("LOAD DATA OVERWRITE `omop.person`")
 
 
 def test_load_data_sql_multiple_uris():
-    sql = bq.load_data_sql("measurement", ["gs://b/m1.csv", "gs://b/m2.csv"],
-                           dataset="omop")
+    sql = bq.load_data_sql("measurement", ["gs://b/m1.csv", "gs://b/m2.csv"], dataset="omop")
     assert "uris = ['gs://b/m1.csv', 'gs://b/m2.csv']" in sql
 
 
 def test_bq_load_command():
-    cmd = bq.bq_load_command("person", "gs://bkt/person.csv", dataset="omop",
-                             project="my-proj", replace=True)
+    cmd = bq.bq_load_command(
+        "person", "gs://bkt/person.csv", dataset="omop", project="my-proj", replace=True
+    )
     assert cmd == (
         "bq load --source_format=CSV --skip_leading_rows=1 --replace "
         "my-proj:omop.person gs://bkt/person.csv"

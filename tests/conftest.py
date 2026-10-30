@@ -25,7 +25,9 @@ from hipaasynth.dif.model_interface import MockBiasedModel, MockFairModel
 from hipaasynth.pipelines.population_pipeline import generate_patients
 
 
-def _make_config(patient_count: int, required_condition: str | None, seed: int = 42) -> GenerationConfig:
+def _make_config(
+    patient_count: int, required_condition: str | None, seed: int = 42
+) -> GenerationConfig:
     return GenerationConfig(
         patient_count=patient_count,
         seed=seed,

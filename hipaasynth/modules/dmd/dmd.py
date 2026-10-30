@@ -24,7 +24,6 @@ Reproducible, seed-driven cohort generation
 """
 
 import random
-import math
 import hashlib
 from dataclasses import dataclass
 from typing import List, Dict, Optional
@@ -35,6 +34,7 @@ from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
 # =============================
 # PARAMETERS
 # =============================
+
 
 @dataclass
 class DMDParameters:
@@ -65,6 +65,7 @@ class DMDParameters:
 # =============================
 # DETERMINISTIC RNG
 # =============================
+
 
 class DeterministicRNG:
     def __init__(self, seed: int):
@@ -107,6 +108,7 @@ class DeterministicRNG:
 # MAIN GENERATOR
 # =============================
 
+
 class DMDCohortGenerator:
 
     def __init__(self, seed: int = 42, params: Optional[DMDParameters] = None):
@@ -122,11 +124,11 @@ class DMDCohortGenerator:
         cohort = []
 
         for i in range(n):
-            p = {}
+            p: dict = {}
 
-            p['patient_id'] = f"DMD-{i+1}"
-            p['synthetic'] = True
-            p['disclaimer'] = DEFAULT_SYNTHETIC_DISCLAIMER
+            p["patient_id"] = f"DMD-{i+1}"
+            p["synthetic"] = True
+            p["disclaimer"] = DEFAULT_SYNTHETIC_DISCLAIMER
 
             self._demographics(p)
             self._genetics(p)
@@ -143,17 +145,15 @@ class DMDCohortGenerator:
 
     def _demographics(self, p):
 
-        p['sex'] = 'male'  # DMD is X-linked
-        p['current_age'] = self._clip(self.rng.normal(12, 6), 2, 40)
+        p["sex"] = "male"  # DMD is X-linked
+        p["current_age"] = self._clip(self.rng.normal(12, 6), 2, 40)
 
         diagnosis = self._clip(
-            self.rng.normal(self.params.median_diagnosis_age, self.params.diagnosis_age_std),
-            1,
-            10
+            self.rng.normal(self.params.median_diagnosis_age, self.params.diagnosis_age_std), 1, 10
         )
 
-        p['diagnosis_age'] = diagnosis
-        p['disease_duration'] = max(0, p['current_age'] - diagnosis)
+        p["diagnosis_age"] = diagnosis
+        p["disease_duration"] = max(0, p["current_age"] - diagnosis)
 
     # =============================
     # GENETICS
@@ -161,13 +161,13 @@ class DMDCohortGenerator:
 
     def _genetics(self, p):
 
-        p['mutation_type'] = self.rng.choice(
-            ['deletion', 'duplication', 'point_mutation'],
+        p["mutation_type"] = self.rng.choice(
+            ["deletion", "duplication", "point_mutation"],
             [
                 self.params.deletion_rate,
                 self.params.duplication_rate,
-                self.params.point_mutation_rate
-            ]
+                self.params.point_mutation_rate,
+            ],
         )
 
     # =============================
@@ -177,30 +177,26 @@ class DMDCohortGenerator:
     def _disease_timeline(self, p):
 
         steroid = self.rng.random() < 0.7
-        p['on_steroids'] = steroid
+        p["on_steroids"] = steroid
 
         ambulation_loss = self.rng.normal(
-            self.params.median_ambulation_loss_age,
-            self.params.ambulation_loss_std
+            self.params.median_ambulation_loss_age, self.params.ambulation_loss_std
         )
 
         if steroid:
             ambulation_loss += self.params.steroid_ambulation_gain
 
-        p['ambulation_loss_age'] = self._clip(ambulation_loss, 6, 20)
+        p["ambulation_loss_age"] = self._clip(ambulation_loss, 6, 20)
 
-        p['non_ambulatory'] = p['current_age'] >= p['ambulation_loss_age']
+        p["non_ambulatory"] = p["current_age"] >= p["ambulation_loss_age"]
 
         # Cardiac
-        cardiac_age = self.rng.normal(
-            self.params.cardiac_onset_mean,
-            self.params.cardiac_onset_std
-        )
+        cardiac_age = self.rng.normal(self.params.cardiac_onset_mean, self.params.cardiac_onset_std)
 
-        p['cardiomyopathy'] = p['current_age'] >= cardiac_age
+        p["cardiomyopathy"] = p["current_age"] >= cardiac_age
 
         # Respiratory
-        p['requires_ventilation'] = p['current_age'] >= self.params.ventilation_threshold
+        p["requires_ventilation"] = p["current_age"] >= self.params.ventilation_threshold
 
         # Survival
         base_survival = 28
@@ -208,7 +204,7 @@ class DMDCohortGenerator:
         if steroid:
             base_survival += self.params.steroid_survival_gain
 
-        p['predicted_survival_age'] = self._clip(base_survival + self.rng.normal(0, 3), 18, 50)
+        p["predicted_survival_age"] = self._clip(base_survival + self.rng.normal(0, 3), 18, 50)
 
     # =============================
     # BIOMARKERS
@@ -216,16 +212,13 @@ class DMDCohortGenerator:
 
     def _biomarkers(self, p):
 
-        ck = self.rng.normal(
-            self.params.ck_diagnostic_mean,
-            self.params.ck_diagnostic_std
-        )
+        ck = self.rng.normal(self.params.ck_diagnostic_mean, self.params.ck_diagnostic_std)
 
-        years = p['disease_duration']
+        years = p["disease_duration"]
 
         decline = (1 - self.params.ck_decline_rate) ** years
 
-        p['ck_level'] = int(self._clip(ck * decline, 200, 50000))
+        p["ck_level"] = int(self._clip(ck * decline, 200, 50000))
 
     # =============================
     # UTILS

@@ -45,6 +45,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
+
 def sha256_file(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -164,7 +165,9 @@ def write_statement(stamp_dir, report, cohort_hashes, report_hash, chain_hash):
         "HIPAASYNTH — Minot, North Dakota",
         "=" * 56,
     ]
-    with open(os.path.join(stamp_dir, "calibration_cap_statement.txt"), "w", encoding="utf-8") as fh:
+    with open(
+        os.path.join(stamp_dir, "calibration_cap_statement.txt"), "w", encoding="utf-8"
+    ) as fh:
         fh.write("\n".join(lines) + "\n")
 
     stamp = {
@@ -190,10 +193,16 @@ def write_statement(stamp_dir, report, cohort_hashes, report_hash, chain_hash):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="HipAAsynth Calibration CAP Stamp v1.0")
-    parser.add_argument("--output_dir", default="hipaasynth/modules/output",
-                        help="Directory containing calibration_report.json and cohort CSVs.")
-    parser.add_argument("--stamp_dir", default="docs/calibration",
-                        help="Directory where CAP stamp artifacts are written.")
+    parser.add_argument(
+        "--output_dir",
+        default="hipaasynth/modules/output",
+        help="Directory containing calibration_report.json and cohort CSVs.",
+    )
+    parser.add_argument(
+        "--stamp_dir",
+        default="docs/calibration",
+        help="Directory where CAP stamp artifacts are written.",
+    )
     return parser.parse_args(argv)
 
 

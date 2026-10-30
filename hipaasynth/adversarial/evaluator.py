@@ -55,6 +55,7 @@ from hipaasynth.polymorphic.blinding import visible_observations
 
 # ── Ground truth extractors ──────────────────────────────────────────
 
+
 def _ground_truth_sepsis(patient_dict: dict) -> bool:
     """Engine's Sepsis-3 ground truth."""
     return bool(patient_dict.get("observations", {}).get("sepsis_flag", False))
@@ -77,54 +78,61 @@ def _detect_condition(patient_dict: dict) -> str:
 
 # ── Prompt builders ──────────────────────────────────────────────────
 
+
 def _build_sepsis_prompt(patient_dict: dict, decision_time: bool = False) -> str:
     """Sepsis prompt. ``decision_time=True`` drops facts a clinician cannot have
     at triage (later hypotension, deterioration pattern, 6-hour fluids, the
     ventilation decision) and the generator's "contradictory signals" hints,
     which name the very trap the case was built to test."""
-    demo   = patient_dict.get("demographics", {})
+    demo = patient_dict.get("demographics", {})
     anthro = patient_dict.get("anthropometrics", {})
-    obs    = patient_dict.get("observations", {})
-    conds  = [c["name"] for c in patient_dict.get("conditions", [])
-              if c.get("active", True) and c["name"] != "sepsis"]
+    obs = patient_dict.get("observations", {})
+    conds = [
+        c["name"]
+        for c in patient_dict.get("conditions", [])
+        if c.get("active", True) and c["name"] != "sepsis"
+    ]
 
-    age       = demo.get("age", "?")
-    sex       = demo.get("sex", "?")
+    age = demo.get("age", "?")
+    sex = demo.get("sex", "?")
     ethnicity = demo.get("ethnicity", "?")
-    bmi       = anthro.get("bmi", "?")
+    bmi = anthro.get("bmi", "?")
 
-    temp  = obs.get("temperature_c_initial", "?")
-    hr    = obs.get("heart_rate_initial", "?")
-    rr    = obs.get("resp_rate_initial", "?")
-    sbp   = obs.get("sbp_initial", "?")
-    spo2  = obs.get("spo2_initial", "?")
-    lac   = obs.get("lactate_initial", "?")
+    temp = obs.get("temperature_c_initial", "?")
+    hr = obs.get("heart_rate_initial", "?")
+    rr = obs.get("resp_rate_initial", "?")
+    sbp = obs.get("sbp_initial", "?")
+    spo2 = obs.get("spo2_initial", "?")
+    lac = obs.get("lactate_initial", "?")
     creat = obs.get("creatinine_initial", "?")
-    wbc   = obs.get("wbc_initial", "?")
-    gluc  = obs.get("glucose_initial", "?")
-    src   = obs.get("suspected_infection_source", "unknown")
-    ams   = obs.get("altered_mental_status_only_flag", False)
+    wbc = obs.get("wbc_initial", "?")
+    gluc = obs.get("glucose_initial", "?")
+    src = obs.get("suspected_infection_source", "unknown")
+    ams = obs.get("altered_mental_status_only_flag", False)
     h_htn = obs.get("hours_to_hypotension", None)
     region = obs.get("region_profile", "unspecified")
 
-    o2_device   = obs.get("oxygen_device", None)
-    fio2        = obs.get("fio2_percent", None)
-    vent_mode   = obs.get("ventilation_mode", None)
-    uo          = obs.get("urine_output_ml_hr", None)
-    fluid_in    = obs.get("fluid_input_6h_ml", None)
+    o2_device = obs.get("oxygen_device", None)
+    fio2 = obs.get("fio2_percent", None)
+    vent_mode = obs.get("ventilation_mode", None)
+    uo = obs.get("urine_output_ml_hr", None)
+    fluid_in = obs.get("fluid_input_6h_ml", None)
     det_pattern = obs.get("deterioration_pattern", None)
-    cryptic     = obs.get("cryptic_shock_flag", False)
-    nl_wbc_lac  = obs.get("normal_wbc_elevated_lactate_flag", False)
-    afeb_tach   = obs.get("afebrile_tachycardic_flag", False)
+    cryptic = obs.get("cryptic_shock_flag", False)
+    nl_wbc_lac = obs.get("normal_wbc_elevated_lactate_flag", False)
+    afeb_tach = obs.get("afebrile_tachycardic_flag", False)
 
     cond_str = ", ".join(conds) if conds else "none"
-    ams_str  = " Patient presents with altered mental status only." if ams else ""
-    htn_str  = (f" Hypotension onset at {h_htn}h after presentation."
-                if h_htn is not None and not decision_time else "")
+    ams_str = " Patient presents with altered mental status only." if ams else ""
+    htn_str = (
+        f" Hypotension onset at {h_htn}h after presentation."
+        if h_htn is not None and not decision_time
+        else ""
+    )
 
     if o2_device:
-        fio2_str  = f" (FiO2 {int(fio2)}%)" if fio2 is not None else ""
-        vent_str  = f", mode: {vent_mode}" if vent_mode and not decision_time else ""
+        fio2_str = f" (FiO2 {int(fio2)}%)" if fio2 is not None else ""
+        vent_str = f", mode: {vent_mode}" if vent_mode and not decision_time else ""
         resp_line = f"\n  Respiratory support: {o2_device}{fio2_str}{vent_str}"
     else:
         resp_line = ""
@@ -139,15 +147,20 @@ def _build_sepsis_prompt(patient_dict: dict, decision_time: bool = False) -> str
     else:
         fluid_line = ""
 
-    det_line = (f"\n  Deterioration pattern: {det_pattern}"
-                if det_pattern and not decision_time else "")
+    det_line = (
+        f"\n  Deterioration pattern: {det_pattern}" if det_pattern and not decision_time else ""
+    )
 
     flags = []
-    if cryptic:    flags.append("cryptic shock (SBP appears compensated but lactate elevated)")
-    if nl_wbc_lac: flags.append("normal WBC with elevated lactate")
-    if afeb_tach:  flags.append("afebrile but tachycardic")
-    flag_line = (("\n  Contradictory signals: " + "; ".join(flags))
-                 if flags and not decision_time else "")
+    if cryptic:
+        flags.append("cryptic shock (SBP appears compensated but lactate elevated)")
+    if nl_wbc_lac:
+        flags.append("normal WBC with elevated lactate")
+    if afeb_tach:
+        flags.append("afebrile but tachycardic")
+    flag_line = (
+        ("\n  Contradictory signals: " + "; ".join(flags)) if flags and not decision_time else ""
+    )
 
     return f"""PATIENT PRESENTATION:
   Age: {age} | Sex: {sex} | Ethnicity: {ethnicity} | BMI: {bmi}
@@ -185,39 +198,42 @@ Please include one of the above lines at the end of your response."""
 def _build_stroke_prompt(patient_dict: dict, decision_time: bool = False) -> str:
     """Stroke prompt. ``decision_time=True`` drops the CT-derived stroke type and
     the door-to-needle time (a treatment already given)."""
-    demo   = patient_dict.get("demographics", {})
-    obs    = patient_dict.get("observations", {})
-    conds  = [c["name"] for c in patient_dict.get("conditions", [])
-              if c.get("active", True) and c["name"] != "stroke"]
+    demo = patient_dict.get("demographics", {})
+    obs = patient_dict.get("observations", {})
+    conds = [
+        c["name"]
+        for c in patient_dict.get("conditions", [])
+        if c.get("active", True) and c["name"] != "stroke"
+    ]
 
-    age       = demo.get("age", "?")
-    sex       = demo.get("sex", "?")
+    age = demo.get("age", "?")
+    sex = demo.get("sex", "?")
     ethnicity = demo.get("ethnicity", "?")
 
-    nihss    = obs.get("nihss_score", "?")
-    nihss_c  = obs.get("nihss_category", "?")
-    stype    = obs.get("stroke_type", "?")
-    sbp      = obs.get("sbp_admission", "?")
-    gluc     = obs.get("glucose_admission", "?")
-    afib     = obs.get("atrial_fibrillation", False)
-    prior    = obs.get("prior_stroke", False)
-    o2d      = obs.get("onset_to_door_minutes", "?")
-    d2n      = obs.get("door_to_needle_minutes", "?")
+    nihss = obs.get("nihss_score", "?")
+    nihss_c = obs.get("nihss_category", "?")
+    stype = obs.get("stroke_type", "?")
+    sbp = obs.get("sbp_admission", "?")
+    gluc = obs.get("glucose_admission", "?")
+    afib = obs.get("atrial_fibrillation", False)
+    prior = obs.get("prior_stroke", False)
+    o2d = obs.get("onset_to_door_minutes", "?")
+    d2n = obs.get("door_to_needle_minutes", "?")
     anticoag = obs.get("anticoagulant_use", False)
 
-    prior_ich       = obs.get("prior_ich", False)
-    recent_surgery  = obs.get("recent_surgery", False)
-    rural           = obs.get("rural_presentation", False)
+    prior_ich = obs.get("prior_ich", False)
+    recent_surgery = obs.get("recent_surgery", False)
+    rural = obs.get("rural_presentation", False)
 
-    cond_str        = ", ".join(conds) if conds else "none"
-    afib_str        = "Yes" if afib else "No"
-    prior_str       = "Yes" if prior else "No"
-    anticoag_str    = "Yes" if anticoag else "No"
-    prior_ich_str   = "Yes" if prior_ich else "No"
-    surgery_str     = "Yes" if recent_surgery else "No"
-    rural_str       = "Yes" if rural else "No"
-    type_line       = "" if decision_time else f"  Suspected type:      {stype}\n"
-    d2n_line        = "" if decision_time else f"  Door to needle:   {d2n} minutes\n"
+    cond_str = ", ".join(conds) if conds else "none"
+    afib_str = "Yes" if afib else "No"
+    prior_str = "Yes" if prior else "No"
+    anticoag_str = "Yes" if anticoag else "No"
+    prior_ich_str = "Yes" if prior_ich else "No"
+    surgery_str = "Yes" if recent_surgery else "No"
+    rural_str = "Yes" if rural else "No"
+    type_line = "" if decision_time else f"  Suspected type:      {stype}\n"
+    d2n_line = "" if decision_time else f"  Door to needle:   {d2n} minutes\n"
 
     return f"""PATIENT PRESENTATION:
   Age: {age} | Sex: {sex} | Ethnicity: {ethnicity}
@@ -262,9 +278,11 @@ def _build_prompt(patient_dict: dict, condition: str, decision_time: bool = Fals
     obs = patient_dict.get("observations", {})
     if decision_time:
         obs = visible_observations(obs)
-    return (f"Patient age {patient_dict.get('demographics',{}).get('age','?')}. "
-            f"Clinical data: {obs}. Does this patient require urgent intervention? "
-            f"Respond Yes or No.")
+    return (
+        f"Patient age {patient_dict.get('demographics',{}).get('age','?')}. "
+        f"Clinical data: {obs}. Does this patient require urgent intervention? "
+        f"Respond Yes or No."
+    )
 
 
 # ── System prompt ─────────────────────────────────────────────────────
@@ -280,9 +298,7 @@ Rules:
 """
 
 
-def _build_messages(
-    patient_dict: dict, condition: str, decision_time: bool = False
-) -> list[dict]:
+def _build_messages(patient_dict: dict, condition: str, decision_time: bool = False) -> list[dict]:
     """
     Build a [system, user] messages payload for any OpenAI-compatible API.
 
@@ -292,11 +308,12 @@ def _build_messages(
     """
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user",   "content": _build_prompt(patient_dict, condition, decision_time)},
+        {"role": "user", "content": _build_prompt(patient_dict, condition, decision_time)},
     ]
 
 
 # ── Response parser ──────────────────────────────────────────────────
+
 
 def _parse_yes_no(raw: str) -> bool | None:
     """
@@ -309,13 +326,14 @@ def _parse_yes_no(raw: str) -> bool | None:
     """
     if not isinstance(raw, str):
         return None
-    m = re.search(r'FINAL_ANSWER\s*:\s*(Yes|No)\b', raw, re.IGNORECASE)
+    m = re.search(r"FINAL_ANSWER\s*:\s*(Yes|No)\b", raw, re.IGNORECASE)
     if not m:
         return None
     return m.group(1).lower() == "yes"
 
 
 # ── Injectable Evaluator ─────────────────────────────────────────────
+
 
 class Evaluator:
     """
@@ -349,10 +367,10 @@ class Evaluator:
         # (see _build_sepsis_prompt / _build_stroke_prompt). 7AAST uses True.
         self.decision_time = decision_time
         self.cache: dict[str, str] = {}
-        self.total       = 0   # slices evaluated (ground truth defined)
-        self.correct     = 0
+        self.total = 0  # slices evaluated (ground truth defined)
+        self.correct = 0
         self.unparseable = 0
-        self.skipped     = 0   # slices with no patient dict or no supported condition
+        self.skipped = 0  # slices with no patient dict or no supported condition
 
     def evaluate(self, timelines: list, model_fn, debug: bool = False) -> list[dict]:
         """
@@ -383,11 +401,11 @@ class Evaluator:
                     self.skipped += 1
                     continue
 
-                condition    = _detect_condition(patient_dict)
+                condition = _detect_condition(patient_dict)
                 ground_truth = (
-                    _ground_truth_sepsis(patient_dict) if condition == "sepsis"
-                    else _ground_truth_stroke(patient_dict) if condition == "stroke"
-                    else None
+                    _ground_truth_sepsis(patient_dict)
+                    if condition == "sepsis"
+                    else _ground_truth_stroke(patient_dict) if condition == "stroke" else None
                 )
 
                 if ground_truth is None:
@@ -399,38 +417,43 @@ class Evaluator:
                 self.total += 1
 
                 prompt = _build_prompt(patient_dict, condition, self.decision_time)
-                raw    = self._predict(prompt, model_fn, debug)
-                pred   = _parse_yes_no(raw)
+                raw = self._predict(prompt, model_fn, debug)
+                pred = _parse_yes_no(raw)
 
                 if debug:
-                    print(f"  [{p['patient_id']}] gt={ground_truth} "
-                          f"pred={pred} raw={raw[:60]!r}")
+                    print(
+                        f"  [{p['patient_id']}] gt={ground_truth} " f"pred={pred} raw={raw[:60]!r}"
+                    )
 
                 if pred is None:
                     self.unparseable += 1
-                    failures.append({
-                        "patient_id":   p["patient_id"],
-                        "year":         t["_meta"]["year"],
-                        "condition":    condition,
-                        "ground_truth": ground_truth,
-                        "predicted":    None,
-                        "agreement":    False,
-                        "error":        -1,
-                        "raw_response": raw[:200],
-                        "state":        t,
-                    })
+                    failures.append(
+                        {
+                            "patient_id": p["patient_id"],
+                            "year": t["_meta"]["year"],
+                            "condition": condition,
+                            "ground_truth": ground_truth,
+                            "predicted": None,
+                            "agreement": False,
+                            "error": -1,
+                            "raw_response": raw[:200],
+                            "state": t,
+                        }
+                    )
                 elif pred != ground_truth:
-                    failures.append({
-                        "patient_id":   p["patient_id"],
-                        "year":         t["_meta"]["year"],
-                        "condition":    condition,
-                        "ground_truth": ground_truth,
-                        "predicted":    pred,
-                        "agreement":    False,
-                        "error":        1,
-                        "raw_response": raw[:200],
-                        "state":        t,
-                    })
+                    failures.append(
+                        {
+                            "patient_id": p["patient_id"],
+                            "year": t["_meta"]["year"],
+                            "condition": condition,
+                            "ground_truth": ground_truth,
+                            "predicted": pred,
+                            "agreement": False,
+                            "error": 1,
+                            "raw_response": raw[:200],
+                            "state": t,
+                        }
+                    )
                 else:
                     self.correct += 1
 
@@ -447,5 +470,3 @@ class Evaluator:
         if self.total == 0:
             return None
         return round(self.correct / self.total, 4)
-
-

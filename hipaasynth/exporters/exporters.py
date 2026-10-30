@@ -28,14 +28,13 @@ import uuid
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Iterable, List
 
 from hipaasynth.core.schema import Patient
 from hipaasynth.vocabulary import (
     lookup_condition,
     lookup_measurement,
     lookup_medication,
-    lookup_visit,
 )
 
 _NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
@@ -302,7 +301,9 @@ def profile_fit_stats(patients, cfg):
     if cfg.age_band_weights is not None:
         for lo, hi, weight in cfg.age_band_weights:
             count = sum(1 for p in patients if lo <= p.demographics.age <= hi)
-            observed_age_bands.append({"min": lo, "max": hi, "target_weight": weight, "observed_weight": count / total})
+            observed_age_bands.append(
+                {"min": lo, "max": hi, "target_weight": weight, "observed_weight": count / total}
+            )
     max_err = abs(observed_female - cfg.sex_ratio_female) * 100
     for category, target_weight in (cfg.ethnicity_weights or {}).items():
         err = abs(observed_ethnicity.get(category, 0.0) - target_weight) * 100
@@ -317,7 +318,11 @@ def profile_fit_stats(patients, cfg):
         "target_female_ratio": cfg.sex_ratio_female,
         "observed_female_ratio": observed_female,
         "ethnicity_fit": [
-            {"category": cat, "target_weight": tw, "observed_weight": observed_ethnicity.get(cat, 0.0)}
+            {
+                "category": cat,
+                "target_weight": tw,
+                "observed_weight": observed_ethnicity.get(cat, 0.0),
+            }
             for cat, tw in (cfg.ethnicity_weights or {}).items()
         ],
         "age_band_fit": observed_age_bands,
@@ -345,7 +350,9 @@ def print_summary(stats):
 def print_profile_fit(profile_stats):
     if profile_stats is None:
         return
-    print(f"PROFILE FIT: {profile_stats['profile_name']} | max error: {profile_stats['max_abs_error_pts']} pts")
+    print(
+        f"PROFILE FIT: {profile_stats['profile_name']} | max error: {profile_stats['max_abs_error_pts']} pts"
+    )
 
 
 def _normalize_gender(sex):

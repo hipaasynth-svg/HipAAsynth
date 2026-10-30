@@ -29,15 +29,19 @@ csv.field_size_limit(2147483647 if sys.maxsize > 2**32 else 2**31 - 1)
 
 def find_map() -> Path:
     here = Path(__file__).resolve()
-    for cand in (Path.cwd() / "hipaasynth" / "vocabulary" / "concept_map.json",
-                 here.parent.parent / "hipaasynth" / "vocabulary" / "concept_map.json"):
+    for cand in (
+        Path.cwd() / "hipaasynth" / "vocabulary" / "concept_map.json",
+        here.parent.parent / "hipaasynth" / "vocabulary" / "concept_map.json",
+    ):
         if cand.exists():
             return cand
     hits = glob(str(Path.cwd() / "**" / "concept_map.json"), recursive=True)
     if hits:
         return Path(hits[0])
-    sys.exit("error: could not locate hipaasynth/vocabulary/concept_map.json "
-             "(run this from the repo root).")
+    sys.exit(
+        "error: could not locate hipaasynth/vocabulary/concept_map.json "
+        "(run this from the repo root)."
+    )
 
 
 def find_concept_csv() -> Path:
@@ -48,8 +52,10 @@ def find_concept_csv() -> Path:
         hits.sort(key=lambda p: ("Encrypted" in p, "vocabulary_download" not in p))
         if hits:
             return Path(hits[0])
-    sys.exit("error: no CONCEPT.csv found near this folder. Pass the path "
-             "explicitly:  python tools/concept_diagnose.py C:\\path\\to\\CONCEPT.csv")
+    sys.exit(
+        "error: no CONCEPT.csv found near this folder. Pass the path "
+        "explicitly:  python tools/concept_diagnose.py C:\\path\\to\\CONCEPT.csv"
+    )
 
 
 def load_concept(path: Path):
@@ -78,18 +84,23 @@ def load_concept(path: Path):
             if v and code:
                 by_code[(v, code)] = row
             if (row.get("domain_id") or "").strip() == "Visit":
-                visit_names.append((cid, row.get("concept_name") or "", code,
-                                    row.get("standard_concept")))
+                visit_names.append(
+                    (cid, row.get("concept_name") or "", code, row.get("standard_concept"))
+                )
     return vc, by_id, by_code, visit_names
 
 
 def fmt(r) -> str:
     if not r:
         return "<not in CONCEPT table>"
-    return ("id=%s name=%r domain=%s std=%r vocab=%s code=%s"
-            % (r.get("concept_id"), r.get("concept_name"), r.get("domain_id"),
-               r.get("standard_concept"), r.get("vocabulary_id"),
-               r.get("concept_code")))
+    return "id=%s name=%r domain=%s std=%r vocab=%s code=%s" % (
+        r.get("concept_id"),
+        r.get("concept_name"),
+        r.get("domain_id"),
+        r.get("standard_concept"),
+        r.get("vocabulary_id"),
+        r.get("concept_code"),
+    )
 
 
 def main(argv=None) -> int:
@@ -115,8 +126,10 @@ def main(argv=None) -> int:
     print("\n===== MEASUREMENTS  (correct concept_id = the one carrying my LOINC code) =====")
     for t, e in m.get("measurements", {}).items():
         cid, code = e.get("omop_concept_id"), e.get("loinc")
-        print(f" [{t}] my id {cid}, loinc {code} -> "
-              + fmt(by_code.get(("LOINC", str(code))) if code else None))
+        print(
+            f" [{t}] my id {cid}, loinc {code} -> "
+            + fmt(by_code.get(("LOINC", str(code))) if code else None)
+        )
 
     print("\n===== VISITS =====")
     for t, e in m.get("visits", {}).items():
@@ -139,8 +152,10 @@ def main(argv=None) -> int:
         elif ct == "combination":
             checks = [("RxNorm", c.get("rxnorm")) for c in e.get("components", [])]
         for vocab, ccode in checks:
-            print(f" [{t}] {vocab} {ccode} -> "
-                  + fmt(by_code.get((vocab, str(ccode))) if ccode else None))
+            print(
+                f" [{t}] {vocab} {ccode} -> "
+                + fmt(by_code.get((vocab, str(ccode))) if ccode else None)
+            )
 
     print("\nDONE — send this whole output back.")
     return 0

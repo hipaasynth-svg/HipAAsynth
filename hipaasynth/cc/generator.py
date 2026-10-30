@@ -57,7 +57,7 @@ additional completeness bonus in the mock models.
 """
 
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from hipaasynth.core.hashing import stable_seed_from_id
 
@@ -181,12 +181,12 @@ def _build_clinical_c(rng: random.Random) -> Dict[str, Any]:
     n_problems = rng.randint(0, 3)
     n_meds = rng.randint(0, 4)
     return {
-        "pcp_id": None,         # No consistent PCP
+        "pcp_id": None,  # No consistent PCP
         "pcp_years": None,
         "active_problems": rng.sample(_ACTIVE_PROBLEMS, min(n_problems, len(_ACTIVE_PROBLEMS))),
         "medication_list": rng.sample(_MEDICATION_CLASSES, min(n_meds, len(_MEDICATION_CLASSES))),
         "medication_reconciled": rng.random() < 0.30,
-        "allergies": [],        # Unknown
+        "allergies": [],  # Unknown
         "last_visit_months_ago": rng.randint(6, 12),
         "visit_gap_months": rng.randint(6, 12),
         "provider_count": rng.randint(4, 7),
@@ -201,10 +201,10 @@ def _build_clinical_d(rng: random.Random) -> Dict[str, Any]:
     return {
         "pcp_id": None,
         "pcp_years": None,
-        "active_problems": [],   # Unknown at presentation
-        "medication_list": [],   # No reconciled list
+        "active_problems": [],  # Unknown at presentation
+        "medication_list": [],  # No reconciled list
         "medication_reconciled": False,
-        "allergies": [],         # Unknown
+        "allergies": [],  # Unknown
         "last_visit_months_ago": None,
         "visit_gap_months": None,
         "provider_count": 0,
@@ -251,8 +251,7 @@ class CCGenerator:
         """
         if profile not in CONTINUITY_PROFILES:
             raise ValueError(
-                f"Unknown continuity profile {profile!r}. "
-                f"Choose from {CONTINUITY_PROFILES}."
+                f"Unknown continuity profile {profile!r}. " f"Choose from {CONTINUITY_PROFILES}."
             )
         profile_seed = self._seed ^ stable_seed_from_id(profile)
         rng = random.Random(profile_seed)
@@ -267,9 +266,7 @@ class CCGenerator:
         """
         return {p: self.generate(n_per_profile, p) for p in CONTINUITY_PROFILES}
 
-    def generate_matched_pair(
-        self, base_seed: int
-    ) -> Dict[str, Dict[str, Any]]:
+    def generate_matched_pair(self, base_seed: int) -> Dict[str, Dict[str, Any]]:
         """
         Generate one patient at every profile sharing the same demographics.
 
@@ -290,10 +287,15 @@ class CCGenerator:
         sex = _weighted_choice(demo_rng, _SEX_OPTS, _SEX_WEIGHTS)
         race = _weighted_choice(demo_rng, _RACE_OPTS, _RACE_WEIGHTS)
         geo = _weighted_choice(demo_rng, _GEO_OPTS, _GEO_WEIGHTS)
-        complaint = demo_rng.choice([
-            "Chest pain", "Shortness of breath", "Altered mental status",
-            "Weakness / fatigue", "Abdominal pain",
-        ])
+        complaint = demo_rng.choice(
+            [
+                "Chest pain",
+                "Shortness of breath",
+                "Altered mental status",
+                "Weakness / fatigue",
+                "Abdominal pain",
+            ]
+        )
 
         result: Dict[str, Dict[str, Any]] = {}
         for profile in CONTINUITY_PROFILES:
@@ -319,18 +321,23 @@ class CCGenerator:
     # Internal builder
     # ------------------------------------------------------------------
 
-    def _build(
-        self, rng: random.Random, idx: int, profile: str
-    ) -> Dict[str, Any]:
+    def _build(self, rng: random.Random, idx: int, profile: str) -> Dict[str, Any]:
         age = rng.randint(18, 85)
         sex = _weighted_choice(rng, _SEX_OPTS, _SEX_WEIGHTS)
         race = _weighted_choice(rng, _RACE_OPTS, _RACE_WEIGHTS)
         geo = _weighted_choice(rng, _GEO_OPTS, _GEO_WEIGHTS)
-        complaint = rng.choice([
-            "Chest pain", "Shortness of breath", "Headache",
-            "Dizziness / syncope", "Altered mental status",
-            "Weakness / fatigue", "Abdominal pain", "Palpitations",
-        ])
+        complaint = rng.choice(
+            [
+                "Chest pain",
+                "Shortness of breath",
+                "Headache",
+                "Dizziness / syncope",
+                "Altered mental status",
+                "Weakness / fatigue",
+                "Abdominal pain",
+                "Palpitations",
+            ]
+        )
 
         ins_opts = _INSURANCE_BY_PROFILE[profile]
         ins_wts = _INSURANCE_WEIGHTS_BY_PROFILE[profile]

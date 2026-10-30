@@ -239,9 +239,7 @@ class TestMedications:
 
     def test_total_meds_equals_class_count(self) -> None:
         for r in _cohort():
-            assert r["total_meds"] == sum(
-                int(r[flag]) for flag in self.DETAIL_FOR_FLAG
-            )
+            assert r["total_meds"] == sum(int(r[flag]) for flag in self.DETAIL_FOR_FLAG)
 
     def test_statin_intensity_vocabulary(self) -> None:
         for r in _cohort():

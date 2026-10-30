@@ -39,23 +39,50 @@ def patients():
 
 # CDM 5.4 required (NOT NULL) columns per table.
 _REQUIRED_54 = {
-    "person": {"person_id", "gender_concept_id", "year_of_birth",
-               "race_concept_id", "ethnicity_concept_id"},
-    "condition_occurrence": {"condition_occurrence_id", "person_id",
-                             "condition_concept_id", "condition_start_date",
-                             "condition_type_concept_id"},
-    "drug_exposure": {"drug_exposure_id", "person_id", "drug_concept_id",
-                      "drug_exposure_start_date", "drug_exposure_end_date",
-                      "drug_type_concept_id"},
-    "measurement": {"measurement_id", "person_id", "measurement_concept_id",
-                    "measurement_date", "measurement_type_concept_id"},
-    "visit_occurrence": {"visit_occurrence_id", "person_id", "visit_concept_id",
-                         "visit_start_date", "visit_end_date",
-                         "visit_type_concept_id"},
-    "observation_period": {"observation_period_id", "person_id",
-                           "observation_period_start_date",
-                           "observation_period_end_date",
-                           "period_type_concept_id"},
+    "person": {
+        "person_id",
+        "gender_concept_id",
+        "year_of_birth",
+        "race_concept_id",
+        "ethnicity_concept_id",
+    },
+    "condition_occurrence": {
+        "condition_occurrence_id",
+        "person_id",
+        "condition_concept_id",
+        "condition_start_date",
+        "condition_type_concept_id",
+    },
+    "drug_exposure": {
+        "drug_exposure_id",
+        "person_id",
+        "drug_concept_id",
+        "drug_exposure_start_date",
+        "drug_exposure_end_date",
+        "drug_type_concept_id",
+    },
+    "measurement": {
+        "measurement_id",
+        "person_id",
+        "measurement_concept_id",
+        "measurement_date",
+        "measurement_type_concept_id",
+    },
+    "visit_occurrence": {
+        "visit_occurrence_id",
+        "person_id",
+        "visit_concept_id",
+        "visit_start_date",
+        "visit_end_date",
+        "visit_type_concept_id",
+    },
+    "observation_period": {
+        "observation_period_id",
+        "person_id",
+        "observation_period_start_date",
+        "observation_period_end_date",
+        "period_type_concept_id",
+    },
 }
 
 
@@ -106,8 +133,11 @@ def test_measurement_links_to_visit_and_parses_range(patients):
         assert m["visit_occurrence_id"] in visit_ids
     # At least one measurement with a "low-high" reference range parses into
     # numeric range_low/range_high (e.g. Glucose 70-99).
-    parsed = [m for m in tables["measurement"]
-              if m.get("range_low") not in (None, "") and m.get("range_high") not in (None, "")]
+    parsed = [
+        m
+        for m in tables["measurement"]
+        if m.get("range_low") not in (None, "") and m.get("range_high") not in (None, "")
+    ]
     assert parsed, "expected at least one parsed numeric reference range"
     for m in parsed:
         assert float(m["range_low"]) <= float(m["range_high"])
@@ -150,8 +180,7 @@ def test_condition_status_concept_id_reflects_active(patients):
     # Non-zero and distinct.
     assert active_row["condition_status_concept_id"] != 0
     assert inactive_row["condition_status_concept_id"] != 0
-    assert (active_row["condition_status_concept_id"]
-            != inactive_row["condition_status_concept_id"])
+    assert active_row["condition_status_concept_id"] != inactive_row["condition_status_concept_id"]
     # Source values carry the human-readable status for offline re-resolution.
     assert active_row["condition_status_source_value"] == "active"
     assert inactive_row["condition_status_source_value"] == "inactive"
@@ -175,9 +204,9 @@ def test_no_concept_id_drift_from_vocabulary(patients):
         for row in tables[table]:
             cid = int(row[col])
             if cid != 0:
-                assert terms_for_concept_id(cid), (
-                    f"{table}.{col}={cid} not found in concept_map.json (drift)"
-                )
+                assert terms_for_concept_id(
+                    cid
+                ), f"{table}.{col}={cid} not found in concept_map.json (drift)"
 
 
 def test_export_writes_observation_period_csv(patients, tmp_path):

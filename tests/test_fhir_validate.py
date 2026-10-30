@@ -55,8 +55,12 @@ def test_generated_cohort_passes_structural_validation(patients):
 
 def test_missing_required_field_is_flagged():
     """An Observation without the required 'code' is an error."""
-    bad = {"resourceType": "Observation", "id": "x", "status": "final",
-           "subject": {"reference": "urn:uuid:p"}}
+    bad = {
+        "resourceType": "Observation",
+        "id": "x",
+        "status": "final",
+        "subject": {"reference": "urn:uuid:p"},
+    }
     errors = validate_resource(bad)
     assert any("code" in e for e in errors)
 
@@ -73,8 +77,12 @@ def test_invalid_gender_value_set_is_flagged():
 
 
 def test_codeable_concept_without_coding_or_text_is_flagged():
-    bad = {"resourceType": "Condition", "id": "c",
-           "subject": {"reference": "urn:uuid:p"}, "code": {}}
+    bad = {
+        "resourceType": "Condition",
+        "id": "c",
+        "subject": {"reference": "urn:uuid:p"},
+        "code": {},
+    }
     errors = validate_resource(bad)
     assert any("code" in e.lower() for e in errors)
 
@@ -85,20 +93,26 @@ def test_broken_condition_clinical_status_is_flagged():
     Previously unchecked: clinicalStatus was not in _CODEABLE_CONCEPT_FIELDS, so
     an empty {} sailed through.
     """
-    bad = {"resourceType": "Condition", "id": "c",
-           "subject": {"reference": "urn:uuid:p"},
-           "code": {"text": "asthma"},
-           "clinicalStatus": {}}
+    bad = {
+        "resourceType": "Condition",
+        "id": "c",
+        "subject": {"reference": "urn:uuid:p"},
+        "code": {"text": "asthma"},
+        "clinicalStatus": {},
+    }
     errors = validate_resource(bad)
     assert any("clinicalStatus" in e for e in errors), errors
 
 
 def test_broken_condition_verification_status_is_flagged():
     """verificationStatus.coding missing a code must be flagged."""
-    bad = {"resourceType": "Condition", "id": "c",
-           "subject": {"reference": "urn:uuid:p"},
-           "code": {"text": "asthma"},
-           "verificationStatus": {"coding": [{"system": "http://x"}]}}  # no code
+    bad = {
+        "resourceType": "Condition",
+        "id": "c",
+        "subject": {"reference": "urn:uuid:p"},
+        "code": {"text": "asthma"},
+        "verificationStatus": {"coding": [{"system": "http://x"}]},
+    }  # no code
     errors = validate_resource(bad)
     assert any("verificationStatus" in e and "code" in e for e in errors), errors
 
@@ -106,9 +120,13 @@ def test_broken_condition_verification_status_is_flagged():
 def test_broken_encounter_class_is_flagged():
     """Encounter.class is a *list* of CodeableConcept — a coding missing its
     code must be flagged (list-at-path handling)."""
-    bad = {"resourceType": "Encounter", "id": "e", "status": "completed",
-           "class": [{"coding": [{"system": "http://x"}]}],  # missing code
-           "type": [{"text": "ambulatory"}]}
+    bad = {
+        "resourceType": "Encounter",
+        "id": "e",
+        "status": "completed",
+        "class": [{"coding": [{"system": "http://x"}]}],  # missing code
+        "type": [{"text": "ambulatory"}],
+    }
     errors = validate_resource(bad)
     assert any("class" in e and "code" in e for e in errors), errors
 
@@ -116,9 +134,13 @@ def test_broken_encounter_class_is_flagged():
 def test_broken_encounter_type_is_flagged():
     """Encounter.type (list of CodeableConcept): an element with neither coding
     nor text is an error."""
-    bad = {"resourceType": "Encounter", "id": "e", "status": "completed",
-           "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
-           "type": [{}]}  # neither coding nor text
+    bad = {
+        "resourceType": "Encounter",
+        "id": "e",
+        "status": "completed",
+        "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
+        "type": [{}],
+    }  # neither coding nor text
     errors = validate_resource(bad)
     assert any("type" in e for e in errors), errors
 
@@ -126,9 +148,13 @@ def test_broken_encounter_type_is_flagged():
 def test_valid_encounter_class_and_type_pass():
     """A well-formed Encounter (class coding + text-only type) must not error —
     guards against false positives from the new list handling."""
-    good = {"resourceType": "Encounter", "id": "e", "status": "completed",
-            "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
-            "type": [{"text": "ambulatory"}]}
+    good = {
+        "resourceType": "Encounter",
+        "id": "e",
+        "status": "completed",
+        "class": [{"coding": [{"system": "http://x", "code": "AMB"}]}],
+        "type": [{"text": "ambulatory"}],
+    }
     assert validate_resource(good) == []
 
 
@@ -147,6 +173,7 @@ def test_dangling_reference_is_flagged(patients):
 
 def test_validate_bundle_accepts_exported_bundle(patients, tmp_path):
     import json
+
     path = tmp_path / "bundle.json"
     export_fhir(patients, str(path))
     bundle = json.loads(path.read_text())
@@ -164,10 +191,14 @@ def test_cli_main_bundle_returns_zero_for_clean_cohort(patients, tmp_path):
 def test_cli_main_bundle_returns_one_for_broken_bundle(tmp_path):
     """main() exits 1 when the Bundle has a structural error."""
     import json
+
     bad_bundle = {
-        "resourceType": "Bundle", "id": "b", "type": "collection",
-        "entry": [{"resource": {"resourceType": "Observation", "id": "o",
-                                 "status": "final"}}],  # missing required 'code'
+        "resourceType": "Bundle",
+        "id": "b",
+        "type": "collection",
+        "entry": [
+            {"resource": {"resourceType": "Observation", "id": "o", "status": "final"}}
+        ],  # missing required 'code'
     }
     path = tmp_path / "bad.json"
     path.write_text(json.dumps(bad_bundle))
@@ -177,6 +208,7 @@ def test_cli_main_bundle_returns_one_for_broken_bundle(tmp_path):
 def test_cli_main_writes_json_report(patients, tmp_path):
     """main(--json ...) writes a JSON report file with the expected keys."""
     import json
+
     path = tmp_path / "bundle.json"
     export_fhir(patients, str(path))
     report_path = tmp_path / "report.json"
@@ -204,12 +236,13 @@ def test_validator_functions_reexported_from_package(patients):
     from hipaasynth.exporters import (
         FhirValidationReport,
         validate_bundle,
-        validate_ndjson_dir,
         validate_resource,
         validate_resources,
     )
+
     # And they are the same objects as the submodule's (not shadow copies).
     from hipaasynth.exporters import fhir_validate as _mod
+
     assert validate_resource is _mod.validate_resource
     assert validate_bundle is _mod.validate_bundle
     # Smoke: the re-exported function actually works.

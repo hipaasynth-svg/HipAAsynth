@@ -131,7 +131,7 @@ def cohort_demographics(patients: Sequence) -> Dict[str, List[Tuple[str, int]]]:
     Pure data reduction over ``Patient.demographics`` — the same numbers the SVG
     renders, exposed separately so callers can test the aggregation directly.
     """
-    ages = Counter()
+    ages: Counter[str] = Counter()
     for p in patients:
         age = p.demographics.age
         band = next((name for name, lo, hi in _AGE_BANDS if lo <= age <= hi), "other")
@@ -181,9 +181,7 @@ def demographics_distribution_svg(
         f'<text x="16" y="28" font-size="15" font-weight="700" '
         f'fill="{_INK}">{_esc(heading)}</text>'
         f'<text x="{width - 16}" y="28" text-anchor="end" font-size="10" '
-        f'fill="{_MUTED}">synthetic — no PHI</text>'
-        + "\n".join(body)
-        + "</svg>"
+        f'fill="{_MUTED}">synthetic — no PHI</text>' + "\n".join(body) + "</svg>"
     )
 
 
@@ -193,14 +191,14 @@ def _heat_colour(rate: float) -> str:
     if rate <= 0.5:
         # green → amber
         t = rate / 0.5
-        r = int(0x2f + (0xf5 - 0x2f) * t)
-        g = int(0xb9 + (0xb0 - 0xb9) * t)
+        r = int(0x2F + (0xF5 - 0x2F) * t)
+        g = int(0xB9 + (0xB0 - 0xB9) * t)
         b = int(0x50 + (0x22 - 0x50) * t)
     else:
         # amber → red
         t = (rate - 0.5) / 0.5
-        r = int(0xf5 + (0xf8 - 0xf5) * t)
-        g = int(0xb0 + (0x51 - 0xb0) * t)
+        r = int(0xF5 + (0xF8 - 0xF5) * t)
+        g = int(0xB0 + (0x51 - 0xB0) * t)
         b = int(0x22 + (0x49 - 0x22) * t)
     return f"#{r:02x}{g:02x}{b:02x}"
 
@@ -231,7 +229,7 @@ def fairness_heatmap_svg(
     summary = summarize_cohort(list(passports))
     errors = per_form_error_rates(list(passports))
 
-    x0 = 200          # left column for form labels
+    x0 = 200  # left column for form labels
     cell_w = width - x0 - 60
     cell_h = 26
     gap = 4
@@ -241,15 +239,11 @@ def fairness_heatmap_svg(
     y = 66 + (_NOTE_DY if note else 0)
     parts.append(
         f'<text x="16" y="{y}" font-size="13" font-weight="600" fill="{_INK}">'
-        f'Per-form error rate (vs. ground truth)</text>'
+        f"Per-form error rate (vs. ground truth)</text>"
     )
     y += 12
-    truth_note = (
-        f"{summary.truth_evaluated_n} of {summary.n} patients ground-truth-evaluated"
-    )
-    parts.append(
-        f'<text x="16" y="{y}" font-size="10" fill="{_MUTED}">{_esc(truth_note)}</text>'
-    )
+    truth_note = f"{summary.truth_evaluated_n} of {summary.n} patients ground-truth-evaluated"
+    parts.append(f'<text x="16" y="{y}" font-size="10" fill="{_MUTED}">{_esc(truth_note)}</text>')
     y += 12
     for form in _FORM_ORDER:
         rate = errors.get(form, 0.0)
@@ -274,7 +268,7 @@ def fairness_heatmap_svg(
     y += 14
     parts.append(
         f'<text x="16" y="{y}" font-size="13" font-weight="600" fill="{_INK}">'
-        f'Cohort polymorphic metrics</text>'
+        f"Cohort polymorphic metrics</text>"
     )
     y += 12
     metrics = [
@@ -310,7 +304,7 @@ def fairness_heatmap_svg(
     heading = f"Fairness audit · {_esc(summary.device_name)} v{_esc(summary.device_version)}"
     note_el = (
         f'<text x="16" y="56" font-size="10" font-weight="600" fill="{_INK}">'
-        f'{_esc(note)}</text>'
+        f"{_esc(note)}</text>"
         if note
         else ""
     )
@@ -321,7 +315,7 @@ def fairness_heatmap_svg(
         f'<rect x="0" y="0" width="{width}" height="{height}" fill="#ffffff" rx="8"/>'
         f'<text x="16" y="28" font-size="15" font-weight="700" fill="{_INK}">{heading}</text>'
         f'<text x="16" y="44" font-size="10" fill="{_MUTED}">'
-        f'overall pass rate {summary.overall_pass_rate * 100:.0f}% · synthetic — no PHI</text>'
+        f"overall pass rate {summary.overall_pass_rate * 100:.0f}% · synthetic — no PHI</text>"
         + note_el
         + "\n".join(parts)
         + "</svg>"
@@ -333,5 +327,5 @@ def _metric_ok(summary, which: str) -> bool:
     if summary.truth_evaluated_n == 0:
         return False
     thresholds = {"isg": 0.15, "lfdi": 0.20, "saf": 0.20}
-    value = getattr(summary, f"{which}_mean")
+    value = float(getattr(summary, f"{which}_mean"))
     return value <= thresholds[which]

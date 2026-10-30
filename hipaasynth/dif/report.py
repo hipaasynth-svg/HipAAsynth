@@ -179,9 +179,7 @@ class FairnessPassport:
         if self.form_engine_version and self.form_engine_version != FORM_ENGINE_VERSION:
             return False
         if engine is None:
-            engine = PolymorphicFormEngine(
-                information_mode=self.information_mode or "same_facts"
-            )
+            engine = PolymorphicFormEngine(information_mode=self.information_mode or "same_facts")
         for rendered in engine.express_all(patient):
             expected = self.form_hashes.get(rendered["form"])
             if expected is None or expected != rendered["content_sha256"]:
@@ -217,9 +215,7 @@ class FairnessPassport:
                 match = "—"
             else:
                 match = "✓" if decision == self.ground_truth else "✗"
-            lines.append(
-                f"| {form_name} | {'Yes' if decision else 'No'} | {match} |"
-            )
+            lines.append(f"| {form_name} | {'Yes' if decision else 'No'} | {match} |")
         for form_name in sorted(self.refused_forms):
             lines.append(f"| {form_name} | refused | — |")
         for form_name in sorted(self.unparseable_forms):
@@ -336,7 +332,7 @@ def _ci95_halfwidth(values: List[float]) -> float:
     if len(values) < 2:
         return 0.0
     sd = statistics.stdev(values)
-    return 1.96 * sd / (len(values) ** 0.5)
+    return float(1.96 * sd / (len(values) ** 0.5))
 
 
 def summarize_cohort(passports: List[FairnessPassport]) -> CohortFairnessSummary:
@@ -594,18 +590,14 @@ def write_passport_bundle(
             rel_path = f"patients/{stem}.md"
             path = out / rel_path
             verdict = "PASS" if p.passed() else "FAIL"
-            body = (
-                p.to_markdown()
-                + "\n\n---\n\n[← back to cohort summary](../summary.md)\n"
-            )
+            body = p.to_markdown() + "\n\n---\n\n[← back to cohort summary](../summary.md)\n"
             path.write_text(body, encoding="utf-8")
             patient_paths[p.patient_id] = path
             index_rows.append((p.patient_id, verdict, rel_path))
 
         index_rows.sort(key=lambda row: row[0])
         index_table = "\n".join(
-            f"| {pid} | {verdict} | [{pid}]({rel_path}) |"
-            for pid, verdict, rel_path in index_rows
+            f"| {pid} | {verdict} | [{pid}]({rel_path}) |" for pid, verdict, rel_path in index_rows
         )
         summary_body = (
             summary.to_markdown()

@@ -40,10 +40,23 @@ class TestPSFGenerator:
     def test_s1_has_minimal_fields(self) -> None:
         gen = PSFGenerator(seed=42)
         patients = gen.generate(n=5, sparsity_level="S1")
-        required = {"patient_id", "sparsity_level", "age", "sex",
-                    "race_ethnicity", "geography_type", "chief_complaint"}
-        forbidden = {"current_labs", "comorbidities", "visit_history",
-                     "lab_history", "ses_proxy", "insurance_type"}
+        required = {
+            "patient_id",
+            "sparsity_level",
+            "age",
+            "sex",
+            "race_ethnicity",
+            "geography_type",
+            "chief_complaint",
+        }
+        forbidden = {
+            "current_labs",
+            "comorbidities",
+            "visit_history",
+            "lab_history",
+            "ses_proxy",
+            "insurance_type",
+        }
         for p in patients:
             assert required.issubset(p.keys()), f"S1 missing required fields: {required - p.keys()}"
             for f in forbidden:
@@ -53,8 +66,13 @@ class TestPSFGenerator:
         gen = PSFGenerator(seed=42)
         patients = gen.generate(n=5, sparsity_level="S7")
         required = {
-            "current_labs", "primary_dx", "comorbidities",
-            "visit_history", "lab_history", "ses_proxy", "insurance_type",
+            "current_labs",
+            "primary_dx",
+            "comorbidities",
+            "visit_history",
+            "lab_history",
+            "ses_proxy",
+            "insurance_type",
         }
         for p in patients:
             assert required.issubset(p.keys()), f"S7 missing fields: {required - p.keys()}"
@@ -132,9 +150,9 @@ class TestPSFAudit:
         white_score = demo_s1.get("White")
         assert aian_score is not None, "AIAN group not found at S1"
         assert white_score is not None, "White group not found at S1"
-        assert aian_score < white_score, (
-            f"Expected AIAN ({aian_score:.4f}) < White ({white_score:.4f}) at S1"
-        )
+        assert (
+            aian_score < white_score
+        ), f"Expected AIAN ({aian_score:.4f}) < White ({white_score:.4f}) at S1"
 
     def test_result_raw_scores_length(self) -> None:
         model = MockClinicalModel(seed=42)
