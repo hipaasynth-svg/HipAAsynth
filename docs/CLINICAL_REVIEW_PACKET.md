@@ -108,7 +108,7 @@ is redrawn, deterministically per patient:
 | Normal blood pressure (SBP 100–145, DBP 60–88), keeping or adding at least one organ dysfunction: lactate ≥ 2, creatinine ≥ 1.6, altered mental status or urine < 30 mL/h | 60% |
 | Altered mental status | 25% |
 | Leukopenia (WBC 1.5–3.9) | 8% |
-| Hypothermia (35.0–35.9 °C) | 8% |
+| Hypothermia (35.0–35.9 °C) | 15% |
 | SIRS-negative: HR 72–90, RR 14–20, temp 36.2–37.9 °C, WBC 4.5–11.5, normal blood pressure, organ dysfunction kept (Kaukonen et al., NEJM 2015) | 12% |
 
 Reports give the catch rate for shock and normotensive sepsis separately.
@@ -149,6 +149,11 @@ model; the group check reports misses by tone band (1–3, 4–6, 7–10).
 5. Are the tone distributions and the over-reading slope reasonable?
 6. Should the over-reading also depend on low perfusion (it is worse at low
    saturations and in shock)?
+
+> **Open question for review.** Driving the bias by skin tone reproduces the
+> Black-White gap reported by Fawzy et al. (*JAMA Intern Med* 2022: +1.2 points)
+> but understates the Asian (+1.7) and Hispanic (+1.1) gaps, which this model
+> gives as about +0.4 and +0.5. Should a non-tone component be added?
 
 ## 3. Care settings with missing tests (Axis 6)
 

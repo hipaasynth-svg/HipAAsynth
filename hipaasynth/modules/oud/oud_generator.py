@@ -72,7 +72,7 @@ def derive_rng(anchor, namespace):
 
 
 # ── Population profile ────────────────────────────────────────────────────────
-# OUD prevalence: ~2.7M US adults meeting DSM-5 criteria (NSDUH 2022)
+# OUD prevalence: ~6.1M people aged 12+ with past-year OUD (NSDUH 2022)
 # Higher rural prevalence rates; AI/AN populations severely affected
 # Source: SAMHSA. NSDUH 2022 Annual Report. HHS Publication No. PEP23-07-01-006.
 PROFILE: dict = {
@@ -99,7 +99,7 @@ PROFILE: dict = {
         "other": 0.02,
     },
     # Rurality distribution (OUD overrepresented in rural areas)
-    # Source: Mack KA et al. MMWR 2017;66(19):506-512.
+    # Source: Mack KA et al. MMWR Surveill Summ 2017;66(19):1-12 (PMID 29049278).
     "rurality": {
         "urban": 0.42,
         "suburban": 0.25,
@@ -118,7 +118,7 @@ OUD_SEVERITY = {
 }
 
 # ── Primary opioid type ───────────────────────────────────────────────────────
-# Source: Jones CM et al. Drug Alcohol Depend 2020;214:108174.
+# Source: no verified source (citation removed in the 2026-10 source audit; see docs/calibration/SOURCE_AUDIT.md).
 PRIMARY_OPIOID = {
     "heroin": 0.28,
     "illicit_fentanyl": 0.35,  # Now dominant — polysubstance fentanyl
@@ -129,7 +129,7 @@ PRIMARY_OPIOID = {
 }
 
 # ── Route of administration ───────────────────────────────────────────────────
-# Source: Cicero TJ et al. NEJM 2014;371(22):2063-2066.
+# Source: no verified source (citation removed in the 2026-10 source audit; see docs/calibration/SOURCE_AUDIT.md).
 ROUTE_OF_ADMIN = {
     "injection_iv": 0.32,
     "intranasal": 0.28,
@@ -147,8 +147,9 @@ YEARS_USE_BY_SEVERITY = {
 }
 
 # ── MOUD (Medications for OUD) status ────────────────────────────────────────
-# Treatment gap: ~18% of people with OUD receive MOUD
-# Source: Jones CM et al. JAMA Psychiatry 2022;79(5):512-520.
+# Treatment gap: ~25% of adults needing OUD treatment received MOUD in 2022
+# Source: CDC. Treatment for Opioid Use Disorder: Population Estimates, United
+# States, 2022. MMWR 2024;73(25):567-574 (PMID 38935567).
 MOUD_STATUS = {
     "buprenorphine": 0.12,  # Most accessible in primary care
     "methadone_otp": 0.05,  # Opioid Treatment Program (clinic-based)
@@ -230,7 +231,7 @@ HOUSING_STATUS = {
 }
 
 # ── ED / hospitalization history ─────────────────────────────────────────────
-# Source: White AM et al. Drug Alcohol Depend 2021;227:109002.
+# Source: no verified source (citation removed in the 2026-10 source audit; see docs/calibration/SOURCE_AUDIT.md).
 ED_VISITS_PRIOR_YR_BY_SEVERITY = {
     "mild": (0, 2),
     "moderate": (0, 4),
@@ -467,7 +468,7 @@ def generate_oud_cohort(seed: int, n: int, label: str = "us_oud_national") -> tu
         housing = rng_sdoh.choices(house_list, weights=house_wts, k=1)[0]
 
         # Distance to nearest MOUD provider (rural/frontier critical metric)
-        # Source: Andrilla CHA et al. J Rural Health 2019;35(1):8-25.
+        # Source: Andrilla CHA et al. J Rural Health 2019;35(1):108-112 (PMID 29923637).
         dist_to_moud = {
             "urban": round(rng_sdoh.uniform(0.5, 8.0), 1),
             "suburban": round(rng_sdoh.uniform(2.0, 20.0), 1),

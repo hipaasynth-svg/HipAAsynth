@@ -26,11 +26,13 @@ Key calibration sources:
       doi:10.1161/CIR.0000000000001123
       Stroke subtype frequencies (ischemic ~87%, hemorrhagic ~13%).
   [2] Winder K et al. J Neuroimaging. 2023;33(4):575-581. doi:10.1111/jon.13110
-      NIHSS median 4 (IQR 2-10), AF 28%, HTN 90%, n=809
-  [3] Feng L et al. J Clin Lab Anal. 2018;33(1). doi:10.1002/jcla.22629
-      NIHSS severity categories: 0-4 mild, 5-15 moderate, 16-20 mod-severe, 21-42 severe
+      Post-stroke epilepsy cohort, n=809; the NIHSS/AF/HTN figures are not in the
+      abstract and were not re-verified (SOURCE_AUDIT.md).
+  [3] Feng L et al. J Clin Lab Anal. 2018;33(1). doi:10.1002/jcla.22629 (an lncRNA
+      biomarker study, a weak source for these bands). NIHSS severity categories: 0-4 mild, 5-15 moderate, 16-20 mod-severe, 21-42 severe
   [4] Bergh E et al. Acta Neurol Scand. 2022;146(1):61-69. doi:10.1111/ane.13622
-      tPA eligibility ~47-53% within 4.5h; onset-to-door median 83min
+      535 patients within 4.5 h, 53% thrombolysed; the onset-to-door median is not in
+      the abstract and was not re-verified (SOURCE_AUDIT.md).
   [5] Havenon A et al. Ann Neurol. 2023;93(6):1106-1116. doi:10.1002/ana.26621
       tPA mortality benefit significant at NIHSS >=15; NIS cohort n=198,668
   [6] Duan C et al. CNS Neurosci Ther. 2023;29(8):2308-2317. doi:10.1111/cns.14164
@@ -43,7 +45,7 @@ Key calibration sources:
   [10] Internal calibration review, 2026-04-30.
       SBP target 20-25% >185; onset-to-door IHS rural access gap 30-40% >270 min;
       prior ICH 2-5%; recent surgery 2-4%; mean age 65-68 for IHS stroke cohort.
-  [11] Broderick JP et al. Stroke. 2010;41(9):2108-2129. doi:10.1161/STROKEAHA.107.183689
+  [11] Morgenstern LB et al. Stroke. 2010;41(9):2108-2129 (PMID 20651276).
       AHA/ASA ICH management guidelines. Hemorrhagic strokes typically present more
       severely than ischemic; mean NIHSS ~13-15 in hospital-based ICH cohorts.
   [12] Internal calibration review, 2026-05-01.

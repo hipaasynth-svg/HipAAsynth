@@ -14,7 +14,7 @@
     "IHS_context": "Indian Health Service Aberdeen Area. Northern Plains tribal health region Service Unit, Northern Plains. Federal trust responsibility healthcare provider. Air-gapped network infrastructure common.",
     "sepsis_vitals": "Singer M et al. Sepsis-3. JAMA. 2016;315(8):801-810.",
     "afebrile_elderly": "Gavazzi G, Krause KH. Ageing and infection. Lancet Infect Dis. 2002;2(11):659-666.",
-    "infection_source": "Rhee C et al. JAMA Intern Med. 2017;177(7):944-951. Rural adjustment applied.",
+    "infection_source": "No verified source for the base mix (see docs/calibration/SOURCE_AUDIT.md). Rural adjustment applied.",
     "lab_floors": "WBC: Singer 2016 Sepsis-3. Glucose: ADA 2024. Creatinine: KDIGO 2022. LDL: Grundy 2019 ACC/AHA."
   },
   "sex_ratio_female": 0.502,
@@ -42,7 +42,7 @@
   "ihs_service_unit": "IHS Northern Plains Region",
   "calibration_notes": [
     "Diabetes prevalence 14.7% in AI/AN vs 7.5% non-Hispanic white \u2014 engine does not yet apply regional comorbidity override; documented gap",
-    "Sepsis infection source weighted toward pneumonia for rural designation per Rhee 2017",
+    "Sepsis infection source weighted toward pneumonia for rural designation",
     "Age bands recalibrated for ICU stroke cohort per internal calibration review 2026: [[45,64,0.40],[65,90,0.60]]. Targets mean age 65-68, under-50 ~13%. Community median 28.4 is a general population stat not representative of ICU stroke patients.",
     "HTN burden elevated in AI/AN relative to engine US baseline \u2014 not regionally adjusted; documented gap",
     "Air-gapped IHS network is primary deployment target for this dataset"

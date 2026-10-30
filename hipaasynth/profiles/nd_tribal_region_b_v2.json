@@ -6,14 +6,14 @@
     "population": "U.S. Census Bureau. ACS 2020-2024 5-Year Estimates. Northern Plains tribal health region Reservation total population ~7,280.",
     "ethnicity": "U.S. Census Bureau ACS 2020-2024. Northern Plains tribal health region Reservation: American Indian/Alaska Native >80% of population.",
     "sex_ratio": "U.S. Census Bureau ACS 2020-2024. Female 52.1% on Northern Plains tribal health region Reservation.",
-    "diabetes_prevalence": "Dai J et al. Diabetes Obes Metab. 2024;27(1):328-337. doi:10.1111/dom.16021. AI/AN diabetes prevalence 13.6% nationally.",
+    "diabetes_prevalence": "CDC National Diabetes Statistics Report: 13.6% of AI/AN adults have diagnosed diabetes (via HHS Office of Minority Health). The Dai 2024 paper cited earlier reports medication trends, not prevalence.",
     "hypertension_prevalence": "Jolly SE et al. J Clin Hypertens. 2015;17(10):812-818. doi:10.1111/jch.12483. Strong Heart Study ND AI/AN HTN ~27%.",
     "dm_htn_comorbidity": "Walls ML et al. J Diabetes Res. 2025. doi:10.1155/jdr/6591307. 77.9% of AI/AN T2D adults also have HTN.",
     "ckd_comorbidity": "Nephrology Mini Orals. Nephrology. 2021;26(S2):17-32. doi:10.1111/nep.13930.",
     "sepsis_social_determinants": "Ardabili AK et al. World Med Health Policy. 2025;17(4):823-830. doi:10.1002/wmh3.70043.",
     "sepsis_vitals": "Singer M et al. JAMA. 2016;315(8):801-810. doi:10.1001/jama.2016.0287.",
     "afebrile_elderly": "Gavazzi G, Krause KH. Lancet Infect Dis. 2002;2(11):659-666. doi:10.1016/S1473-3099(02)00437-1.",
-    "ihs_workforce": "Brockie T et al. J Clin Nurs. 2021;32(3-4):610-624. doi:10.1111/jocn.15801."
+    "ihs_workforce": "GAO-18-580 (2018): IHS provider vacancy 25% overall, 13-31% by area; IHS area nurse vacancies up to 40% (IHS 2016 briefing)."
   },
   "sex_ratio_female": 0.521,
   "ethnicity_weights": {

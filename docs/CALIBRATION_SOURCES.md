@@ -121,14 +121,14 @@ targets. These are the sources behind the numbers in the calibration chart.
 - NIDA Opioid Overdose Crisis statistics.
 - DSM-5-TR OUD diagnostic criteria; ASAM Clinical Practice Guideline 2023.
 - PCSS-MATS clinical guidance; AHRQ MOUD evidence review 2021.
-- Rural-urban OUD disparity — Mack KA et al. *MMWR* 2017.
+- Rural-urban OUD disparity — Mack KA et al. *MMWR Surveill Summ* 2017;66(19):1-12.
 - IHS / tribal OUD burden — Sequist TD. *NEJM* 2021.
 
 ### ND Tribal Region Profiles — `hipaasynth/profiles/nd_tribal_region_*.json`
 Peer-reviewed anchors carried with DOIs in the profile `sources` block:
-- **Diabetes (AI/AN)**: Dai J et al. *Diabetes Obes Metab.* 2024;27(1):328-337.
-  doi:10.1111/dom.16021 — AI/AN diabetes prevalence 13.6% (2019–2021), ~2× the
-  6.9% non-Hispanic White rate.
+- **Diabetes (AI/AN)**: CDC National Diabetes Statistics Report — 13.6% of AI/AN
+  adults have diagnosed diabetes. (Dai J et al. *Diabetes Obes Metab* 2024, cited
+  here before, reports medication trends, not prevalence.)
 - **Hypertension (AI/AN)**: Jolly SE et al. WATCH Study. *J Clin Hypertens.*
   2015;17(10):812-818. doi:10.1111/jch.12483; Strong Heart Study (ND/SD) baseline
   HTN ~27%.
@@ -141,8 +141,8 @@ Peer-reviewed anchors carried with DOIs in the profile `sources` block:
 - **Sepsis-3**: Singer M et al. *JAMA.* 2016;315(8):801-810. doi:10.1001/jama.2016.0287.
 - **Afebrile elderly infection**: Gavazzi G, Krause KH. *Lancet Infect Dis.*
   2002;2(11):659-666. doi:10.1016/S1473-3099(02)00437-1.
-- **IHS workforce**: Brockie T et al. *J Clin Nurs.* 2021;32(3-4):610-624.
-  doi:10.1111/jocn.15801 — IHS nurse vacancy 23–40%.
+- **IHS workforce**: GAO-18-580 (2018) — IHS provider vacancy 25% overall, 13–31%
+  by area.
 
 > **Documented calibration gaps** (carried in each profile's `calibration_notes`):
 > the engine currently applies US-baseline comorbidity generation; AI/AN-specific

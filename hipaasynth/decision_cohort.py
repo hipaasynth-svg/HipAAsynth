@@ -21,8 +21,8 @@ WHY THIS EXISTS
 A cohort generated with ``required_condition`` is 100% positive and one
 without it is 0% positive, so a model that answers "yes" to everyone used to
 pass every DIF passport, and false alarms could not be measured at all. False
-alarms are how deployed sepsis and stroke tools actually fail (up to 67% of
-stroke alerts are triggered by mimics), and alert fatigue is a patient-safety
+alarms are how deployed sepsis and stroke tools actually fail (18-40% of stroke
+code activations turn out to be mimics), and alert fatigue is a patient-safety
 harm in its own right.
 
 A decision cohort mixes true cases with **mimics**: patients who present with
@@ -69,7 +69,8 @@ per patient (:func:`sepsis_spectrum`):
 * 60% **normotensive** (SBP 100-145, DBP 60-88) with at least one organ
   dysfunction kept or added: lactate >= 2, creatinine >= 1.6, altered mental
   status or urine output < 30 mL/h.
-* 25% altered mental status; 8% leukopenia (WBC < 4); 8% hypothermia (< 36 C).
+* 25% altered mental status; 8% leukopenia (WBC < 4); 15% hypothermia (< 36 C;
+  presenting hypothermia is reported in about 14-23% of sepsis cohorts).
 * 12% SIRS-negative (normal heart rate, breathing, temperature and white count;
   Kaukonen et al., NEJM 2015), always with organ dysfunction and a normal blood
   pressure.
@@ -466,7 +467,7 @@ def as_measured(patient: Patient) -> Patient:
 SEPSIS_NORMOTENSIVE_SHARE = 0.60
 _SEPSIS_AMS_SHARE = 0.25
 _SEPSIS_LEUKOPENIA_SHARE = 0.08
-_SEPSIS_HYPOTHERMIA_SHARE = 0.08
+_SEPSIS_HYPOTHERMIA_SHARE = 0.17  # ~15% after SIRS-negative redraws
 _SEPSIS_SIRS_NEGATIVE_SHARE = 0.12
 
 

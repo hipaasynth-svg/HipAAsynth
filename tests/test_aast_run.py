@@ -99,7 +99,7 @@ def test_a_model_that_never_answers_fails_and_is_counted():
 
 
 def test_group_axis_catches_a_race_biased_record_model():
-    report = run_7aast(demo_adapter("demo_biased", "stroke", "record"), "stroke", n=400)
+    report = run_7aast(demo_adapter("demo_biased", "stroke", "record"), "stroke", n=600)
     groups = report.axis("2").metrics["groups"]
     assert report.axis("2").status == FAIL
     # The largest gap can show on race or on dark skin tone, which tracks it.

@@ -491,7 +491,7 @@ def validate_cardiology(rows):
     )
     results.append(check("Statin use among eligible (target 0.55)", statin_rate, 0.55, tol=0.10))
 
-    # Oral anticoagulation in AF with CHA2DS2-VASc >= 2 ~70% (Freedman 2017)
+    # Oral anticoagulation in AF with CHA2DS2-VASc >= 2 ~70% (no verified source; SOURCE_AUDIT.md)
     af_high = [r for r in rows if r.get("atrial_fibrillation") and r.get("cha2ds2_vasc", 0) >= 2]
     ac_rate = (
         sum(1 for r in af_high if r.get("on_anticoagulant")) / len(af_high) if af_high else 0.0

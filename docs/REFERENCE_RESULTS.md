@@ -17,9 +17,9 @@ n = 1000 synthetic patients per score (half true cases), seed 42, record input.
 
 | Score | Overall | Catch rate (sensitivity) | Look-alikes cleared (specificity) | Failing checks |
 |---|---|---|---|---|
-| qsofa (sepsis) | FAIL | 42% (37%–46%) | 95% (93%–97%) | accuracy Accuracy floor |
-| sirs (sepsis) | FAIL | 87% (84%–90%) | 51% (46%–55%) | accuracy Accuracy floor |
-| news2 (sepsis) | FAIL | 79% (75%–82%) | 58% (54%–62%) | accuracy Accuracy floor |
+| qsofa (sepsis) | FAIL | 42% (38%–47%) | 95% (93%–97%) | accuracy Accuracy floor |
+| sirs (sepsis) | FAIL | 88% (85%–91%) | 51% (46%–55%) | accuracy Accuracy floor |
+| news2 (sepsis) | FAIL | 79% (76%–83%) | 58% (54%–62%) | accuracy Accuracy floor |
 | rosier (stroke) | FAIL | 91% (89%–94%) | 29% (25%–33%) | accuracy Accuracy floor |
 | ada_dka (dka) | PASS | 100% (99%–100%) | 100% (99%–100%) | none |
 
@@ -27,16 +27,16 @@ Sepsis catch rate by presentation:
 
 | Score | Septic shock | Normal blood pressure |
 |---|---|---|
-| qsofa | 73% (65%–79%) | 25% (20%–30%) |
-| sirs | 100% (98%–100%) | 80% (76%–85%) |
-| news2 | 95% (91%–98%) | 69% (64%–74%) |
+| qsofa | 73% (65%–79%) | 25% (21%–30%) |
+| sirs | 100% (98%–100%) | 81% (76%–85%) |
+| news2 | 95% (91%–98%) | 71% (65%–76%) |
 
 ## How this compares with published performance
 
 | Score | Published | 7AAST | Agrees? |
 |---|---|---|---|
 | qSOFA ≥ 2 | Low sensitivity, high specificity outside the ICU (pooled sensitivity about 0.51, specificity about 0.83 for in-hospital mortality; Fernando et al., Ann Intern Med 2018). Seymour et al. (JAMA 2016) warned it is not a screening tool. | Catches 42%, clears 95%; catches only 25% of normotensive sepsis | Yes: the known weakness appears, and 7AAST shows where it comes from |
-| SIRS ≥ 2 | About 1 in 8 patients with sepsis is SIRS-negative, sensitivity about 88% (Kaukonen et al., NEJM 2015), and SIRS fires on many infections without organ dysfunction (low specificity; Churpek et al., AJRCCM 2017) | Catches 87%, clears 51% | Yes, on both |
+| SIRS ≥ 2 | About 1 in 8 patients with sepsis is SIRS-negative, sensitivity about 88% (Kaukonen et al., NEJM 2015), and SIRS fires on many infections without organ dysfunction (low specificity; Churpek et al., AJRCCM 2017) | Catches 88%, clears 51% | Yes, on both |
 | NEWS2 ≥ 5 | Detects deterioration in infected patients better than qSOFA and SIRS, with more false alarms than qSOFA (Churpek et al., AJRCCM 2017; RCP 2017) | Catches 79%, clears 58%; between qSOFA and SIRS on both | Yes, in direction |
 | ROSIER > 0 | High sensitivity, specificity varies widely with the mimic mix (Nor et al., Lancet Neurol 2005; later validations about 0.44–0.83) | Catches 91%, clears 29% | Sensitivity yes; specificity lower, because records carry the NIHSS total, not the ROSIER items, so every mimic with any deficit scores (see limits) |
 | ADA DKA criteria | Defines DKA | Perfect | By construction: the generator labels DKA with these criteria, so this row checks the plumbing, not the rule |
