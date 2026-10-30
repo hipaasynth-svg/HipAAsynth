@@ -32,6 +32,15 @@ Or call a Python function ``module:function`` that takes one case::
     hipaasynth 7aast run --condition stroke --input text --output text \\
         --model my_package.my_model:predict
 
+A model behind a URL (POST {"case": ...} -> {"answer": ...}), an LLM API, or a
+published clinical score::
+
+    hipaasynth 7aast run --condition sepsis --input record --output score \
+        --threshold 0.6 --url http://localhost:9000/predict
+    OPENAI_API_KEY=... hipaasynth 7aast run --condition sepsis --input text \
+        --llm openai --llm-model gpt-4o
+    hipaasynth 7aast run --condition sepsis --input record --reference qsofa
+
 Use the same --condition, --input, --n, --seed, --prevalence and --profile for
 ``export`` and ``run``.
 
@@ -52,6 +61,8 @@ from typing import Any
 from hipaasynth.aast.adapter import INPUT_TYPES, OUTPUT_TYPES, ModelAdapter
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import AnswerFileError, answers_adapter, export_cases
+from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
+from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
 from hipaasynth.aast.report import load_document, verify, write_report
 from hipaasynth.aast.run import AASTReport, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
@@ -110,6 +121,16 @@ def _load_function(spec: str) -> Any:
     return getattr(importlib.import_module(module_name), attr)
 
 
+def _headers(raw: list[str]) -> dict[str, str]:
+    headers = {}
+    for item in raw:
+        name, sep, value = item.partition(":")
+        if not sep or not name.strip():
+            raise ValueError(f"--header must look like 'Name: value', got {item!r}")
+        headers[name.strip()] = value.strip()
+    return headers
+
+
 def _adapter_settings(args: argparse.Namespace) -> dict[str, Any]:
     settings: dict[str, Any] = {}
     if args.threshold is not None:
@@ -158,6 +179,16 @@ def build_parser() -> argparse.ArgumentParser:
     source.add_argument("--demo", choices=DEMO_MODELS, help="Use a built-in DEMO model.")
     source.add_argument("--answers", help="Filled-in answers file from 'export'.")
     source.add_argument("--model", help="Python function module:function taking one case.")
+    source.add_argument("--reference", choices=sorted(REFERENCE_MODELS),
+                        help="A published clinical score (qSOFA, SIRS, NEWS2, ROSIER, ADA DKA).")  # fmt: skip
+    source.add_argument("--url", help="Model server URL: POST {case} -> {answer}.")
+    source.add_argument("--llm", choices=sorted(LLM_PROVIDERS),
+                        help="Ask an LLM API (key from OPENAI_API_KEY / ANTHROPIC_API_KEY).")  # fmt: skip
+    run.add_argument("--llm-model", help="--llm: the model name, e.g. gpt-4o or claude-sonnet-5-5.")
+    run.add_argument("--llm-base-url",
+                     help="--llm openai: an OpenAI-compatible server, e.g. a local one.")  # fmt: skip
+    run.add_argument("--header", action="append", default=[],
+                     help="--url: an HTTP header 'Name: value' (repeatable); never recorded.")  # fmt: skip
     run.add_argument("--output", choices=OUTPUT_TYPES, default="binary",
                      help="What the model answers (default binary).")  # fmt: skip
     run.add_argument("--threshold", type=float, help="score: the deployed alert cutoff.")
@@ -212,8 +243,27 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.demo:
             if args.output != "binary":
-                parser.error("--demo models answer yes/no; leave --output as binary")
+                raise ValueError("--demo models answer yes/no; leave --output as binary")
             adapter = demo_adapter(args.demo, args.condition, args.input)
+        elif args.reference:
+            if reference_condition(args.reference) != args.condition:
+                raise ValueError(
+                    f"--reference {args.reference} decides "
+                    f"{reference_condition(args.reference)}, not {args.condition}"
+                )
+            adapter = reference_adapter(args.reference, args.input)
+        elif args.url:
+            adapter = url_adapter(
+                args.url, args.output, input=args.input, condition=args.condition,
+                headers=_headers(args.header), **_adapter_settings(args),
+            )  # fmt: skip
+        elif args.llm:
+            if not args.llm_model:
+                raise ValueError("--llm needs --llm-model")
+            adapter = llm_adapter(
+                args.llm, args.llm_model, input=args.input, condition=args.condition,
+                base_url=args.llm_base_url,
+            )  # fmt: skip
         elif args.answers:
             adapter = answers_adapter(
                 args.answers, args.output, input=args.input, **_adapter_settings(args)
@@ -234,7 +284,8 @@ def main(argv: list[str] | None = None) -> int:
             demo=bool(args.demo),
             balance_groups=not args.natural_mix,
         )
-    except (AnswerFileError, ValueError, TypeError, ImportError, AttributeError, OSError) as err:
+    except (AnswerFileError, ValueError, TypeError, ImportError, AttributeError, OSError,
+            RemoteModelError) as err:  # fmt: skip
         print(f"hipaasynth 7aast: error: {err}", file=sys.stderr)
         return 1
     print(summary_text(report))

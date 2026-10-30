@@ -45,6 +45,8 @@ from hipaasynth.aast.adapter import INPUT_TYPES, OUTPUT_TYPES
 from hipaasynth.aast.cli import summary_text
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import answers_adapter, export_cases
+from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
+from hipaasynth.aast.remote import RemoteModelError, url_adapter
 from hipaasynth.aast.report import build_document, render_html
 from hipaasynth.aast.run import MIN_N, PREVALENCE_RANGE, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
@@ -67,6 +69,9 @@ RUN_KEYS = SETTING_KEYS | {
     "k",
     "name",
     "deployment_prevalence",
+    "reference",
+    "url",
+    "headers",
 }
 
 
@@ -155,13 +160,27 @@ def _adapter_settings(params: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def run_request(params: dict[str, Any]) -> dict[str, Any]:
-    """Handle ``POST /7aast``."""
+def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str, Any]:
+    """Handle ``POST /7aast``.
+
+    ``url`` (a model server the run calls) is only accepted when ``allow_url``
+    is set, which ``hipaasynth ui`` does for its 127.0.0.1-only server: a
+    shared server must not be made to send requests to arbitrary addresses.
+    """
     _unknown(params, RUN_KEYS)
     s = _settings(params)
     demo, answers = params.get("demo"), params.get("answers")
-    if bool(demo) == bool(answers):
-        raise RequestError("give exactly one of 'demo' (a built-in model) or 'answers' (a file)")
+    reference, url = params.get("reference"), params.get("url")
+    if sum(bool(x) for x in (demo, answers, reference, url)) != 1:
+        raise RequestError(
+            "give exactly one of 'demo' (a built-in model), 'reference' (a published score), "
+            "'answers' (a file) or 'url' (a model server)"
+        )
+    if url and not allow_url:
+        raise RequestError(
+            "'url' is only accepted by the local tool (hipaasynth ui); this server does not "
+            "call out to other addresses"
+        )
     deployment = None
     if params.get("deployment_prevalence") not in (None, ""):
         deployment = _number(params, "deployment_prevalence", float, None, 1e-6, 1.0)
@@ -178,6 +197,31 @@ def run_request(params: dict[str, Any]) -> dict[str, Any]:
             raise RequestError(f"'demo' must be one of {', '.join(DEMO_MODELS)}")
         adapter = demo_adapter(demo, s["condition"], s["input_type"])
         report = run_7aast(adapter, s["condition"], demo=True, **run_kwargs)
+    elif reference:
+        if reference not in REFERENCE_MODELS:
+            raise RequestError(f"'reference' must be one of {', '.join(sorted(REFERENCE_MODELS))}")
+        if reference_condition(reference) != s["condition"]:
+            raise RequestError(
+                f"'{reference}' decides {reference_condition(reference)}, not {s['condition']}"
+            )
+        report = run_7aast(reference_adapter(reference, s["input_type"]), s["condition"],
+                           **run_kwargs)  # fmt: skip
+    elif url:
+        output = params.get("output", "binary")
+        if output not in OUTPUT_TYPES:
+            raise RequestError(f"'output' must be one of {', '.join(OUTPUT_TYPES)}")
+        headers = params.get("headers") or {}
+        if not isinstance(headers, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in headers.items()
+        ):
+            raise RequestError("'headers' must be an object of header names to text values")
+        try:
+            adapter = url_adapter(str(url), output, input=s["input_type"],
+                                  condition=s["condition"], headers=headers,
+                                  **_adapter_settings(params))  # fmt: skip
+            report = run_7aast(adapter, s["condition"], **run_kwargs)
+        except (ValueError, RemoteModelError) as err:
+            raise RequestError(str(err)) from err
     else:
         if not isinstance(answers, str):
             raise RequestError("'answers' must be the text of the answers file")

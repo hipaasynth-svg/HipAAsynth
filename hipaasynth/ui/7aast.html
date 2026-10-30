@@ -136,14 +136,35 @@
         <b>Try a demo model</b><span>Built-in models to see how the test works. Not clinical tools.</span></label>
       <label class="choice"><input type="radio" name="source" value="file" />
         <b>Test my model with files</b><span>No integration: download cases, run them through your model, upload the answers.</span></label>
+      <label class="choice"><input type="radio" name="source" value="url" />
+        <b>My model's web address</b><span>The page sends each case to your model server and reads its answer.</span></label>
     </div>
     <div id="demoOpts">
       <label for="demo">Demo model</label>
       <select id="demo">
-        <option value="demo_guideline">Follows the guideline (should mostly pass)</option>
-        <option value="demo_biased">Biased on purpose (should fail some checks)</option>
+        <optgroup label="Demo models">
+          <option value="demo_guideline">Follows the guideline (should mostly pass)</option>
+          <option value="demo_biased">Biased on purpose (should fail some checks)</option>
+        </optgroup>
+        <optgroup label="Published clinical scores (real rules hospitals use)">
+          <option value="ref:qsofa" data-condition="sepsis">qSOFA (sepsis)</option>
+          <option value="ref:sirs" data-condition="sepsis">SIRS (sepsis)</option>
+          <option value="ref:news2" data-condition="sepsis">NEWS2 (sepsis, score 5 or more)</option>
+          <option value="ref:rosier" data-condition="stroke">ROSIER (stroke)</option>
+          <option value="ref:ada_dka" data-condition="dka">ADA 2024 criteria (DKA)</option>
+        </optgroup>
       </select>
-      <p class="sub" style="margin-top:8px">Demo models answer yes or no, so "What it answers" is set to yes or no.</p>
+      <p class="sub" style="margin-top:8px">These answer for you, so "What it answers" is set for them.
+        A published score is run for the condition it was made for.</p>
+    </div>
+    <div id="urlOpts" class="hidden">
+      <label for="modelUrl">Model address <span class="help">the page sends
+        <code>{"case": ..., "condition": ..., "input": ...}</code> and reads <code>{"answer": ...}</code></span></label>
+      <input id="modelUrl" type="text" placeholder="http://localhost:9000/predict" />
+      <label for="modelHeader">Header, if your server needs one <span class="help">e.g. Authorization: Bearer ...; never saved in the report</span></label>
+      <input id="modelHeader" type="text" placeholder="Authorization: Bearer ..." />
+      <label for="urlName">Model name for the report</label>
+      <input id="urlName" type="text" placeholder="e.g. Hospital sepsis model v2" />
     </div>
     <div id="fileOpts" class="hidden">
       <ol class="steps">
@@ -211,17 +232,24 @@ function setStatus(text, kind) {
 }
 
 function refresh() {
-  const demo = radio("source") === "demo";
-  if (demo) $("output").value = "binary";
+  const source = radio("source");
+  const demo = source === "demo";
+  const choice = $("demo").selectedOptions[0];
+  if (demo) {
+    $("output").value = choice.value === "ref:news2" ? "score" : "binary";
+    if (choice.dataset.condition) $("condition").value = choice.dataset.condition;
+  }
   $("output").disabled = demo;
+  $("condition").disabled = demo && Boolean(choice.dataset.condition);
   const out = $("output").value;
-  $("scoreOpts").classList.toggle("hidden", out !== "score");
-  $("ordinalOpts").classList.toggle("hidden", out !== "ordinal");
-  $("rankedOpts").classList.toggle("hidden", out !== "ranked");
+  $("scoreOpts").classList.toggle("hidden", demo || out !== "score");
+  $("ordinalOpts").classList.toggle("hidden", demo || out !== "ordinal");
+  $("rankedOpts").classList.toggle("hidden", demo || out !== "ranked");
   $("demoOpts").classList.toggle("hidden", !demo);
-  $("fileOpts").classList.toggle("hidden", demo);
+  $("fileOpts").classList.toggle("hidden", source !== "file");
+  $("urlOpts").classList.toggle("hidden", source !== "url");
 }
-document.querySelectorAll("input[name=source], input[name=input], #output")
+document.querySelectorAll("input[name=source], input[name=input], #output, #demo")
   .forEach((el) => el.addEventListener("change", refresh));
 
 function settings() {
@@ -278,15 +306,29 @@ $("exportBtn").addEventListener("click", () => busy($("exportBtn"), "Building th
 
 $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few seconds to a minute.", async () => {
   const body = settings();
-  if (radio("source") === "demo") {
-    body.demo = $("demo").value;
+  const source = radio("source");
+  if (source === "demo") {
+    const value = $("demo").value;
+    if (value.startsWith("ref:")) body.reference = value.slice(4);
+    else body.demo = value;
   } else {
-    const file = $("answersFile").files[0];
-    if (!file) throw new Error("Upload the filled-in answers file first (step 2).");
-    body.answers = await file.text();
-    body.answers_format = file.name.toLowerCase().endsWith(".jsonl") ? "jsonl" : "csv";
+    if (source === "url") {
+      if (!$("modelUrl").value.trim()) throw new Error("Enter your model's web address (step 2).");
+      body.url = $("modelUrl").value.trim();
+      const header = $("modelHeader").value;
+      if (header.includes(":")) {
+        const at = header.indexOf(":");
+        body.headers = { [header.slice(0, at).trim()]: header.slice(at + 1).trim() };
+      }
+      if ($("urlName").value.trim()) body.name = $("urlName").value.trim();
+    } else {
+      const file = $("answersFile").files[0];
+      if (!file) throw new Error("Upload the filled-in answers file first (step 2).");
+      body.answers = await file.text();
+      body.answers_format = file.name.toLowerCase().endsWith(".jsonl") ? "jsonl" : "csv";
+      if ($("modelName").value.trim()) body.name = $("modelName").value.trim();
+    }
     body.output = $("output").value;
-    if ($("modelName").value.trim()) body.name = $("modelName").value.trim();
     if (body.output === "score") {
       if ($("threshold").value === "") throw new Error("Enter the alert threshold for a score model.");
       body.threshold = Number($("threshold").value);

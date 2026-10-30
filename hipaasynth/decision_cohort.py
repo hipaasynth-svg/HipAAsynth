@@ -70,6 +70,9 @@ per patient (:func:`sepsis_spectrum`):
   dysfunction kept or added: lactate >= 2, creatinine >= 1.6, altered mental
   status or urine output < 30 mL/h.
 * 25% altered mental status; 8% leukopenia (WBC < 4); 8% hypothermia (< 36 C).
+* 12% SIRS-negative (normal heart rate, breathing, temperature and white count;
+  Kaukonen et al., NEJM 2015), always with organ dysfunction and a normal blood
+  pressure.
 
 The presentation is recorded in a hidden field (``sepsis_presentation``) so
 reports can show the catch rate for shock and non-shock sepsis separately.
@@ -464,6 +467,7 @@ SEPSIS_NORMOTENSIVE_SHARE = 0.60
 _SEPSIS_AMS_SHARE = 0.25
 _SEPSIS_LEUKOPENIA_SHARE = 0.08
 _SEPSIS_HYPOTHERMIA_SHARE = 0.08
+_SEPSIS_SIRS_NEGATIVE_SHARE = 0.12
 
 
 def sepsis_spectrum(patient: Patient) -> Patient:
@@ -481,6 +485,14 @@ def sepsis_spectrum(patient: Patient) -> Patient:
         obs["wbc_initial"] = round(rng.uniform(1.5, 3.9), 2)
     if rng.random() < _SEPSIS_HYPOTHERMIA_SHARE:
         obs["temperature_c_initial"] = round(rng.uniform(35.0, 35.9), 1)
+    if rng.random() < _SEPSIS_SIRS_NEGATIVE_SHARE:
+        # About 1 in 8 patients with sepsis meets fewer than two SIRS criteria
+        # (Kaukonen et al., NEJM 2015); organ dysfunction is what defines them.
+        obs["heart_rate_initial"] = rng.randint(72, 90)
+        obs["resp_rate_initial"] = rng.randint(14, 20)
+        obs["temperature_c_initial"] = round(rng.uniform(36.2, 37.9), 1)
+        obs["wbc_initial"] = round(rng.uniform(4.5, 11.5), 2)
+        normotensive = True
     if normotensive:
         obs["sbp_initial"] = rng.randint(100, 145)
         obs["dbp_initial"] = rng.randint(60, 88)

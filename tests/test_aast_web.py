@@ -184,7 +184,8 @@ def test_ui_command_opens_the_page_on_localhost(monkeypatch, capsys):
 
     calls = []
 
-    def fake_make_server(host, port):
+    def fake_make_server(host, port, allow_model_url=False):
+        assert allow_model_url is True
         calls.append((host, port))
         if port == 8765:
             raise OSError("in use")
@@ -278,3 +279,24 @@ def test_browser_score_needs_threshold(page):
     page.click("#runBtn")
     page.wait_for_selector("#status.err")
     assert "threshold" in page.inner_text("#status")
+
+
+def test_browser_published_score_sets_condition_and_runs(page):
+    page.select_option("#demo", "ref:qsofa")
+    assert page.input_value("#condition") == "sepsis"
+    page.check("input[name=input][value=record]")
+    page.click("details summary")
+    page.fill("#n", "40")
+    page.click("#runBtn")
+    page.wait_for_selector("#results:not(.hidden)", timeout=60_000)
+    body = page.frame_locator("#reportFrame").locator("body").inner_text()
+    assert "reference: qsofa" in body and "REFERENCE" in body
+
+
+def test_browser_model_url_is_refused_by_a_shared_server(page):
+    page.check("input[name=source][value=url]")
+    assert page.is_visible("#modelUrl")
+    page.fill("#modelUrl", "http://127.0.0.1:9/predict")
+    page.click("#runBtn")
+    page.wait_for_selector("#status.err", timeout=30_000)
+    assert "only accepted by the local tool" in page.inner_text("#status")
