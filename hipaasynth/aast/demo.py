@@ -178,6 +178,7 @@ _RECORD_LABELS = {
     "forehead_weakness": "Forehead weakness on the affected side", "arterial_ph": "pH",
     "bicarbonate_meq_l": "HCO3", "beta_hydroxybutyrate_mmol_l": "Beta-hydroxybutyrate",
     "glucose_mg_dl": "Glucose", "diabetes_type": "Diabetes type", "ketonuria": "Urine ketones",
+    "spo2_initial": "SpO2", "wbc_initial": "WBC", "dbp_initial": "DBP",
 }  # fmt: skip
 
 _FABRY_KEYS = (

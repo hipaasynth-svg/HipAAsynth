@@ -38,7 +38,7 @@ def _obs(case):
 @pytest.fixture(scope="module")
 def text_reports():
     return {
-        name: run_7aast(demo_adapter(name, "sepsis", "text"), "sepsis", n=100, demo=True)
+        name: run_7aast(demo_adapter(name, "sepsis", "text"), "sepsis", n=200, demo=True)
         for name in ("demo_guideline", "demo_biased")
     }
 
@@ -406,9 +406,9 @@ def test_hipaasynth_command_dispatches_7aast(capsys):
 
 
 def test_cli_demo_rejects_non_binary_output(capsys):
-    with pytest.raises(SystemExit):
-        aast_main(["run", "--condition", "dka", "--input", "record", "--demo", "demo_guideline",
-                   "--output", "score"])  # fmt: skip
+    code = aast_main(["run", "--condition", "dka", "--input", "record", "--demo",
+                      "demo_guideline", "--output", "score"])  # fmt: skip
+    assert code == 1 and "answer yes/no" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("input_type", ["record", "text"])

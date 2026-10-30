@@ -59,6 +59,7 @@ from this same server, so it shares the API's origin and needs no CORS handling.
 All records are synthetic (no PHI). Output paths/handling are the caller's; the
 server holds nothing on disk beyond a short-lived temp file for the Parquet path.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -93,6 +94,7 @@ from hipaasynth.scenarios import (
 )
 from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module map
 from hipaasynth.viz import demographics_distribution_svg, fairness_heatmap_svg
+
 # Response formats the API can serialize to a single HTTP response.
 API_FORMATS = ("json", "csv", "fhir-bundle", "ndjson", "omop", "parquet")
 # Built-in mock models the /viz/fairness demo audit can run (no model-under-test
@@ -192,8 +194,7 @@ def parse_generate_request(params: dict, *, max_count: int = DEFAULT_MAX_COUNT) 
         if profile_name not in available_profiles():
             raise ApiError(
                 400,
-                f"unknown profile {profile_name!r}; available: "
-                f"{', '.join(available_profiles())}",
+                f"unknown profile {profile_name!r}; available: {', '.join(available_profiles())}",
             )
         profile_path = str(_PROFILES_DIR / f"{profile_name}.json")
     else:
@@ -237,9 +238,7 @@ def _fhir_bundle(patients) -> dict:
     bundle = {"resourceType": "Bundle", "type": "collection", "entry": []}
     for patient in patients:
         for resource in _patient_to_fhir(patient):
-            bundle["entry"].append(
-                {"fullUrl": f"urn:uuid:{resource['id']}", "resource": resource}
-            )
+            bundle["entry"].append({"fullUrl": f"urn:uuid:{resource['id']}", "resource": resource})
     return bundle
 
 
@@ -301,6 +300,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = f"HipAAsynth/{ENGINE_VERSION}"
     max_count = DEFAULT_MAX_COUNT
+    # Only the local tool (hipaasynth ui, bound to 127.0.0.1) may call a model URL.
+    allow_model_url = False
     # Known routes and the methods they accept (for correct 404 vs 405).
     _ROUTES = {
         "/": {"GET"},
@@ -333,11 +334,13 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         unknown = sorted(str(k) for k in params if k not in allowed)
         if not unknown:
             return False
-        self._send_api_error(ApiError(
-            400,
-            f"unknown parameter(s) for {route}: {', '.join(unknown)}; "
-            f"supported: {', '.join(sorted(allowed))}",
-        ))
+        self._send_api_error(
+            ApiError(
+                400,
+                f"unknown parameter(s) for {route}: {', '.join(unknown)}; "
+                f"supported: {', '.join(sorted(allowed))}",
+            )
+        )
         return True
 
     # ── response helpers ─────────────────────────────────────────────────────
@@ -350,8 +353,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def _send_json(self, status: int, obj):
-        self._send_bytes(status, "application/json",
-                         json.dumps(obj, ensure_ascii=False).encode("utf-8"))
+        self._send_bytes(
+            status, "application/json", json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        )
 
     def _send_svg(self, svg: str):
         self._send_bytes(200, "image/svg+xml; charset=utf-8", svg.encode("utf-8"))
@@ -365,8 +369,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         try:
             body = index.read_bytes()
         except OSError:  # pragma: no cover - the file ships with the package
-            return self._send_json(
-                500, {"error": "web UI asset missing", "status": 500})
+            return self._send_json(500, {"error": "web UI asset missing", "status": 500})
         self._send_bytes(200, "text/html; charset=utf-8", body)
 
     def _read_body(self, declared_length: int, limit: int = MAX_BODY_BYTES) -> bytes:
@@ -402,10 +405,12 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             return True
         if method not in self._ROUTES[route]:
             allow = ", ".join(sorted(self._ROUTES[route]))
-            body = json.dumps({
-                "error": f"method {method} not allowed for {route}; allowed: {allow}",
-                "status": 405,
-            }).encode("utf-8")
+            body = json.dumps(
+                {
+                    "error": f"method {method} not allowed for {route}; allowed: {allow}",
+                    "status": 405,
+                }
+            ).encode("utf-8")
             self.send_response(405)
             self.send_header("Allow", allow)
             self.send_header("Content-Type", "application/json")
@@ -428,13 +433,16 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         if route == "/health":
             return self._send_json(200, {"status": "ok", "engine_version": ENGINE_VERSION})
         if route == "/formats":
-            return self._send_json(200, {
-                "formats": list(API_FORMATS),
-                "modules": list(MODULE_TO_CONDITION),
-                "profiles": available_profiles(),
-                "scenarios": available_scenarios(),
-                "max_count": self.max_count,
-            })
+            return self._send_json(
+                200,
+                {
+                    "formats": list(API_FORMATS),
+                    "modules": list(MODULE_TO_CONDITION),
+                    "profiles": available_profiles(),
+                    "scenarios": available_scenarios(),
+                    "max_count": self.max_count,
+                },
+            )
         if route == "/scenarios":
             return self._send_json(200, {"scenarios": scenario_summaries()})
         params = {k: v[0] for k, v in parse_qs(parsed.query).items()}
@@ -461,11 +469,12 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         # Reject an oversized (or forged) Content-Length BEFORE reading/allocating
         # toward it — a huge value must not be trusted into self.rfile.read().
         if length > limit:
-            return self._send_api_error(ApiError(
-                413,
-                f"request body too large: {length} bytes exceeds the "
-                f"{limit}-byte limit",
-            ))
+            return self._send_api_error(
+                ApiError(
+                    413,
+                    f"request body too large: {length} bytes exceeds the {limit}-byte limit",
+                )
+            )
         raw = self._read_body(length, limit)
         if route.startswith("/7aast"):
             return self._handle_7aast(route, raw)
@@ -555,8 +564,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
 
         model_name = str(params.get("model", "biased"))
         if model_name not in _VIZ_MODELS:
-            return self._send_api_error(ApiError(
-                400, f"unknown model {model_name!r}; supported: {', '.join(_VIZ_MODELS)}"))
+            return self._send_api_error(
+                ApiError(400, f"unknown model {model_name!r}; supported: {', '.join(_VIZ_MODELS)}")
+            )
         models = {
             "biased": MockBiasedModel,
             "fair": MockFairModel,
@@ -571,8 +581,7 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
                     f"(the demo audit renders 7 forms per patient), got {req['count']}",
                 )
             cfg = build_config(req)
-            dif_cfg = DIFConfig(
-                device_name=f"Demo {model_name} model", device_version="0.0.0")
+            dif_cfg = DIFConfig(device_name=f"Demo {model_name} model", device_version="0.0.0")
             passports = run_audit(models[model_name](), generate_patients, cfg, dif_cfg)
             # Stamp the caveat into the image itself. This endpoint can only ever
             # audit a built-in mock, and the SVG outlives the page that served it.
@@ -603,7 +612,10 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         if not isinstance(params, dict):
             return self._send_api_error(ApiError(400, "JSON body must be an object"))
         try:
-            result = (run_request if route == "/7aast" else export_request)(params)
+            if route == "/7aast":
+                result = run_request(params, allow_url=self.allow_model_url)
+            else:
+                result = export_request(params)
         except (RequestError, AnswerFileError) as err:
             return self._send_api_error(ApiError(400, str(err)))
         except Exception as err:  # pragma: no cover - defensive 500
@@ -625,14 +637,22 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"0\r\n\r\n")
 
 
-def make_server(host: str = "127.0.0.1", port: int = 8000,
-                max_count: int = DEFAULT_MAX_COUNT) -> ThreadingHTTPServer:
+def make_server(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    max_count: int = DEFAULT_MAX_COUNT,
+    allow_model_url: bool = False,
+) -> ThreadingHTTPServer:
     """Build (but do not start) a threaded HTTP server bound to host:port.
 
     Pass ``port=0`` to bind an ephemeral port (useful for tests); read it back
     from ``server.server_address[1]``.
     """
-    handler = type("BoundHipAASynthHandler", (HipAASynthHandler,), {"max_count": max_count})
+    handler = type(
+        "BoundHipAASynthHandler",
+        (HipAASynthHandler,),
+        {"max_count": max_count, "allow_model_url": allow_model_url},
+    )
     return ThreadingHTTPServer((host, port), handler)
 
 
@@ -642,8 +662,12 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--max-count", type=int, default=DEFAULT_MAX_COUNT,
-                        help="Maximum patients per request (default %(default)s).")
+    parser.add_argument(
+        "--max-count",
+        type=int,
+        default=DEFAULT_MAX_COUNT,
+        help="Maximum patients per request (default %(default)s).",
+    )
     args = parser.parse_args(argv)
     server = make_server(args.host, args.port, args.max_count)
     host, port = server.server_address[0], server.server_address[1]
@@ -674,13 +698,14 @@ def ui_main(argv=None, *, open_browser=None) -> int:
         description="Open the HipAAsynth tools in your browser (runs on this computer only).",
     )
     parser.add_argument("--port", type=int, default=8765, help="Port (default %(default)s).")
-    parser.add_argument("--no-browser", action="store_true",
-                        help="Print the address instead of opening a browser.")
+    parser.add_argument(
+        "--no-browser", action="store_true", help="Print the address instead of opening a browser."
+    )
     args = parser.parse_args(argv)
     try:
-        server = make_server("127.0.0.1", args.port)
+        server = make_server("127.0.0.1", args.port, allow_model_url=True)
     except OSError:
-        server = make_server("127.0.0.1", 0)
+        server = make_server("127.0.0.1", 0, allow_model_url=True)
     url = f"http://127.0.0.1:{server.server_address[1]}/7aast"
     print(f"HipAAsynth is running at {url}")
     print("  It runs on this computer only. Press Ctrl-C to stop.")

@@ -371,6 +371,12 @@ def run_7aast(
             "SpO2 is shown as a pulse oximeter reads it, over-reading more on darker skin "
             "(Monk skin tone); about 60% of true sepsis cases have a normal blood pressure."
         )
+    if adapter.name.startswith("reference: "):
+        limitations.insert(
+            0,
+            "REFERENCE: a reimplementation of a published clinical score, run to show how "
+            "the rule behaves; not a vendor's product.",
+        )
     if demo:
         limitations.insert(0, "DEMO: built-in demonstration model, not a clinical tool.")
     return AASTReport(

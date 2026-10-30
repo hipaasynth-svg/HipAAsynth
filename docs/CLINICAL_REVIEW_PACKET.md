@@ -109,6 +109,7 @@ is redrawn, deterministically per patient:
 | Altered mental status | 25% |
 | Leukopenia (WBC 1.5–3.9) | 8% |
 | Hypothermia (35.0–35.9 °C) | 8% |
+| SIRS-negative: HR 72–90, RR 14–20, temp 36.2–37.9 °C, WBC 4.5–11.5, normal blood pressure, organ dysfunction kept (Kaukonen et al., NEJM 2015) | 12% |
 
 Reports give the catch rate for shock and normotensive sepsis separately.
 

@@ -40,8 +40,7 @@ hipaasynth 7aast run --condition sepsis --input text --demo demo_biased --report
 
 ## 2. Test your own model
 
-Pick the way that fits how your model is deployed. All three give the same
-report.
+Pick the way that fits how your model is deployed. All give the same report.
 
 ### A. By file: no integration at all
 
@@ -94,7 +93,48 @@ print(report.overall)                      # PASS / FAIL / INCONCLUSIVE
 write_report(report, "report.html")        # or report.json
 ```
 
-### C. In a pipeline (CI)
+### C. A model behind a web address, or an LLM
+
+If your model runs as a service (a hospital model server, a vendor sandbox, a
+notebook behind a small web app), 7AAST can send it each case:
+
+```bash
+hipaasynth 7aast run --condition sepsis --input record --output score \
+    --threshold 0.6 --url http://localhost:9000/predict --header "Authorization: Bearer ..."
+```
+
+7AAST sends `POST {"case": ..., "condition": "sepsis", "input": "record"}` and
+reads `{"answer": ...}` back (or the answer as plain text; "yes", "true", 1 and
+numbers are read as in an answers file). The address is recorded in the report
+without its query string, and headers are never recorded. On the page choose
+**My model's web address**; only the local tool (`hipaasynth ui`) will call an
+address, a shared server refuses.
+
+For an LLM, give the provider and model; the key comes from
+`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`:
+
+```bash
+hipaasynth 7aast run --condition stroke --input text --llm openai --llm-model gpt-4o
+hipaasynth 7aast run --condition stroke --input text --llm anthropic --llm-model claude-sonnet-5-5
+hipaasynth 7aast run --condition stroke --input text --llm openai --llm-model llama3 \
+    --llm-base-url http://localhost:11434/v1        # any OpenAI-compatible server
+```
+
+### D. A published clinical score
+
+To see how a rule hospitals already use behaves, run one of the built-in
+reference scores: `qsofa`, `sirs`, `news2` (sepsis), `rosier` (stroke) or
+`ada_dka` (DKA):
+
+```bash
+hipaasynth 7aast run --condition sepsis --input record --reference qsofa
+```
+
+They are reimplemented from their publications and labelled `REFERENCE` in the
+report. Results and how they compare with the literature:
+[REFERENCE_RESULTS.md](REFERENCE_RESULTS.md).
+
+### E. In a pipeline (CI)
 
 `hipaasynth 7aast run` exits with code **2** when any check FAILs, **0**
 otherwise and **1** on an error, so a build can stop a model that regresses.
