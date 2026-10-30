@@ -34,8 +34,9 @@ from hipaasynth.pipelines.population_pipeline import generate_patients
 
 
 def _cfg(condition="stroke", n=3):
-    return GenerationConfig(patient_count=n, seed=1, required_condition=condition,
-                            run_date="2026-01-01")
+    return GenerationConfig(
+        patient_count=n, seed=1, required_condition=condition, run_date="2026-01-01"
+    )
 
 
 class _Returns:
@@ -54,8 +55,9 @@ def test_non_boolean_prediction_is_rejected(bad):
 
 @pytest.mark.parametrize("bad", ["yes", 1])
 def test_non_boolean_decision_inside_decision_result_is_rejected(bad):
-    model = _Returns(DecisionResult(raw_response="x", decision=bad, refused=False,
-                                    parse_confidence=1.0))
+    model = _Returns(
+        DecisionResult(raw_response="x", decision=bad, refused=False, parse_confidence=1.0)
+    )
     with pytest.raises(TypeError, match="expected bool or DecisionResult"):
         run_audit(model, generate_patients, _cfg(), DIFConfig())
 
@@ -64,12 +66,15 @@ def test_boolean_and_decision_result_still_accepted():
     for model in (
         MockFairModel(),
         _Returns(True),
-        _Returns(DecisionResult(raw_response="YES", decision=True, refused=False,
-                                parse_confidence=1.0)),
-        _Returns(DecisionResult(raw_response="?", decision=None, refused=False,
-                                parse_confidence=0.0)),
-        _Returns(DecisionResult(raw_response="no", decision=None, refused=True,
-                                parse_confidence=0.0)),
+        _Returns(
+            DecisionResult(raw_response="YES", decision=True, refused=False, parse_confidence=1.0)
+        ),
+        _Returns(
+            DecisionResult(raw_response="?", decision=None, refused=False, parse_confidence=0.0)
+        ),
+        _Returns(
+            DecisionResult(raw_response="no", decision=None, refused=True, parse_confidence=0.0)
+        ),
     ):
         assert len(run_audit(model, generate_patients, _cfg(), DIFConfig())) == 3
 
@@ -95,5 +100,6 @@ def test_warns_when_cohort_has_no_positive_ground_truth():
 def test_no_warning_when_cohort_has_positives(condition):
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
-        run_audit(MockBiasedModel(), generate_patients, _cfg(condition=condition, n=10),
-                  DIFConfig())
+        run_audit(
+            MockBiasedModel(), generate_patients, _cfg(condition=condition, n=10), DIFConfig()
+        )

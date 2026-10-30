@@ -158,23 +158,27 @@ def _generate_labs(rng: random.Random) -> Dict[str, Any]:
 def _generate_lab_history(rng: random.Random) -> List[Dict[str, Any]]:
     entries = []
     for months_ago in [3, 6, 12]:
-        entries.append({
-            "months_ago": months_ago,
-            "hba1c_pct": round(rng.gauss(7.2, 1.0), 1),
-            "egfr_ml_min": round(rng.gauss(65, 20), 0),
-            "ldl_mgdl": round(rng.gauss(110, 30), 0),
-        })
+        entries.append(
+            {
+                "months_ago": months_ago,
+                "hba1c_pct": round(rng.gauss(7.2, 1.0), 1),
+                "egfr_ml_min": round(rng.gauss(65, 20), 0),
+                "ldl_mgdl": round(rng.gauss(110, 30), 0),
+            }
+        )
     return entries
 
 
 def _generate_visit_history(rng: random.Random) -> List[Dict[str, Any]]:
     entries = []
     for i, months_ago in enumerate([1, 4, 8, 14]):
-        entries.append({
-            "months_ago": months_ago,
-            "visit_type": rng.choice(["PCP", "Specialist", "ED", "Urgent care"]),
-            "facility": f"Clinic {i + 1}",
-        })
+        entries.append(
+            {
+                "months_ago": months_ago,
+                "visit_type": rng.choice(["PCP", "Specialist", "ED", "Urgent care"]),
+                "facility": f"Clinic {i + 1}",
+            }
+        )
     return entries
 
 
@@ -207,8 +211,7 @@ class PSFGenerator:
         """
         if sparsity_level not in SPARSITY_LEVELS:
             raise ValueError(
-                f"Unknown sparsity level {sparsity_level!r}. "
-                f"Choose from {SPARSITY_LEVELS}."
+                f"Unknown sparsity level {sparsity_level!r}. " f"Choose from {SPARSITY_LEVELS}."
             )
 
         # Derive a level-specific seed so that generating S1 vs S7 populations
@@ -235,9 +238,7 @@ class PSFGenerator:
     # Internal builders
     # ------------------------------------------------------------------
 
-    def _build(
-        self, rng: random.Random, idx: int, level: str
-    ) -> Dict[str, Any]:
+    def _build(self, rng: random.Random, idx: int, level: str) -> Dict[str, Any]:
         """Assemble a patient dict for the given sparsity level."""
 
         # Core fields — always present at every level.
@@ -280,8 +281,6 @@ class PSFGenerator:
         # S6+ adds SES and insurance.
         if level in ("S6", "S7"):
             patient["ses_proxy"] = _weighted_choice(rng, _SES_OPTS, _SES_WEIGHTS)
-            patient["insurance_type"] = _weighted_choice(
-                rng, _INSURANCE_OPTS, _INSURANCE_WEIGHTS
-            )
+            patient["insurance_type"] = _weighted_choice(rng, _INSURANCE_OPTS, _INSURANCE_WEIGHTS)
 
         return patient

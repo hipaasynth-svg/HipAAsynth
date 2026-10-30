@@ -77,7 +77,12 @@ from hipaasynth.exporters.omop import build_cdm_tables
 # ─────────────────────────────────────────────────────────────────────────────
 LINKED_LAB_PAIRS: List[Dict[str, Any]] = [
     {"condition": "type2_diabetes", "lab": "Glucose", "direction": "higher", "floor": None},
-    {"condition": "chronic_kidney_disease", "lab": "Creatinine", "direction": "higher", "floor": 1.05},
+    {
+        "condition": "chronic_kidney_disease",
+        "lab": "Creatinine",
+        "direction": "higher",
+        "floor": 1.05,
+    },
     {"condition": "hyperlipidemia", "lab": "LDL", "direction": "higher", "floor": 160.0},
     {"condition": "sepsis", "lab": "WBC", "direction": "higher", "floor": 11.0},
 ]
@@ -183,7 +188,10 @@ def condition_prevalence(patients: Sequence[Any]) -> Dict[str, Dict[str, float]]
         for name in {c.name for c in p.conditions}:
             counts[name] = counts.get(name, 0) + 1
     return {
-        name: {"count": counts[name], "prevalence": round(counts[name] / total, 4) if total else 0.0}
+        name: {
+            "count": counts[name],
+            "prevalence": round(counts[name] / total, 4) if total else 0.0,
+        }
         for name in sorted(counts)
     }
 
@@ -203,14 +211,14 @@ class LinkedCorrelation:
 
     condition: str
     lab: str
-    expected_direction: str          # "higher" — the engine raises the lab
-    n_with: int                      # patients carrying the condition (with the lab)
+    expected_direction: str  # "higher" — the engine raises the lab
+    n_with: int  # patients carrying the condition (with the lab)
     n_without: int
     mean_with: Optional[float]
     mean_without: Optional[float]
-    mean_shift: Optional[float]      # mean_with - mean_without
+    mean_shift: Optional[float]  # mean_with - mean_without
     point_biserial: Optional[float]  # corr(has_condition, patient-mean lab)
-    direction_ok: Optional[bool]     # None when not evaluable (a group is empty)
+    direction_ok: Optional[bool]  # None when not evaluable (a group is empty)
 
 
 def linked_lab_correlations(patients: Sequence[Any]) -> List[LinkedCorrelation]:
@@ -323,8 +331,12 @@ def temporal_consistency(patients: Sequence[Any]) -> TemporalConsistencyReport:
             report.n_conditions_checked += 1
             if c.onset_age > age:
                 report.onset_after_age.append(
-                    {"patient_id": p.demographics.patient_id, "condition": c.name,
-                     "onset_age": c.onset_age, "age": age}
+                    {
+                        "patient_id": p.demographics.patient_id,
+                        "condition": c.name,
+                        "onset_age": c.onset_age,
+                        "age": age,
+                    }
                 )
 
     # Observation-period span + measurement containment via the CDM rows.
@@ -350,8 +362,13 @@ def temporal_consistency(patients: Sequence[Any]) -> TemporalConsistencyReport:
         report.n_measurements_checked += 1
         if start and end and not (start <= date <= end):
             report.measurement_outside_span.append(
-                {"person_id": m["person_id"], "measurement_id": m["measurement_id"],
-                 "measurement_date": date, "span_start": start, "span_end": end}
+                {
+                    "person_id": m["person_id"],
+                    "measurement_id": m["measurement_id"],
+                    "measurement_date": date,
+                    "span_start": start,
+                    "span_end": end,
+                }
             )
 
     return report
@@ -379,7 +396,7 @@ def visit_order_report(patients: Sequence[Any]) -> Dict[str, Any]:
         "chronologically_ordered": ordered,
         "ordered_fraction": round(ordered / multi, 4) if multi else None,
         "note": "The engine draws visit dates independently and does not sort "
-                "them; unordered visits are expected and not a defect.",
+        "them; unordered visits are expected and not a defect.",
     }
 
 

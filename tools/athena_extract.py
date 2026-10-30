@@ -26,24 +26,76 @@ from pathlib import Path
 
 # concept_ids referenced by the conditions/measurements/visits sections.
 WANTED_IDS = {
-    722455, 9201, 9202, 9203, 132797, 201826, 255573, 313217, 319835, 316866,
-    317009, 317576, 321052, 381316, 432867, 439777, 440383, 313459, 3000905,
-    3000963, 3004501, 3011960, 3016407, 3016723, 3019550, 3023103, 3028288,
-    3049187, 194984, 4329847, 42529224, 46271022,
+    722455,
+    9201,
+    9202,
+    9203,
+    132797,
+    201826,
+    255573,
+    313217,
+    319835,
+    316866,
+    317009,
+    317576,
+    321052,
+    381316,
+    432867,
+    439777,
+    440383,
+    313459,
+    3000905,
+    3000963,
+    3004501,
+    3011960,
+    3016407,
+    3016723,
+    3019550,
+    3023103,
+    3028288,
+    3049187,
+    194984,
+    4329847,
+    42529224,
+    46271022,
 }
 
 # (vocabulary_id, concept_code) pairs referenced by the medications section,
 # whose concept_id is resolved from the code (RxNorm ingredients, ATC classes).
 WANTED_CODES = {
-    ("ATC", "A10A"), ("ATC", "A10BB"), ("ATC", "A10BH"), ("ATC", "A10BJ"),
-    ("ATC", "A10BK"), ("ATC", "B01A"), ("ATC", "C03A"), ("ATC", "C03C"),
-    ("ATC", "C03DA"), ("ATC", "C07"), ("ATC", "C08"), ("ATC", "C09"),
-    ("ATC", "C09A"), ("ATC", "C09C"), ("ATC", "C10AA"), ("ATC", "H02AB"),
-    ("ATC", "R03AC"), ("ATC", "R03AK"), ("ATC", "R03AL"), ("ATC", "R03BB"),
-    ("RxNorm", "1091836"), ("RxNorm", "1191"), ("RxNorm", "1649480"),
-    ("RxNorm", "1819"), ("RxNorm", "1863556"), ("RxNorm", "2170226"),
-    ("RxNorm", "2390935"), ("RxNorm", "3407"), ("RxNorm", "5470"),
-    ("RxNorm", "6058"), ("RxNorm", "6809"), ("RxNorm", "6813"), ("RxNorm", "7243"),
+    ("ATC", "A10A"),
+    ("ATC", "A10BB"),
+    ("ATC", "A10BH"),
+    ("ATC", "A10BJ"),
+    ("ATC", "A10BK"),
+    ("ATC", "B01A"),
+    ("ATC", "C03A"),
+    ("ATC", "C03C"),
+    ("ATC", "C03DA"),
+    ("ATC", "C07"),
+    ("ATC", "C08"),
+    ("ATC", "C09"),
+    ("ATC", "C09A"),
+    ("ATC", "C09C"),
+    ("ATC", "C10AA"),
+    ("ATC", "H02AB"),
+    ("ATC", "R03AC"),
+    ("ATC", "R03AK"),
+    ("ATC", "R03AL"),
+    ("ATC", "R03BB"),
+    ("RxNorm", "1091836"),
+    ("RxNorm", "1191"),
+    ("RxNorm", "1649480"),
+    ("RxNorm", "1819"),
+    ("RxNorm", "1863556"),
+    ("RxNorm", "2170226"),
+    ("RxNorm", "2390935"),
+    ("RxNorm", "3407"),
+    ("RxNorm", "5470"),
+    ("RxNorm", "6058"),
+    ("RxNorm", "6809"),
+    ("RxNorm", "6813"),
+    ("RxNorm", "7243"),
 }
 
 
@@ -72,12 +124,12 @@ def extract(concept_csv: Path, out_csv: Path) -> tuple[int, int]:
             if required not in fields:
                 raise SystemExit(
                     f"error: {concept_csv} has no '{required}' column; is this an "
-                    f"ATHENA CONCEPT.csv? Found columns: {fields}")
+                    f"ATHENA CONCEPT.csv? Found columns: {fields}"
+                )
 
         written = scanned = 0
         with open(out_csv, "w", encoding="utf-8", newline="") as out:
-            writer = csv.DictWriter(out, fieldnames=fields, delimiter="\t",
-                                    quoting=csv.QUOTE_NONE)
+            writer = csv.DictWriter(out, fieldnames=fields, delimiter="\t", quoting=csv.QUOTE_NONE)
             writer.writeheader()
             for row in reader:
                 scanned += 1
@@ -88,8 +140,10 @@ def extract(concept_csv: Path, out_csv: Path) -> tuple[int, int]:
                 except (TypeError, ValueError):
                     pass
                 if not keep:
-                    pair = ((row.get("vocabulary_id") or "").strip(),
-                            (row.get("concept_code") or "").strip())
+                    pair = (
+                        (row.get("vocabulary_id") or "").strip(),
+                        (row.get("concept_code") or "").strip(),
+                    )
                     if pair in WANTED_CODES:
                         keep = True
                 if keep:
@@ -115,12 +169,16 @@ def main(argv=None) -> int:
     print(f"scanned {scanned:,} CONCEPT rows")
     print(f"wrote {written} matching row(s) -> {out_csv}")
     if written < expected:
-        print(f"NOTE: expected up to {expected} rows but found {written}. "
-              f"Missing rows usually mean a vocabulary (SNOMED / LOINC / RxNorm / "
-              f"ATC) was not included in this ATHENA download.")
+        print(
+            f"NOTE: expected up to {expected} rows but found {written}. "
+            f"Missing rows usually mean a vocabulary (SNOMED / LOINC / RxNorm / "
+            f"ATC) was not included in this ATHENA download."
+        )
     print("\nSend concept_subset.csv back, or validate it directly with:")
-    print("  python -m hipaasynth.vocabulary.validate --concept-csv "
-          f"{out_csv.name} --write-status --release \"ATHENA <date>\"")
+    print(
+        "  python -m hipaasynth.vocabulary.validate --concept-csv "
+        f'{out_csv.name} --write-status --release "ATHENA <date>"'
+    )
     return 0
 
 

@@ -36,49 +36,49 @@ import os
 from hipaasynth.core.hashing import stable_seed_from_id
 
 _PROFILE_PARAMS = {
-    "rural":   {"dropout_year": 4, "comorbidity_rate": 0.4,  "age_correction": -0.5},
-    "tribal":  {"dropout_year": 2, "comorbidity_rate": 0.6,  "age_correction": -0.3},
-    "urban":   {"dropout_year": 6, "comorbidity_rate": 0.25, "age_correction": -0.2},
+    "rural": {"dropout_year": 4, "comorbidity_rate": 0.4, "age_correction": -0.5},
+    "tribal": {"dropout_year": 2, "comorbidity_rate": 0.6, "age_correction": -0.3},
+    "urban": {"dropout_year": 6, "comorbidity_rate": 0.25, "age_correction": -0.2},
     "default": {"dropout_year": 3, "comorbidity_rate": 0.35, "age_correction": -0.3},
 }
 
 # Explicit filename → profile type mapping.
 # Add new profiles here when they are created.
 _FILENAME_TO_TYPE = {
-    "minot_nd.json":                    "rural",
-    "nd_tribal_region_a.json":     "tribal",
-    "nd_tribal_region_a_v2.json":  "tribal",
-    "nd_tribal_region_b.json":     "tribal",
-    "nd_tribal_region_b_v2.json":  "tribal",
-    "fargo_nd.json":                    "urban",
-    "us_default.json":                  "default",
-    "karachi_pakistan.json":            "default",
-    "lagos_nigeria.json":               "default",
+    "minot_nd.json": "rural",
+    "nd_tribal_region_a.json": "tribal",
+    "nd_tribal_region_a_v2.json": "tribal",
+    "nd_tribal_region_b.json": "tribal",
+    "nd_tribal_region_b_v2.json": "tribal",
+    "fargo_nd.json": "urban",
+    "us_default.json": "default",
+    "karachi_pakistan.json": "default",
+    "lagos_nigeria.json": "default",
 }
 
 # Continuous variable → observation key mapping.
 # Maps the profile continuous_vars key to the field name used in patient observations.
 _VAR_TO_OBS_KEYS = {
-    "hba1c":       ["hba1c", "hba1c_initial"],
-    "bmi":         ["bmi"],
+    "hba1c": ["hba1c", "hba1c_initial"],
+    "bmi": ["bmi"],
     "systolic_bp": ["sbp_initial", "sbp_admission", "sbp"],
-    "creatinine":  ["creatinine_initial", "creatinine"],
-    "egfr":        ["egfr", "egfr_initial"],
+    "creatinine": ["creatinine_initial", "creatinine"],
+    "egfr": ["egfr", "egfr_initial"],
 }
 
 # Fallback reference values (NHANES 2017-2020 US national) used when a profile
 # does not define continuous_vars.  These are never used when continuous_vars
 # is present in the profile.
 _REFERENCE_STD = {
-    "hba1c":       1.5,
-    "bmi":         7.5,
+    "hba1c": 1.5,
+    "bmi": 7.5,
     "systolic_bp": 18.5,
-    "creatinine":  0.42,
-    "egfr":        24.0,
+    "creatinine": 0.42,
+    "egfr": 24.0,
 }
 
 
-def _resolve_profile_type(profile_path: str) -> str:
+def _resolve_profile_type(profile_path: str | None) -> str:
     """
     Resolve a profile file path to a perturbation parameter set.
     Uses explicit filename lookup — no substring matching.
@@ -137,19 +137,20 @@ class PerturbationEngine:
       default — US national baseline fallback
     """
 
-    def apply(self, timelines, profile_path: str = None):
+    def apply(self, timelines, profile_path: str | None = None):
         # Resolve profile type: prefer explicit argument, fall back to metadata
         if profile_path is None and timelines:
-            first_meta = timelines[0]["timeline"][0].get("_meta", {}) \
-                if timelines[0]["timeline"] else {}
+            first_meta = (
+                timelines[0]["timeline"][0].get("_meta", {}) if timelines[0]["timeline"] else {}
+            )
             profile_path = first_meta.get("profile_path")
 
         profile_key = _resolve_profile_type(profile_path)
-        params       = _PROFILE_PARAMS[profile_key]
+        params = _PROFILE_PARAMS[profile_key]
 
-        dropout_year     = params["dropout_year"]
+        dropout_year = params["dropout_year"]
         comorbidity_rate = params["comorbidity_rate"]
-        age_correction   = params["age_correction"]
+        age_correction = params["age_correction"]
 
         for p in timelines:
             # Stable cross-process seed (determinism contract)
@@ -193,10 +194,7 @@ class PerturbationEngine:
         """
         observed_stds = _load_continuous_var_stds(profile_path)
 
-        noise_sigmas = {
-            var: observed_stds[var] * noise_sigma_multiplier
-            for var in observed_stds
-        }
+        noise_sigmas = {var: observed_stds[var] * noise_sigma_multiplier for var in observed_stds}
 
         for p in timelines:
             # Stable cross-process seed namespaced for noise (salt 0xB2)
@@ -218,15 +216,15 @@ class PerturbationEngine:
                             break
 
                 t["_noise_metadata"] = {
-                    "noise_sigmas_derived":    noise_sigmas,
-                    "noise_sigma_multiplier":  noise_sigma_multiplier,
-                    "profile_path":            profile_path,
-                    "observed_stds_source":    "profile_continuous_vars",
+                    "noise_sigmas_derived": noise_sigmas,
+                    "noise_sigma_multiplier": noise_sigma_multiplier,
+                    "profile_path": profile_path,
+                    "observed_stds_source": "profile_continuous_vars",
                 }
 
         return timelines
 
-    def apply_missingness(self, timelines, missingness_rate: float) -> list:
+    def apply_missingness(self, timelines: list, missingness_rate: float) -> list:
         """
         Randomly null observation fields to simulate missing clinical data.
 
@@ -269,10 +267,7 @@ class PerturbationEngine:
                 obs = patient_dict.get("observations", {})
 
                 # Candidate fields: non-None and not ground-truth protected.
-                candidates = [
-                    k for k, v in obs.items()
-                    if v is not None and k not in _PROTECTED
-                ]
+                candidates = [k for k, v in obs.items() if v is not None and k not in _PROTECTED]
 
                 fields_available = len(candidates)
 
@@ -284,9 +279,9 @@ class PerturbationEngine:
                     obs[field] = None
 
                 t["_missingness_metadata"] = {
-                    "missingness_rate":  missingness_rate,
-                    "fields_nulled":     fields_nulled,
-                    "fields_available":  fields_available,
+                    "missingness_rate": missingness_rate,
+                    "fields_nulled": fields_nulled,
+                    "fields_available": fields_available,
                 }
 
         return timelines

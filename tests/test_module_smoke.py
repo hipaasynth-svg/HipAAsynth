@@ -68,9 +68,9 @@ def _iter_strings(obj):
 def _assert_no_real_identifiers(record):
     for value in _iter_strings(record):
         for name, pattern in _REAL_ID_PATTERNS.items():
-            assert not pattern.search(value), (
-                f"real-identifier shape '{name}' found in synthetic value: {value!r}"
-            )
+            assert not pattern.search(
+                value
+            ), f"real-identifier shape '{name}' found in synthetic value: {value!r}"
 
 
 # (name, factory) where factory(n) -> cohort list, seeded deterministically.
@@ -116,6 +116,6 @@ class TestModuleCohortSmoke:
         for record in factory(30):
             assert record.get("synthetic") is True, f"{name}: record not stamped synthetic=True"
             disclaimer = str(record.get("disclaimer", "")).upper()
-            assert "SYNTHETIC" in disclaimer and "NO REAL PATIENT" in disclaimer, (
-                f"{name}: record missing synthetic / no-real-patient disclaimer"
-            )
+            assert (
+                "SYNTHETIC" in disclaimer and "NO REAL PATIENT" in disclaimer
+            ), f"{name}: record missing synthetic / no-real-patient disclaimer"

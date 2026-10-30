@@ -47,6 +47,7 @@ def agent() -> HipAAsynthAgent:
 
 # --- agentic methods must be async (nooa only generates async ellipsis) ------
 
+
 @pytest.mark.parametrize(
     "name",
     ["design_experiment", "interpret_passport", "suggest_next_tests", "explain_form_disparity"],
@@ -71,6 +72,7 @@ def _spec(label=None, seed=1) -> PopulationSpec:
 
 # --- derive_seed: engine-consistent 32-bit convention -----------------------
 
+
 def test_derive_seed_is_deterministic(agent):
     a = agent.derive_seed(42, PopulationProfile.MINOT_ND, ClinicalModule.STROKE, "t")
     b = agent.derive_seed(42, PopulationProfile.MINOT_ND, ClinicalModule.STROKE, "t")
@@ -93,6 +95,7 @@ def test_derive_seed_matches_engine_convention(agent):
 
 
 # --- verify_zero_phi: actually rejects PHI-like labels ----------------------
+
 
 def test_clean_label_passes(agent):
     assert agent.verify_zero_phi(_spec(label="rural-stroke-pilot")) is True
@@ -129,6 +132,7 @@ def test_assemble_passport_refuses_phi_label(agent):
 
 
 # --- from_engine_passport: adapts a real FairnessPassport-shaped object ------
+
 
 class _FakeMetrics:
     dcs, isg, lfdi, saf = 0.92, 0.10, 0.05, 0.08
@@ -190,6 +194,7 @@ def test_summary_json_round_trips(agent):
 # asked to generate this model directly. Plain string keys avoid the $ref
 # entirely. This test locks in that shape so it can't regress.
 
+
 def _find_ref_keys(node):
     """Recursively collect any dict keys literally named '$ref' or '$defs'."""
     found = []
@@ -227,6 +232,7 @@ def test_interpretation_accepts_string_keyed_notes():
 
 
 # --- anchor_plan: build info seals the engine/orchestrator build (issue #98) -
+
 
 def _plan(agent, populations):
     from nooa_validation_orchestrator import ExperimentPlan
@@ -267,6 +273,7 @@ def test_environment_manifest_records_engine_build(agent):
 # assert the orchestrator actually drives generate_patients + run_audit and
 # writes reproducible artifacts — the gap issue #98 was opened for.
 
+
 @pytest.fixture()
 def fair_model():
     from hipaasynth.dif.model_interface import MockFairModel
@@ -280,10 +287,20 @@ def test_run_validation_end_to_end_writes_artifacts(agent, fair_model, tmp_path)
     plan = _plan(
         agent,
         [
-            PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
-                           n=3, seed=101, label="rural-stroke"),
-            PopulationSpec(profile=PopulationProfile.FARGO_ND, module=ClinicalModule.SEPSIS,
-                           n=2, seed=202, label="aging-sepsis"),
+            PopulationSpec(
+                profile=PopulationProfile.MINOT_ND,
+                module=ClinicalModule.STROKE,
+                n=3,
+                seed=101,
+                label="rural-stroke",
+            ),
+            PopulationSpec(
+                profile=PopulationProfile.FARGO_ND,
+                module=ClinicalModule.SEPSIS,
+                n=2,
+                seed=202,
+                label="aging-sepsis",
+            ),
         ],
     )
     run = agent.run_validation(plan, fair_model, output_dir=tmp_path)
@@ -321,8 +338,15 @@ def test_run_validation_end_to_end_writes_artifacts(agent, fair_model, tmp_path)
 def test_run_validation_resumes_and_skips_completed(agent, fair_model, tmp_path):
     plan = _plan(
         agent,
-        [PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
-                        n=2, seed=1, label="clean")],
+        [
+            PopulationSpec(
+                profile=PopulationProfile.MINOT_ND,
+                module=ClinicalModule.STROKE,
+                n=2,
+                seed=1,
+                label="clean",
+            )
+        ],
     )
     agent.run_validation(plan, fair_model, output_dir=tmp_path)
     card = tmp_path / "populations" / "00_minot_nd_stroke" / "summary.md"
@@ -339,8 +363,15 @@ def test_run_validation_resumes_and_skips_completed(agent, fair_model, tmp_path)
 def test_run_validation_resume_false_ignores_checkpoint(agent, fair_model, tmp_path):
     plan = _plan(
         agent,
-        [PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
-                        n=2, seed=1, label="clean")],
+        [
+            PopulationSpec(
+                profile=PopulationProfile.MINOT_ND,
+                module=ClinicalModule.STROKE,
+                n=2,
+                seed=1,
+                label="clean",
+            )
+        ],
     )
     agent.run_validation(plan, fair_model, output_dir=tmp_path)
     run2 = agent.run_validation(plan, fair_model, output_dir=tmp_path, resume=False)
@@ -352,10 +383,20 @@ def test_run_validation_refuses_phi_spec_and_marks_partial(agent, fair_model, tm
     plan = _plan(
         agent,
         [
-            PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
-                           n=2, seed=1, label="clean"),
-            PopulationSpec(profile=PopulationProfile.FARGO_ND, module=ClinicalModule.SEPSIS,
-                           n=2, seed=2, label="John Doe MRN 12345"),
+            PopulationSpec(
+                profile=PopulationProfile.MINOT_ND,
+                module=ClinicalModule.STROKE,
+                n=2,
+                seed=1,
+                label="clean",
+            ),
+            PopulationSpec(
+                profile=PopulationProfile.FARGO_ND,
+                module=ClinicalModule.SEPSIS,
+                n=2,
+                seed=2,
+                label="John Doe MRN 12345",
+            ),
         ],
     )
     run = agent.run_validation(plan, fair_model, output_dir=tmp_path)
@@ -370,11 +411,19 @@ def test_run_validation_refuses_phi_spec_and_marks_partial(agent, fair_model, tm
 
 # --- groundedness validator (issue #98, item 6) ------------------------------
 
+
 def _real_summary(agent, fair_model, tmp_path):
     plan = _plan(
         agent,
-        [PopulationSpec(profile=PopulationProfile.MINOT_ND, module=ClinicalModule.STROKE,
-                        n=2, seed=9, label="clean")],
+        [
+            PopulationSpec(
+                profile=PopulationProfile.MINOT_ND,
+                module=ClinicalModule.STROKE,
+                n=2,
+                seed=9,
+                label="clean",
+            )
+        ],
     )
     run = agent.run_validation(plan, fair_model, output_dir=tmp_path)
     return run.summaries[0].passports[0]
@@ -401,8 +450,8 @@ def test_groundedness_flags_unknown_form_metric_and_number(agent, fair_model, tm
     interp = Interpretation(
         run_id=summary.run_id,
         summary="The model scored 0.42 overall.",  # fabricated value
-        form_level_notes={"MADE_UP_FORM": "x"},     # not one of the seven
-        metric_notes={"ZZZ": "y"},                  # not one of the four
+        form_level_notes={"MADE_UP_FORM": "x"},  # not one of the seven
+        metric_notes={"ZZZ": "y"},  # not one of the four
     )
     violations = agent.groundedness_violations(interp, summary)
     assert any("unknown form" in v for v in violations)
@@ -416,7 +465,6 @@ def test_groundedness_flags_valid_form_absent_from_passport(agent):
     from nooa_validation_orchestrator import (
         FairnessPassportSummary,
         Interpretation,
-        PopulationSpec,
     )
 
     spec = _spec(label="clean")

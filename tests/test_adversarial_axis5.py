@@ -40,8 +40,11 @@ def _always(answer):
 
 
 def test_sepsis_cohort_has_positive_ground_truth(sepsis_timelines):
-    flags = [t["_patient_dict"]["observations"]["sepsis_flag"]
-             for p in sepsis_timelines for t in p["timeline"]]
+    flags = [
+        t["_patient_dict"]["observations"]["sepsis_flag"]
+        for p in sepsis_timelines
+        for t in p["timeline"]
+    ]
     assert flags and all(flags)
 
 
@@ -109,10 +112,18 @@ def test_missingness_never_removes_ground_truth_and_is_deterministic(sepsis_time
         for ta, tb in zip(pa["timeline"], pb["timeline"], strict=True):
             assert ta["_patient_dict"]["observations"]["sepsis_flag"] is True
             assert ta["_patient_dict"] == tb["_patient_dict"]
-    nulled = sum(v is None for p in a for t in p["timeline"]
-                 for v in t["_patient_dict"]["observations"].values())
-    original = sum(v is None for p in sepsis_timelines for t in p["timeline"]
-                   for v in t["_patient_dict"]["observations"].values())
+    nulled = sum(
+        v is None
+        for p in a
+        for t in p["timeline"]
+        for v in t["_patient_dict"]["observations"].values()
+    )
+    original = sum(
+        v is None
+        for p in sepsis_timelines
+        for t in p["timeline"]
+        for v in t["_patient_dict"]["observations"].values()
+    )
     assert nulled > original
 
 

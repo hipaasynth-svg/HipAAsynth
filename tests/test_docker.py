@@ -86,6 +86,7 @@ def test_compose_is_valid_yaml_when_pyyaml_available():
         import yaml
     except ImportError:
         import pytest
+
         pytest.skip("PyYAML not installed")
     data = yaml.safe_load(COMPOSE)
     assert "services" in data

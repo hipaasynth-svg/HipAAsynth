@@ -26,6 +26,7 @@ Generates:
 - diabetes meds
 """
 
+
 class CardioMedications:
     def __init__(self, n, rng):
         self.n = n
@@ -36,16 +37,16 @@ class CardioMedications:
 
         for i in range(self.n):
             age = data["age"][i]
-            risk = data.get("ascvd_10yr", [0.05]*self.n)[i]
+            risk = data.get("ascvd_10yr", [0.05] * self.n)[i]
             risk = risk if risk is not None else 0.05
-            diabetes = data.get("diabetes", [False]*self.n)[i]
-            smoker = data.get("smoking_status", ["never"]*self.n)[i] == "current"
+            diabetes = data.get("diabetes", [False] * self.n)[i]
+            _smoker = data.get("smoking_status", ["never"] * self.n)[i] == "current"
 
-            htn = data.get("hypertension", [False]*self.n)[i]
-            prior_ascvd = data.get("prior_ascvd", [False]*self.n)[i]
-            af = data.get("atrial_fibrillation", [False]*self.n)[i]
-            hf = data.get("heart_failure", [False]*self.n)[i]
-            ckd = data.get("ckd", [False]*self.n)[i]
+            htn = data.get("hypertension", [False] * self.n)[i]
+            prior_ascvd = data.get("prior_ascvd", [False] * self.n)[i]
+            af = data.get("atrial_fibrillation", [False] * self.n)[i]
+            hf = data.get("heart_failure", [False] * self.n)[i]
+            ckd = data.get("ckd", [False] * self.n)[i]
 
             # ---------------- BP MEDS ----------------
             if htn and self.rng.random() < 0.7:
@@ -75,9 +76,8 @@ class CardioMedications:
             # Emergent among-eligible rate lands ~0.55, matching Salami JA et al.
             # JAMA Cardiol 2017;2(1):56-65 (statin use in eligible US adults).
             if prior_ascvd or risk > 0.075 or (diabetes and 40 <= age <= 75):
-                treated = (
-                    (prior_ascvd and self.rng.random() < 0.8) or
-                    (not prior_ascvd and self.rng.random() < 0.5)
+                treated = (prior_ascvd and self.rng.random() < 0.8) or (
+                    not prior_ascvd and self.rng.random() < 0.5
                 )
 
                 if treated:
@@ -95,16 +95,12 @@ class CardioMedications:
             # (guideline-indicated OAC undertreatment in AF).
             if af and self.rng.random() < 0.72:
                 out["on_anticoagulant"][i] = True
-                out["anticoagulant_type"][i] = (
-                    "doac" if self.rng.random() < 0.8 else "warfarin"
-                )
+                out["anticoagulant_type"][i] = "doac" if self.rng.random() < 0.8 else "warfarin"
 
             # ---------------- ANTIPLATELET ----------------
             if prior_ascvd and self.rng.random() < 0.9:
                 out["on_antiplatelet"][i] = True
-                out["antiplatelet_type"][i] = (
-                    "dual" if self.rng.random() < 0.3 else "aspirin"
-                )
+                out["antiplatelet_type"][i] = "dual" if self.rng.random() < 0.3 else "aspirin"
 
             elif risk > 0.10 and self.rng.random() < 0.2:
                 out["on_antiplatelet"][i] = True
@@ -139,23 +135,22 @@ class CardioMedications:
                 if prior_ascvd or hf:
                     meds.append("sglt2_inhibitor")
                 else:
-                    meds.append(self._choice([
-                        "sglt2_inhibitor",
-                        "glp1_agonist",
-                        "dpp4_inhibitor",
-                        "sulfonylurea"
-                    ]))
+                    meds.append(
+                        self._choice(
+                            ["sglt2_inhibitor", "glp1_agonist", "dpp4_inhibitor", "sulfonylurea"]
+                        )
+                    )
 
                 out["diabetes_meds"][i] = ",".join(meds)
 
             # ---------------- COUNT ----------------
             out["total_meds"][i] = (
-                int(out["on_antihypertensive"][i]) +
-                int(out["on_statin"][i]) +
-                int(out["on_anticoagulant"][i]) +
-                int(out["on_antiplatelet"][i]) +
-                int(out["on_hf_therapy"][i]) +
-                int(out["on_diabetes_meds"][i])
+                int(out["on_antihypertensive"][i])
+                + int(out["on_statin"][i])
+                + int(out["on_anticoagulant"][i])
+                + int(out["on_antiplatelet"][i])
+                + int(out["on_hf_therapy"][i])
+                + int(out["on_diabetes_meds"][i])
             )
 
         return out
@@ -165,23 +160,17 @@ class CardioMedications:
 
     def _empty(self):
         return {
-            "on_antihypertensive": [False]*self.n,
-            "htn_meds": [None]*self.n,
-
-            "on_statin": [False]*self.n,
-            "statin_intensity": [None]*self.n,
-
-            "on_anticoagulant": [False]*self.n,
-            "anticoagulant_type": [None]*self.n,
-
-            "on_antiplatelet": [False]*self.n,
-            "antiplatelet_type": [None]*self.n,
-
-            "on_hf_therapy": [False]*self.n,
-            "hf_meds": [None]*self.n,
-
-            "on_diabetes_meds": [False]*self.n,
-            "diabetes_meds": [None]*self.n,
-
-            "total_meds": [0]*self.n
+            "on_antihypertensive": [False] * self.n,
+            "htn_meds": [None] * self.n,
+            "on_statin": [False] * self.n,
+            "statin_intensity": [None] * self.n,
+            "on_anticoagulant": [False] * self.n,
+            "anticoagulant_type": [None] * self.n,
+            "on_antiplatelet": [False] * self.n,
+            "antiplatelet_type": [None] * self.n,
+            "on_hf_therapy": [False] * self.n,
+            "hf_meds": [None] * self.n,
+            "on_diabetes_meds": [False] * self.n,
+            "diabetes_meds": [None] * self.n,
+            "total_meds": [0] * self.n,
         }

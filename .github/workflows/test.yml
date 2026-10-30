@@ -7,6 +7,23 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      # Same pinned versions as .pre-commit-config.yaml, so CI and local hooks agree.
+      - name: Install linters
+        run: pip install "ruff==0.4.10" "black==24.4.2" "mypy>=1.9"
+      - name: ruff
+        run: ruff check --line-length=100 .
+      - name: black
+        run: black --line-length=100 --check .
+      - name: mypy
+        run: mypy hipaasynth
+
   test:
     runs-on: ubuntu-latest
     strategy:

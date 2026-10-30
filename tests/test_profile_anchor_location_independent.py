@@ -35,8 +35,9 @@ _BUNDLED = Path(hipaasynth.__file__).resolve().parent / "profiles" / "nd_tribal_
 
 
 def _ids(path, n=5, seed=11):
-    cfg = GenerationConfig(patient_count=n, seed=seed, population_profile_path=str(path),
-                           run_date="2026-01-01")
+    cfg = GenerationConfig(
+        patient_count=n, seed=seed, population_profile_path=str(path), run_date="2026-01-01"
+    )
     return [p.demographics.patient_id for p in generate_patients(cfg)]
 
 
@@ -67,18 +68,23 @@ def test_changing_profile_content_changes_the_cohort(tmp_path):
 
 
 def test_bundled_name_and_explicit_path_agree():
-    by_name = [p.demographics.patient_id for p in generate(count=5, seed=11, module="stroke",
-                                                           profile="nd_tribal_region_a")]
-    by_path = [p.demographics.patient_id for p in generate(count=5, seed=11, module="stroke",
-                                                           profile=str(_BUNDLED))]
+    by_name = [
+        p.demographics.patient_id
+        for p in generate(count=5, seed=11, module="stroke", profile="nd_tribal_region_a")
+    ]
+    by_path = [
+        p.demographics.patient_id
+        for p in generate(count=5, seed=11, module="stroke", profile=str(_BUNDLED))
+    ]
     assert by_name == by_path
 
 
 def test_generate_one_patient_matches_batch(tmp_path):
     copy = tmp_path / "p.json"
     shutil.copy(_BUNDLED, copy)
-    cfg = GenerationConfig(patient_count=4, seed=11, population_profile_path=str(copy),
-                           run_date="2026-01-01")
+    cfg = GenerationConfig(
+        patient_count=4, seed=11, population_profile_path=str(copy), run_date="2026-01-01"
+    )
     assert generate_one_patient(cfg, 3).demographics.patient_id == _ids(_BUNDLED, n=4)[3]
 
 
@@ -86,5 +92,7 @@ def test_no_profile_output_unchanged():
     # Golden IDs from main @ 7cfc3de: runs without a profile must not move.
     cfg = GenerationConfig(patient_count=3, seed=11, run_date="2026-01-01")
     assert [p.demographics.patient_id for p in generate_patients(cfg)] == [
-        "SYN-39202a05", "SYN-04c7e0a4", "SYN-0849b4b7",
+        "SYN-39202a05",
+        "SYN-04c7e0a4",
+        "SYN-0849b4b7",
     ]

@@ -35,7 +35,7 @@ Demographic-sparsity interaction
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from hipaasynth.core.model_interface import ModelInterface, validate_model_score
 from hipaasynth.psf.generator import PSFGenerator, SPARSITY_LEVELS
@@ -52,8 +52,11 @@ class PSFConfig:
     model_version: str = "0.0.0"
 
     def __post_init__(self) -> None:
-        if isinstance(self.n_per_level, bool) or not isinstance(self.n_per_level, int) \
-                or self.n_per_level < 1:
+        if (
+            isinstance(self.n_per_level, bool)
+            or not isinstance(self.n_per_level, int)
+            or self.n_per_level < 1
+        ):
             raise ValueError(f"n_per_level must be an integer >= 1, got {self.n_per_level!r}")
 
 
@@ -145,9 +148,7 @@ class PSFAudit:
             for p, s in zip(patients, scores):
                 race = p.get("race_ethnicity", "Unknown")
                 demo_buckets.setdefault(race, []).append(s)
-            demographic_scores[level] = {
-                race: _mean(vals) for race, vals in demo_buckets.items()
-            }
+            demographic_scores[level] = {race: _mean(vals) for race, vals in demo_buckets.items()}
 
         s1_score = per_level_scores.get("S1", 0.0)
         s7_score = per_level_scores.get("S7", 1.0)
@@ -166,6 +167,7 @@ class PSFAudit:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mean(values: List[float]) -> float:
     if not values:

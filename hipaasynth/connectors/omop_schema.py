@@ -45,7 +45,7 @@ _COLUMN_TYPE_OVERRIDES = {
     "year_of_birth": INT,
     "month_of_birth": INT,
     "day_of_birth": INT,
-    "measurement_time": STRING,   # CDM stores the time-of-day as a varchar
+    "measurement_time": STRING,  # CDM stores the time-of-day as a varchar
     "value_as_number": FLOAT,
     "range_low": FLOAT,
     "range_high": FLOAT,
@@ -102,9 +102,7 @@ def sql_type(column: str, dialect: str) -> str:
     try:
         types = _SQL_TYPES[dialect]
     except KeyError:
-        raise ValueError(
-            f"unknown dialect {dialect!r}; supported: {', '.join(SUPPORTED_DIALECTS)}"
-        )
+        raise ValueError(f"unknown dialect {dialect!r}; supported: {', '.join(SUPPORTED_DIALECTS)}")
     return types[logical_type(column)]
 
 
@@ -113,9 +111,7 @@ def table_columns(table: str) -> list[str]:
     try:
         return list(_TABLE_COLUMNS[table])
     except KeyError:
-        raise ValueError(
-            f"unknown OMOP table {table!r}; known: {', '.join(OMOP_TABLES)}"
-        )
+        raise ValueError(f"unknown OMOP table {table!r}; known: {', '.join(OMOP_TABLES)}")
 
 
 def column_types(table: str, dialect: str) -> list[tuple[str, str]]:

@@ -21,27 +21,32 @@ csv.field_size_limit(2147483647 if sys.maxsize > 2**32 else 2**31 - 1)
 
 # Measurements: (label, required-substrings-all-present). Case-insensitive.
 MEAS_QUERIES = [
-    ("Glucose",        ["glucose", "serum or plasma"]),
-    ("Creatinine",     ["creatinine", "serum or plasma"]),
-    ("WBC",            ["leukocytes", "blood"]),
-    ("BNP",            ["natriuretic peptide.b"]),
-    ("NT-proBNP",      ["natriuretic peptide b prohormone"]),
-    ("Troponin I hs",  ["troponin i", "high sensitivity"]),
-    ("Sodium",         ["sodium", "serum or plasma"]),
-    ("Potassium",      ["potassium", "serum or plasma"]),
-    ("Hemoglobin",     ["hemoglobin", "blood"]),
-    ("eGFR",           ["glomerular filtration"]),
+    ("Glucose", ["glucose", "serum or plasma"]),
+    ("Creatinine", ["creatinine", "serum or plasma"]),
+    ("WBC", ["leukocytes", "blood"]),
+    ("BNP", ["natriuretic peptide.b"]),
+    ("NT-proBNP", ["natriuretic peptide b prohormone"]),
+    ("Troponin I hs", ["troponin i", "high sensitivity"]),
+    ("Sodium", ["sodium", "serum or plasma"]),
+    ("Potassium", ["potassium", "serum or plasma"]),
+    ("Hemoglobin", ["hemoglobin", "blood"]),
+    ("eGFR", ["glomerular filtration"]),
 ]
 # also try looser fallbacks if the strict query returns nothing
 MEAS_FALLBACK = {
-    "Glucose": ["glucose"], "Creatinine": ["creatinine"], "WBC": ["leukocytes"],
-    "BNP": ["natriuretic peptide"], "NT-proBNP": ["nt-probnp"],
-    "Troponin I hs": ["troponin i"], "Sodium": ["sodium"], "Potassium": ["potassium"],
-    "Hemoglobin": ["hemoglobin"], "eGFR": ["gfr"],
+    "Glucose": ["glucose"],
+    "Creatinine": ["creatinine"],
+    "WBC": ["leukocytes"],
+    "BNP": ["natriuretic peptide"],
+    "NT-proBNP": ["nt-probnp"],
+    "Troponin I hs": ["troponin i"],
+    "Sodium": ["sodium"],
+    "Potassium": ["potassium"],
+    "Hemoglobin": ["hemoglobin"],
+    "eGFR": ["gfr"],
 }
 # Single-agent drugs to resolve by ingredient name.
-DRUG_NAMES = ["ivabradine", "roflumilast", "nusinersen", "risdiplam",
-              "onasemnogene"]
+DRUG_NAMES = ["ivabradine", "roflumilast", "nusinersen", "risdiplam", "onasemnogene"]
 
 
 def find_concept_csv() -> Path:
@@ -73,7 +78,7 @@ def main(argv=None) -> int:
         # fields that swallow subsequent rows (see validate.py for the same fix).
         quoting = csv.QUOTE_NONE if delim == "\t" else csv.QUOTE_MINIMAL
         for row in csv.DictReader(f, delimiter=delim, quoting=quoting):
-            name = (row.get("concept_name") or "")
+            name = row.get("concept_name") or ""
             low = name.lower()
             dom = (row.get("domain_id") or "").strip()
             vocab = (row.get("vocabulary_id") or "").strip()
@@ -83,16 +88,22 @@ def main(argv=None) -> int:
                 for lbl, subs in MEAS_QUERIES:
                     if all(s.replace(".", " ") in low or s in low for s in subs):
                         if len(meas_hits[lbl]) < 6:
-                            meas_hits[lbl].append((row.get("concept_id"), name, row.get("concept_code")))
+                            meas_hits[lbl].append(
+                                (row.get("concept_id"), name, row.get("concept_code"))
+                            )
                 for lbl, subs in MEAS_FALLBACK.items():
                     if all(s in low for s in subs) and len(meas_fallback_hits[lbl]) < 8:
-                        meas_fallback_hits[lbl].append((row.get("concept_id"), name, row.get("concept_code")))
+                        meas_fallback_hits[lbl].append(
+                            (row.get("concept_id"), name, row.get("concept_code"))
+                        )
             if dom == "Drug" and vocab == "RxNorm":
                 for d in DRUG_NAMES:
                     # always keep ingredient-level rows; cap only the drug-product noise
                     is_ingr = cclass in ("Ingredient", "Precise Ingredient")
                     if d in low and (is_ingr or len(drug_hits[d]) < 12):
-                        drug_hits[d].append((row.get("concept_id"), name, cclass, std, row.get("concept_code")))
+                        drug_hits[d].append(
+                            (row.get("concept_id"), name, cclass, std, row.get("concept_code"))
+                        )
 
     print(f"\nCONCEPT.csv : {path}")
     print("\n===== MEASUREMENTS by name (standard LOINC Measurement concepts) =====")

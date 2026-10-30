@@ -41,6 +41,7 @@ def patients():
 
 # ── MedicationRequest (roadmap step 1) ───────────────────────────────────────
 
+
 def test_medication_request_emitted_alongside_statement(patients):
     """Each medication yields BOTH a MedicationStatement and a MedicationRequest.
 
@@ -68,8 +69,7 @@ def test_medication_request_required_fields_and_coding(patients):
     assert req["subject"]["reference"].startswith("urn:uuid:")
     assert req["medication"]["concept"]["coding"], "expected a standard coding"
     assert any(
-        c["system"] == "http://www.whocc.no/atc"
-        for c in req["medication"]["concept"]["coding"]
+        c["system"] == "http://www.whocc.no/atc" for c in req["medication"]["concept"]["coding"]
     )
 
 
@@ -90,6 +90,7 @@ def test_medication_request_id_is_deterministic(patients):
 
 
 # ── NDJSON bulk export (roadmap step 2) ──────────────────────────────────────
+
 
 def test_ndjson_export_one_file_per_resource_type(patients, tmp_path):
     """$export convention: one {ResourceType}.ndjson file per resource type."""
@@ -125,6 +126,7 @@ def test_ndjson_matches_bundle_resource_set(patients, tmp_path):
     export_fhir(patients, str(bundle_path))
     bundle = json.loads(bundle_path.read_text())
     from collections import Counter
+
     bundle_counts = Counter(e["resource"]["resourceType"] for e in bundle["entry"])
     assert dict(counts) == dict(bundle_counts)
 
@@ -138,14 +140,14 @@ def test_ndjson_fails_loud_on_io_error(patients, tmp_path):
 
 # ── Encounter.actualPeriod (Tier 2 review fix 5) ─────────────────────────────
 
+
 def test_encounter_actual_period_has_end_equal_to_start(patients):
     """Encounter.actualPeriod carries an `end`, equal to `start`, matching the
     OMOP exporter's documented same-day-visit convention (visit_end_date =
     visit_start_date). Previously only `start` was emitted.
     """
     encounters = [
-        r for p in patients for r in _patient_to_fhir(p)
-        if r["resourceType"] == "Encounter"
+        r for p in patients for r in _patient_to_fhir(p) if r["resourceType"] == "Encounter"
     ]
     assert encounters  # the fixture cohort has visits
     for enc in encounters:

@@ -43,7 +43,7 @@ class Anchor:
     - master hash (source of truth)
     """
 
-    def __init__(self, seed: int, config: Dict, modules: Dict):
+    def __init__(self, seed: int | None, config: Dict, modules: Dict):
         """Build a deterministic anchor from the seed, run config, and module
         versions. The SHA-256 anchor hash is computed at construction so every run is
         reproducible and tamper-evident.
@@ -66,11 +66,7 @@ class Anchor:
         Build deterministic fingerprint of entire system state.
         """
 
-        payload = {
-            "seed": self.seed,
-            "config": self.config,
-            "modules": self.modules
-        }
+        payload = {"seed": self.seed, "config": self.config, "modules": self.modules}
 
         serialized = self._stable_serialize(payload)
 
@@ -82,10 +78,9 @@ class Anchor:
         """
 
         if isinstance(obj, dict):
-            return "{" + ",".join(
-                f"{k}:{self._stable_serialize(obj[k])}"
-                for k in sorted(obj)
-            ) + "}"
+            return (
+                "{" + ",".join(f"{k}:{self._stable_serialize(obj[k])}" for k in sorted(obj)) + "}"
+            )
 
         elif isinstance(obj, list):
             return "[" + ",".join(self._stable_serialize(x) for x in obj) + "]"
@@ -125,8 +120,4 @@ class Anchor:
         """Return the anchor as a JSON-serializable dict (seed, config, modules,
         anchor_hash) for inclusion in the run manifest. No side effects; no PHI.
         """
-        return {
-            "anchor_hash": self.anchor_hash,
-            "seed": self.seed,
-            "modules": self.modules
-        }
+        return {"anchor_hash": self.anchor_hash, "seed": self.seed, "modules": self.modules}

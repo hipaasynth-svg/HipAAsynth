@@ -15,7 +15,11 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """HipAAsynth Diabetes Pipeline Runner — Anchor-Wired."""
-import sys, os, random, json, csv
+import sys
+import os
+import random
+import json
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from hipaasynth.core.anchor import Anchor
 from hipaasynth.core.anchor_stamp import stamp_population, build_metadata
@@ -27,11 +31,19 @@ from hipaasynth.modules.diabetes.outcomes import OutcomeGenerator
 
 N = 1000
 MASTER_SEED = 42
-MODULE_VERSIONS = {"diabetes_population": "v1.0", "glycemic": "v1.0",
-                   "complications": "v1.0", "treatments": "v1.0", "outcomes": "v1.0"}
+MODULE_VERSIONS = {
+    "diabetes_population": "v1.0",
+    "glycemic": "v1.0",
+    "complications": "v1.0",
+    "treatments": "v1.0",
+    "outcomes": "v1.0",
+}
+
 
 def main():
-    anchor = Anchor(seed=MASTER_SEED, config={"population": N, "pipeline": "diabetes"}, modules=MODULE_VERSIONS)
+    anchor = Anchor(
+        seed=MASTER_SEED, config={"population": N, "pipeline": "diabetes"}, modules=MODULE_VERSIONS
+    )
     print(f"Anchor: {anchor.anchor_hash[:16]}...")
     pop_seed = anchor.derive_seed("population")
     gly_seed = anchor.derive_seed("glycemic")
@@ -44,13 +56,16 @@ def main():
     population = TreatmentGenerator(random.Random(tx_seed)).generate(population)
     population = OutcomeGenerator(random.Random(out_seed)).generate(population)
     population = stamp_population(population, anchor)
-    metadata = build_metadata(anchor, {"rows": len(population), "description": "Diabetes cohort 5-year simulation"})
+    metadata = build_metadata(
+        anchor, {"rows": len(population), "description": "Diabetes cohort 5-year simulation"}
+    )
     with open("diabetes_cohort.json", "w") as f:
         json.dump(population, f, indent=2)
     with open("diabetes_anchor_manifest.json", "w") as f:
         json.dump(metadata, f, indent=2)
     n = len(population)
     print(f"N={n} | Mean HbA1c={sum(p['hba1c_current'] for p in population)/n:.1f} | Done.")
+
 
 if __name__ == "__main__":
     main()

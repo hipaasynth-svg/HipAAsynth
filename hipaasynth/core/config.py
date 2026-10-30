@@ -31,8 +31,8 @@ from typing import Optional
 # third party re-running a cohort uses it to confirm which engine produced the
 # result. It must therefore track the distribution version in pyproject.toml.
 # tests/test_version_consistency.py asserts the two stay equal.
-ENGINE_VERSION      = "1.5.0"
-SCHEMA_VERSION      = "1.1.0"
+ENGINE_VERSION = "1.6.0"
+SCHEMA_VERSION = "1.1.0"
 ADVERSARIAL_VERSION = "1.0.0"
 
 # Default ethnicity weights (sum to 1.0)
@@ -93,6 +93,7 @@ class GenerationConfig:
         population_profile_path: Optional path to a population profile JSON file.
         profile_name: Optional name of the applied population profile.
     """
+
     patient_count: int = 10
     seed: Optional[int] = 42
     age_min: int = 18

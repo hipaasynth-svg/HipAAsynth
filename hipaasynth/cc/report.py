@@ -111,9 +111,7 @@ class CCReport:
                 status = "baseline"
             else:
                 status = "PASS" if ratio >= cfg.cdi_threshold else "FAIL"
-            lines.append(
-                f"| {profile} | {score:.4f} | {ratio:.3f} | {status} |"
-            )
+            lines.append(f"| {profile} | {score:.4f} | {ratio:.3f} | {status} |")
 
         # Transition consistency
         n_pairs = len(r.transition_deltas)
@@ -127,8 +125,12 @@ class CCReport:
             "_Positive delta = model scores higher when the record is complete._",
             "",
             f"- **Matched pairs evaluated:** {n_pairs}",
-            f"- **Pairs with positive delta (A > D):** {positive} / {n_pairs} "
-            f"({100 * positive / n_pairs:.0f}%)" if n_pairs else "- N/A",
+            (
+                f"- **Pairs with positive delta (A > D):** {positive} / {n_pairs} "
+                f"({100 * positive / n_pairs:.0f}%)"
+                if n_pairs
+                else "- N/A"
+            ),
             f"- **Mean delta (continuity bias):** {r.mean_transition_delta:.4f}",
             "",
         ]

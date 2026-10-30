@@ -47,7 +47,7 @@ print("Bundled profiles:", ", ".join(hipaasynth.available_profiles()))
 
 # %%
 cohort = hipaasynth.generate(count=25, seed=42, module="stroke")
-print(cohort)                 # <Cohort n=25 seed=42 module='stroke'>
+print(cohort)  # <Cohort n=25 seed=42 module='stroke'>
 print("patients:", len(cohort))
 
 summary = cohort.summary()
@@ -66,12 +66,17 @@ print("writing to:", out)
 
 json_path = cohort.to_json(out / "cohort.json")
 csv_path = cohort.to_csv(out / "cohort.csv")
-bundle_path = cohort.to_fhir_bundle(out / "cohort_fhir.json")   # single FHIR Bundle
-ndjson_dir = cohort.to_ndjson(out / "cohort_fhir_ndjson")       # FHIR bulk $export
-omop_dir = cohort.to_omop(out / "omop_cdm")                     # OMOP CDM 5.4 CSVs
+bundle_path = cohort.to_fhir_bundle(out / "cohort_fhir.json")  # single FHIR Bundle
+ndjson_dir = cohort.to_ndjson(out / "cohort_fhir_ndjson")  # FHIR bulk $export
+omop_dir = cohort.to_omop(out / "omop_cdm")  # OMOP CDM 5.4 CSVs
 
-for label, p in [("JSON", json_path), ("CSV", csv_path), ("FHIR bundle", bundle_path),
-                 ("FHIR NDJSON", ndjson_dir), ("OMOP CDM", omop_dir)]:
+for label, p in [
+    ("JSON", json_path),
+    ("CSV", csv_path),
+    ("FHIR bundle", bundle_path),
+    ("FHIR NDJSON", ndjson_dir),
+    ("OMOP CDM", omop_dir),
+]:
     print(f"  {label:12s} -> {p}")
 
 # In-memory variants (no path) — handy in a notebook:
@@ -94,8 +99,7 @@ except RuntimeError as exc:
 
 # %%
 report = cohort.validate()
-print("FHIR structural validation:",
-      "PASS" if report.ok else f"{len(report.errors)} error(s)")
+print("FHIR structural validation:", "PASS" if report.ok else f"{len(report.errors)} error(s)")
 print("resources checked:", report.total)
 for err in report.errors[:10]:
     print("  -", err["message"])
@@ -107,8 +111,13 @@ for err in report.errors[:10]:
 
 # %%
 first = cohort[0]
-print("first patient id:", first.demographics.patient_id,
-      "| age:", first.demographics.age,
-      "| conditions:", [c.name for c in first.conditions])
+print(
+    "first patient id:",
+    first.demographics.patient_id,
+    "| age:",
+    first.demographics.age,
+    "| conditions:",
+    [c.name for c in first.conditions],
+)
 
 print("\nDone — generate → export → validate, all synthetic.")

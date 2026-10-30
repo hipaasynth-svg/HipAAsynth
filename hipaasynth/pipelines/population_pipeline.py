@@ -102,7 +102,7 @@ def _build_anchor(cfg: GenerationConfig) -> Anchor:
         },
         modules={
             "population_pipeline": PIPELINE_MODULE_VERSION,
-        }
+        },
     )
 
 
@@ -135,7 +135,7 @@ def stream_patients(cfg: GenerationConfig):
 
     if cfg.population_profile_path:
         profile = load_population_profile(cfg.population_profile_path)
-        object.__setattr__(cfg, '_resolved_profile', profile)
+        object.__setattr__(cfg, "_resolved_profile", profile)
 
     # ANCHOR-ROOTED: build anchor first, derive master seed from it
     anchor = _build_anchor(cfg)
@@ -143,7 +143,7 @@ def stream_patients(cfg: GenerationConfig):
     master_rng = random.Random(master_seed)
 
     # Store anchor on config for downstream audit use
-    object.__setattr__(cfg, '_anchor', anchor)
+    object.__setattr__(cfg, "_anchor", anchor)
 
     for i in range(cfg.patient_count):
         patient_seed = _derive_patient_seed(master_rng)
@@ -159,7 +159,7 @@ def _generate_one(cfg: GenerationConfig, patient_seed: int) -> Patient:
     """
     rng = random.Random(patient_seed)
 
-    profile = getattr(cfg, '_resolved_profile', None)
+    profile = getattr(cfg, "_resolved_profile", None)
     age_band_weights = cfg.age_band_weights
     sex_ratio = cfg.sex_ratio_female
     eth_weights = cfg.ethnicity_weights
@@ -215,7 +215,7 @@ def _generate_one(cfg: GenerationConfig, patient_seed: int) -> Patient:
 
     # Observations get their own dedicated rng derived from the anchor
     # This preserves determinism without depending on rng state after generation
-    anchor = getattr(cfg, '_anchor', None)
+    anchor = getattr(cfg, "_anchor", None)
     if anchor is not None:
         obs_seed = anchor.derive_seed(f"observations:{demographics.patient_id}")
     else:
@@ -223,7 +223,7 @@ def _generate_one(cfg: GenerationConfig, patient_seed: int) -> Patient:
     obs_rng = random.Random(obs_seed)
 
     # Route to the correct observation hook based on condition
-    required = getattr(cfg, 'required_condition', None)
+    required = getattr(cfg, "required_condition", None)
     condition_names = {c.name for c in conditions}
 
     obs_kwargs = dict(
@@ -235,11 +235,11 @@ def _generate_one(cfg: GenerationConfig, patient_seed: int) -> Patient:
         cfg=cfg,
     )
 
-    if required == 'stroke' or 'stroke' in condition_names:
+    if required == "stroke" or "stroke" in condition_names:
         observations = build_stroke_observations(**obs_kwargs)
-    elif required in DKA_REQUIRED_KEYS or 'dka' in condition_names:
+    elif required in DKA_REQUIRED_KEYS or "dka" in condition_names:
         observations = build_dka_observations(**obs_kwargs)
-    elif required in FABRY_REQUIRED_KEYS or 'fabry' in condition_names:
+    elif required in FABRY_REQUIRED_KEYS or "fabry" in condition_names:
         observations = build_fabry_observations(**obs_kwargs)
     else:
         observations = build_sepsis_observations(**obs_kwargs)
@@ -269,8 +269,8 @@ def generate_one_patient(cfg: GenerationConfig, idx: int) -> Patient:
 
     if cfg.population_profile_path:
         profile = load_population_profile(cfg.population_profile_path)
-        object.__setattr__(cfg, '_resolved_profile', profile)
-    object.__setattr__(cfg, '_anchor', anchor)
+        object.__setattr__(cfg, "_resolved_profile", profile)
+    object.__setattr__(cfg, "_anchor", anchor)
 
     for _ in range(idx + 1):
         patient_seed = _derive_patient_seed(master_rng)

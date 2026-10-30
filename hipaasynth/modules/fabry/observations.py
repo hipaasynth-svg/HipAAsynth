@@ -108,8 +108,8 @@ def build_fabry_observations(
     sex = str(demographics.sex).lower()
     required = getattr(cfg, "required_condition", None)
 
-    has_context = (required in FABRY_REQUIRED_KEYS) or ("fabry" in names) or (
-        "fabry_disease" in names
+    has_context = (
+        (required in FABRY_REQUIRED_KEYS) or ("fabry" in names) or ("fabry_disease" in names)
     )
 
     profile = getattr(cfg, "_resolved_profile", None) or {}
@@ -150,21 +150,25 @@ def build_fabry_observations(
     if true_suspicious:
         pheno_roll = rng.random()
         if male:
-            phenotype = "classic" if pheno_roll < 0.55 else (
-                "late_cardiac" if pheno_roll < 0.78 else "late_renal"
+            phenotype = (
+                "classic"
+                if pheno_roll < 0.55
+                else ("late_cardiac" if pheno_roll < 0.78 else "late_renal")
             )
         else:
-            phenotype = "nonclassic" if pheno_roll < 0.5 else (
-                "late_cardiac" if pheno_roll < 0.75 else "classic"
+            phenotype = (
+                "nonclassic"
+                if pheno_roll < 0.5
+                else ("late_cardiac" if pheno_roll < 0.75 else "classic")
             )
     else:
         phenotype = None
 
     def _p(prob: float) -> bool:
-        return rng.random() < prob
+        return bool(rng.random() < prob)
 
     if true_suspicious and phenotype == "classic":
-        neuropathic_pain = _p(0.85)          # acroparesthesias, often since childhood
+        neuropathic_pain = _p(0.85)  # acroparesthesias, often since childhood
         angiokeratoma = _p(0.55)
         cornea_verticillata = _p(0.65)
         hypohidrosis = _p(0.6)
@@ -178,7 +182,7 @@ def build_fabry_observations(
         cornea_verticillata = _p(0.25)
         hypohidrosis = _p(0.2)
         proteinuria = _p(0.3)
-        lvh = _p(0.85)                        # dominant feature
+        lvh = _p(0.85)  # dominant feature
         cryptogenic_stroke_young = _p(0.1)
         family_history = _p(0.5)
     elif true_suspicious and phenotype == "late_renal":
@@ -186,7 +190,7 @@ def build_fabry_observations(
         angiokeratoma = _p(0.1)
         cornea_verticillata = _p(0.3)
         hypohidrosis = _p(0.25)
-        proteinuria = _p(0.9)                 # dominant feature
+        proteinuria = _p(0.9)  # dominant feature
         lvh = _p(0.3)
         cryptogenic_stroke_young = _p(0.08)
         family_history = _p(0.5)
@@ -204,12 +208,12 @@ def build_fabry_observations(
         # high-specificity findings, minimal family history.
         diabetic = "type2_diabetes" in names
         hypertensive = "hypertension" in names
-        neuropathic_pain = _p(0.5 if diabetic else 0.2)   # diabetic neuropathy
+        neuropathic_pain = _p(0.5 if diabetic else 0.2)  # diabetic neuropathy
         angiokeratoma = False
         cornea_verticillata = False
         hypohidrosis = _p(0.1)
         proteinuria = _p(0.4 if (diabetic or "chronic_kidney_disease" in names) else 0.15)
-        lvh = _p(0.5 if hypertensive else 0.15)           # hypertensive LVH
+        lvh = _p(0.5 if hypertensive else 0.15)  # hypertensive LVH
         cryptogenic_stroke_young = False
         family_history = _p(0.05)
 
@@ -234,9 +238,7 @@ def build_fabry_observations(
 
     # Referral rule (ground truth).
     referral = (
-        red_flags >= _RED_FLAG_THRESHOLD
-        or pathognomonic
-        or (family_history and organ_red_flag)
+        red_flags >= _RED_FLAG_THRESHOLD or pathognomonic or (family_history and organ_red_flag)
     )
 
     if not referral:
@@ -255,7 +257,7 @@ def build_fabry_observations(
     elif male and true_suspicious:
         alpha_gal_a = "low_normal"
     elif true_suspicious:
-        alpha_gal_a = "normal_or_low"   # female: enzyme non-diagnostic
+        alpha_gal_a = "normal_or_low"  # female: enzyme non-diagnostic
     else:
         alpha_gal_a = "normal"
 

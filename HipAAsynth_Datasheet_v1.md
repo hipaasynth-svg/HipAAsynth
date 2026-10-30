@@ -1,5 +1,11 @@
 # HipAAsynth Datasheet v1
 
+> **Snapshot.** This datasheet records the generator modules as they stood at
+> commit `cae9b14` (July 2026) and is kept as that record. The cohorts 7AAST
+> tests models on (true cases, look-alikes, the sepsis spectrum, skin tone and
+> pulse oximetry) are documented, with tables generated from the current code,
+> in [docs/CLINICAL_REVIEW_PACKET.md](docs/CLINICAL_REVIEW_PACKET.md).
+
 This document is a code-derived datasheet for the synthetic-cohort **modules and profiles** in the HipAAsynth repository. Every age bound, field, range, cap, calibration-source name, and seeding method below was extracted directly from the source files at commit **`cae9b145e70cc55990e8639aed8a45a8100fd61e`** (committed 2026‑07‑11; audit performed 2026‑07‑14). Nothing here is inferred from outside knowledge: where a value or a source is not stated in the code, the entry says **"not specified in code."** The modules themselves are the source of truth; this datasheet is only a collector and index. All file references are repo‑relative and include line numbers so any claim can be checked against the code.
 
 ---

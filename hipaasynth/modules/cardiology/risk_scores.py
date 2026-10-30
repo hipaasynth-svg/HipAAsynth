@@ -49,7 +49,7 @@ class CardioRiskScores:
             "ascvd_category": self.ascvd_category,
             "cha2ds2_vasc": self._cha2ds2(data),
             "has_bled": self._has_bled(data),
-            "heart_score": self._heart(data)
+            "heart_score": self._heart(data),
         }
 
     def _ascvd(self, data):
@@ -59,11 +59,11 @@ class CardioRiskScores:
         for i in range(self.n):
             age = data["age"][i]
             sex = data["sex"][i]
-            tc = data.get("total_cholesterol", [200]*self.n)[i]
-            hdl = data.get("hdl_cholesterol", [50]*self.n)[i]
-            sbp = data.get("systolic_bp", [120]*self.n)[i]
-            smoker = data.get("smoking_status", ["never"]*self.n)[i] == "current"
-            diabetes = data.get("diabetes", [False]*self.n)[i]
+            tc = data.get("total_cholesterol", [200] * self.n)[i]
+            hdl = data.get("hdl_cholesterol", [50] * self.n)[i]
+            sbp = data.get("systolic_bp", [120] * self.n)[i]
+            smoker = data.get("smoking_status", ["never"] * self.n)[i] == "current"
+            diabetes = data.get("diabetes", [False] * self.n)[i]
 
             # Intercept and age slope tuned so the low/high PCE tails match
             # published proportions over a CV-risk-enriched cohort (see docstring).
@@ -109,10 +109,10 @@ class CardioRiskScores:
 
             score = 0
 
-            if data.get("heart_failure", [False]*self.n)[i]:
+            if data.get("heart_failure", [False] * self.n)[i]:
                 score += 1
 
-            if data.get("hypertension", [False]*self.n)[i]:
+            if data.get("hypertension", [False] * self.n)[i]:
                 score += 1
 
             if age >= 75:
@@ -120,7 +120,7 @@ class CardioRiskScores:
             elif age >= 65:
                 score += 1
 
-            if data.get("diabetes", [False]*self.n)[i]:
+            if data.get("diabetes", [False] * self.n)[i]:
                 score += 1
 
             if sex == "female":
@@ -136,7 +136,7 @@ class CardioRiskScores:
         for i in range(self.n):
             score = 0
 
-            if data.get("systolic_bp", [120]*self.n)[i] > 160:
+            if data.get("systolic_bp", [120] * self.n)[i] > 160:
                 score += 1
 
             if data["age"][i] > 65:
@@ -151,8 +151,8 @@ class CardioRiskScores:
 
         for i in range(self.n):
             age = data["age"][i]
-            diabetes = data.get("diabetes", [False]*self.n)[i]
-            smoker = data.get("smoking_status", ["never"]*self.n)[i] == "current"
+            diabetes = data.get("diabetes", [False] * self.n)[i]
+            smoker = data.get("smoking_status", ["never"] * self.n)[i] == "current"
 
             score = 0
 
@@ -167,9 +167,7 @@ class CardioRiskScores:
                 score += 1
 
             risk_count = (
-                int(data.get("hypertension", [False]*self.n)[i]) +
-                int(diabetes) +
-                int(smoker)
+                int(data.get("hypertension", [False] * self.n)[i]) + int(diabetes) + int(smoker)
             )
 
             if risk_count >= 3:

@@ -54,7 +54,6 @@ import hashlib
 import json
 import platform
 import re
-import sys
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -90,6 +89,7 @@ except ModuleNotFoundError:  # pragma: no cover - the standalone path
 # Exact enumerations from the public engine
 # -----------------------------------------------------------------------------
 
+
 class DocumentationForm(str, Enum):
     """The seven polymorphic documentation forms rendered by HipAAsynth.
 
@@ -97,6 +97,7 @@ class DocumentationForm(str, Enum):
     ``DocumentationForm`` used as a dict key serializes to the same string the
     engine emits in ``FairnessPassport.decisions``.
     """
+
     FHIR_STRUCTURED = "FHIR_STRUCTURED"
     PHYSICIAN_SOAP = "PHYSICIAN_SOAP"
     MIDLEVEL_ABBREVIATED = "MIDLEVEL_ABBREVIATED"
@@ -108,9 +109,10 @@ class DocumentationForm(str, Enum):
 
 class PopulationProfile(str, Enum):
     """Exact profile files available in hipaasynth/profiles/."""
+
     US_DEFAULT = "us_default"
-    MINOT_ND = "minot_nd"                    # rural critical access
-    FARGO_ND = "fargo_nd"                    # aging rural composite
+    MINOT_ND = "minot_nd"  # rural critical access
+    FARGO_ND = "fargo_nd"  # aging rural composite
     ND_TRIBAL_REGION_A = "nd_tribal_region_a"
     ND_TRIBAL_REGION_A_V2 = "nd_tribal_region_a_v2"
     ND_TRIBAL_REGION_B = "nd_tribal_region_b"
@@ -121,6 +123,7 @@ class PopulationProfile(str, Enum):
 
 class ClinicalModule(str, Enum):
     """Calibrated clinical modules available in hipaasynth/modules/."""
+
     STROKE = "stroke"
     SEPSIS = "sepsis"
     DIABETES = "diabetes"
@@ -139,18 +142,21 @@ class FairnessMetric(str, Enum):
     Values map to the lowercase fields of
     ``hipaasynth.polymorphic.metrics.PolymorphicMetrics``.
     """
-    DCS = "DCS"    # Decision Consistency Score      -> PolymorphicMetrics.dcs
-    ISG = "ISG"    # Information-Source Gradient      -> PolymorphicMetrics.isg
+
+    DCS = "DCS"  # Decision Consistency Score      -> PolymorphicMetrics.dcs
+    ISG = "ISG"  # Information-Source Gradient      -> PolymorphicMetrics.isg
     LFDI = "LFDI"  # Linguistic-Form Disadvantage Index -> PolymorphicMetrics.lfdi
-    SAF = "SAF"    # SDoH Amplification Factor        -> PolymorphicMetrics.saf
+    SAF = "SAF"  # SDoH Amplification Factor        -> PolymorphicMetrics.saf
 
 
 # -----------------------------------------------------------------------------
 # Pydantic contracts
 # -----------------------------------------------------------------------------
 
+
 class PopulationSpec(BaseModel):
     """Zero-PHI specification for a synthetic cohort."""
+
     profile: PopulationProfile
     module: ClinicalModule
     n: int = Field(..., ge=1, le=50_000)
@@ -160,6 +166,7 @@ class PopulationSpec(BaseModel):
 
 class ExperimentPlan(BaseModel):
     """Reproducible blueprint for a fairness-testing run."""
+
     run_id: str
     description: str
     populations: List[PopulationSpec]
@@ -173,6 +180,7 @@ class FairnessPassportSummary(BaseModel):
     Structured, reproducible record of model behavior across the seven forms.
     Matches the engine's FairnessPassport concept (not a single score).
     """
+
     run_id: str
     patient_id: Optional[str] = None
     model_under_test: Optional[str] = None
@@ -200,8 +208,9 @@ class RunSummary(BaseModel):
     one for backward compatibility with callers that expect a single value.
     ``artifact_paths`` records where this cohort's card and JSON were written.
     """
+
     run_id: str
-    status: str                          # "completed" | "failed"
+    status: str  # "completed" | "failed"
     population_spec: PopulationSpec
     passport: Optional[FairnessPassportSummary] = None
     passports: List[FairnessPassportSummary] = Field(default_factory=list)
@@ -217,6 +226,7 @@ class EnvironmentManifest(BaseModel):
     against different engine or orchestrator builds cannot collide on the same
     hash (issue #98, item 3/4).
     """
+
     python_version: str
     platform: str
     engine_version: Optional[str] = None
@@ -243,6 +253,7 @@ class PlanRun(BaseModel):
     ``artifact_paths`` maps a stable name (``plan``, ``manifest``, ``checkpoint``,
     ``run``) to the file that a third party reads to reproduce the run.
     """
+
     run_id: str
     status: str
     plan: ExperimentPlan
@@ -300,20 +311,27 @@ _PHI_LABEL_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
     # date fragments. A synthetic-cohort label has no business carrying them.
     ("numeric identifier / date digits", re.compile(r"\d{3,}")),
     ("date-like token", re.compile(r"\b\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?\b")),
-    ("street address", re.compile(
-        r"\b\d+\s+\w+.*\b(st|street|ave|avenue|rd|road|blvd|ln|lane|dr|drive)\b",
-        re.IGNORECASE,
-    )),
-    ("PHI keyword", re.compile(
-        r"\b(mrn|ssn|dob|d\.o\.b|patient\s+name|phone|npi|medicaid|medicare)\b",
-        re.IGNORECASE,
-    )),
+    (
+        "street address",
+        re.compile(
+            r"\b\d+\s+\w+.*\b(st|street|ave|avenue|rd|road|blvd|ln|lane|dr|drive)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "PHI keyword",
+        re.compile(
+            r"\b(mrn|ssn|dob|d\.o\.b|patient\s+name|phone|npi|medicaid|medicare)\b",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 
 # -----------------------------------------------------------------------------
 # Agent
 # -----------------------------------------------------------------------------
+
 
 class HipAAsynthAgent(Agent):
     """
@@ -348,7 +366,9 @@ class HipAAsynthAgent(Agent):
     # Deterministic tools
     # ------------------------------------------------------------------
 
-    def derive_seed(self, user_seed: int, profile: PopulationProfile, module: ClinicalModule, tag: str) -> int:
+    def derive_seed(
+        self, user_seed: int, profile: PopulationProfile, module: ClinicalModule, tag: str
+    ) -> int:
         """Deterministic seed derivation. Same inputs always produce the same integer.
 
         Returns a 32-bit unsigned integer, matching the engine's own convention
@@ -362,9 +382,7 @@ class HipAAsynthAgent(Agent):
         digest = hashlib.sha256(payload.encode()).hexdigest()
         return int(digest[:8], 16)  # first 4 bytes -> 32-bit unsigned int
 
-    def anchor_plan(
-        self, plan: ExperimentPlan, build: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def anchor_plan(self, plan: ExperimentPlan, build: Optional[Dict[str, Any]] = None) -> str:
         """SHA-256 anchor over a canonical ExperimentPlan.
 
         When ``build`` is given (e.g. :meth:`EnvironmentManifest.anchor_payload`),
@@ -694,7 +712,6 @@ class HipAAsynthAgent(Agent):
         """
         try:
             from hipaasynth.dif.framework import run_audit as _run_audit
-            from hipaasynth.dif.report import write_passport_bundle  # noqa: F401 (engine presence check)
             from hipaasynth.pipelines.population_pipeline import (
                 generate_patients as _generate_patients,
             )
@@ -814,8 +831,11 @@ class HipAAsynthAgent(Agent):
             self._log(log, msg)
             self._log(step_log, msg)
             return RunSummary(
-                run_id=run_id, status="failed", population_spec=spec,
-                errors=phi_reasons, log=step_log,
+                run_id=run_id,
+                status="failed",
+                population_spec=spec,
+                errors=phi_reasons,
+                log=step_log,
             )
 
         from hipaasynth.dif.report import write_passport_bundle
@@ -869,8 +889,11 @@ class HipAAsynthAgent(Agent):
             self._log(log, msg)
             self._log(step_log, msg)
             return RunSummary(
-                run_id=run_id, status="failed", population_spec=spec,
-                errors=[str(exc)], log=step_log,
+                run_id=run_id,
+                status="failed",
+                population_spec=spec,
+                errors=[str(exc)],
+                log=step_log,
             )
 
     def _load_checkpoint(

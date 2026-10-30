@@ -99,16 +99,28 @@ def _normal(rng, mean: float, std: float) -> float:
 
 def _nihss_category(score: int) -> str:
     """NIHSS severity categories per Feng et al. JCLA 2018 [3]."""
-    if score <= 4:   return 'mild'
-    if score <= 15:  return 'moderate'
-    if score <= 20:  return 'moderate_severe'
-    return 'severe'
+    if score <= 4:
+        return "mild"
+    if score <= 15:
+        return "moderate"
+    if score <= 20:
+        return "moderate_severe"
+    return "severe"
 
 
-def _tpa_eligible(rng, stroke_type: str, nihss: int, onset_to_door_min: int,
-                  sbp: int, glucose: float, prior_stroke: bool,
-                  anticoagulant: bool, age: int,
-                  prior_ich: bool, recent_surgery: bool) -> bool:
+def _tpa_eligible(
+    rng,
+    stroke_type: str,
+    nihss: int,
+    onset_to_door_min: int,
+    sbp: int,
+    glucose: float | None,
+    prior_stroke: bool,
+    anticoagulant: bool,
+    age: int,
+    prior_ich: bool,
+    recent_surgery: bool,
+) -> bool:
     """
     Rule-based tPA eligibility determination.
     Sources: AHA/ASA Guidelines 2019 [7]; Bergh et al. 2022 [4]
@@ -128,7 +140,7 @@ def _tpa_eligible(rng, stroke_type: str, nihss: int, onset_to_door_min: int,
     - Mild symptoms NIHSS <= 5 (OR 2.33 for non-treatment, Bergh 2022 [4])
     - Late arrival 180-270 min (OR 7.76, Bergh 2022 [4])
     """
-    if stroke_type == 'hemorrhagic':
+    if stroke_type == "hemorrhagic":
         return False
     if onset_to_door_min > 270:
         return False
@@ -154,10 +166,10 @@ def _tpa_eligible(rng, stroke_type: str, nihss: int, onset_to_door_min: int,
     if prior_stroke:
         p *= 0.55
 
-    if stroke_type == 'tia':
+    if stroke_type == "tia":
         return False
 
-    return rng.random() < p
+    return bool(rng.random() < p)
 
 
 def build_stroke_observations(
@@ -173,61 +185,64 @@ def build_stroke_observations(
     v1.0.2 changes: SBP raised, rural onset-to-door tail extended,
     prior_ich and recent_surgery added as fields and tPA contraindications.
     """
-    names        = {c.name for c in conditions}
-    age          = demographics.age
-    sex          = demographics.sex
-    age_group    = '65_plus' if age >= 65 else '18_64'
+    names = {c.name for c in conditions}
+    age = demographics.age
+    _sex = demographics.sex
+    _age_group = "65_plus" if age >= 65 else "18_64"
 
     # Rural detection — affects onset-to-door late-presenter probability
-    profile = getattr(cfg, '_resolved_profile', None) or {}
+    profile = getattr(cfg, "_resolved_profile", None) or {}
     if isinstance(profile, dict):
-        profile_name = str(profile.get('profile_name', '')).lower()
+        profile_name = str(profile.get("profile_name", "")).lower()
     else:
-        profile_name = ''
+        profile_name = ""
     rural = profile_rurality(profile)
     if rural is None:
         rural = rng.random() < 0.17
 
-    has_stroke   = (getattr(cfg, 'required_condition', None) == 'stroke') \
-                   or ('stroke' in names) or ('ischemic_stroke' in names)
+    has_stroke = (
+        (getattr(cfg, "required_condition", None) == "stroke")
+        or ("stroke" in names)
+        or ("ischemic_stroke" in names)
+    )
 
-    hypertension = 'hypertension' in names
-    diabetes     = 'type2_diabetes' in names
-    afib         = 'atrial_fibrillation' in names
-    ckd          = 'chronic_kidney_disease' in names
-    chf          = 'congestive_heart_failure' in names
-    smoker       = rng.random() < 0.18
+    hypertension = "hypertension" in names
+    diabetes = "type2_diabetes" in names
+    afib = "atrial_fibrillation" in names
+    ckd = "chronic_kidney_disease" in names
+    chf = "congestive_heart_failure" in names
+    _smoker = rng.random() < 0.18
 
-    glucose_lab  = None
+    glucose_lab = None
     for v in visits:
-        for l in getattr(v, 'labs', []):
-            if getattr(l, 'lab_name', None) == 'Glucose':
-                glucose_lab = getattr(l, 'value', None)
+        for lab in getattr(v, "labs", []):
+            if getattr(lab, "lab_name", None) == "Glucose":
+                glucose_lab = getattr(lab, "value", None)
                 break
 
     if not has_stroke:
         return {
-            'stroke_flag':            False,
-            'stroke_type':            None,
-            'nihss_score':            None,
-            'nihss_category':         None,
-            'tpa_eligible':           None,
-            'tpa_administered':       None,
-            'onset_to_door_minutes':  None,
-            'door_to_needle_minutes': None,
-            'sbp_admission':          None,
-            'dbp_admission':          None,
-            'glucose_admission':      glucose_lab,
-            'atrial_fibrillation':    afib,
-            'prior_stroke':           False,
-            'prior_ich':              False,
-            'recent_surgery':         False,
-            'anticoagulant_use':      False,
-            'mrs_discharge':          None,
-            'mrs_90day':              None,
-            'rural_presentation':     rural,
-            'region_profile':         profile_name or None,
-            'stroke_observation_version': 'stroke_generator_v2_calibrated',
+            "stroke_flag": False,
+            "stroke_type": None,
+            "nihss_score": None,
+            "nihss_category": None,
+            "tpa_eligible": None,
+            "tpa_administered": None,
+            "onset_to_door_minutes": None,
+            "door_to_needle_minutes": None,
+            "sbp_admission": None,
+            "dbp_admission": None,
+            "glucose_admission": glucose_lab,
+            "atrial_fibrillation": afib,
+            "prior_stroke": False,
+            "prior_ich": False,
+            "recent_surgery": False,
+            "anticoagulant_use": False,
+            "mrs_discharge": None,
+            "mrs_90day": None,
+            "rural_presentation": rural,
+            "region_profile": profile_name or None,
+            "stroke_observation_version": "stroke_generator_v2_calibrated",
         }
 
     # ----------------------------------------------------------------
@@ -244,28 +259,28 @@ def build_stroke_observations(
     # ----------------------------------------------------------------
     r = rng.random()
     if r < 0.11:
-        stroke_type = 'hemorrhagic'
+        stroke_type = "hemorrhagic"
     elif r < 0.16:
-        stroke_type = 'tia'
+        stroke_type = "tia"
     else:
-        stroke_type = 'ischemic'
+        stroke_type = "ischemic"
 
     # ----------------------------------------------------------------
     # SEVERITY SCORE
     # Real-world median NIHSS is 4 (mild) — most strokes are minor [2][3]
     # ----------------------------------------------------------------
     severity = 0.05
-    severity += 0.08 if age >= 65    else 0.0
-    severity += 0.05 if age >= 80    else 0.0
+    severity += 0.08 if age >= 65 else 0.0
+    severity += 0.05 if age >= 80 else 0.0
     severity += 0.03 if hypertension else 0.0
-    severity += 0.04 if diabetes     else 0.0
+    severity += 0.04 if diabetes else 0.0
     severity += 0.06 if afib_modeled else 0.0
-    severity += 0.03 if ckd          else 0.0
-    severity += 0.03 if chf          else 0.0
+    severity += 0.03 if ckd else 0.0
+    severity += 0.03 if chf else 0.0
     severity += rng.random() * 0.10
-    if stroke_type == 'hemorrhagic':
+    if stroke_type == "hemorrhagic":
         severity = min(severity + 0.10, 0.85)
-    if stroke_type == 'tia':
+    if stroke_type == "tia":
         severity = max(severity * 0.2, 0.02)
     severity = min(severity, 0.85)
 
@@ -277,27 +292,27 @@ def build_stroke_observations(
     #   Ischemic thresholds:    50% mild / 13% moderate / 37% severe
     # TIA: overrides to NIHSS 0-2 regardless of roll.
     # ----------------------------------------------------------------
-    if stroke_type == 'hemorrhagic':
+    if stroke_type == "hemorrhagic":
         mild_thresh = 0.25
-        mod_thresh  = 0.65
+        mod_thresh = 0.65
     else:
         mild_thresh = 0.50
-        mod_thresh  = 0.63
+        mod_thresh = 0.63
 
     roll = rng.random()
     if roll < mild_thresh:
         nihss_mean = 1.5 + severity * 3.0
-        nihss_raw  = int(round(max(0, min(4, _normal(rng, nihss_mean, 1.2)))))
+        nihss_raw = int(round(max(0, min(4, _normal(rng, nihss_mean, 1.2)))))
     elif roll < mod_thresh:
         nihss_mean = 8.0 + severity * 7.0
-        nihss_raw  = int(round(max(5, min(15, _normal(rng, nihss_mean, 2.5)))))
+        nihss_raw = int(round(max(5, min(15, _normal(rng, nihss_mean, 2.5)))))
     else:
         nihss_mean = 17.0 + severity * 10.0
-        nihss_raw  = int(round(max(16, min(42, _normal(rng, nihss_mean, 5.0)))))
-    if stroke_type == 'tia':
+        nihss_raw = int(round(max(16, min(42, _normal(rng, nihss_mean, 5.0)))))
+    if stroke_type == "tia":
         nihss_raw = int(round(max(0, min(2, _normal(rng, 0.8, 0.8)))))
     nihss_score = nihss_raw
-    nihss_cat   = _nihss_category(nihss_score)
+    nihss_cat = _nihss_category(nihss_score)
 
     # ----------------------------------------------------------------
     # BLOOD PRESSURE AT ADMISSION
@@ -309,7 +324,7 @@ def build_stroke_observations(
     # sbp_base: 155 + severity*28 (+12 if HTN overlay active).
     # Upper clamp extended to 230 for hypertensive emergency values.
     # ----------------------------------------------------------------
-    htn_stroke_p = 0.90 if (stroke_type == 'ischemic' and age >= 65) else 0.82
+    htn_stroke_p = 0.90 if (stroke_type == "ischemic" and age >= 65) else 0.82
     hypertension_stroke = hypertension or (rng.random() < htn_stroke_p)
     sbp_base = 155 + severity * 28
     if hypertension_stroke:
@@ -340,9 +355,9 @@ def build_stroke_observations(
     # internal review 2026 [10]: prior ICH 2-5%, recent surgery 2-4%.
     # Both are absolute tPA contraindications (AHA/ASA 2019 [7]).
     # ----------------------------------------------------------------
-    prior_stroke  = rng.random() < (0.10 + (0.05 if age >= 65 else 0))
+    prior_stroke = rng.random() < (0.10 + (0.05 if age >= 65 else 0))
     anticoagulant = rng.random() < (0.05 + (0.60 if afib_modeled else 0))
-    prior_ich     = rng.random() < (0.025 + (0.015 if age >= 65 else 0.0))
+    prior_ich = rng.random() < (0.025 + (0.015 if age >= 65 else 0.0))
     recent_surgery = rng.random() < (0.020 + (0.010 if age >= 65 else 0.0))
 
     # ----------------------------------------------------------------
@@ -351,9 +366,17 @@ def build_stroke_observations(
     # prior_ich and recent_surgery now absolute contraindications [7][10]
     # ----------------------------------------------------------------
     tpa_elig = _tpa_eligible(
-        rng, stroke_type, nihss_score, onset_to_door,
-        sbp, glucose_lab, prior_stroke, anticoagulant, age,
-        prior_ich, recent_surgery,
+        rng,
+        stroke_type,
+        nihss_score,
+        onset_to_door,
+        sbp,
+        glucose_lab,
+        prior_stroke,
+        anticoagulant,
+        age,
+        prior_ich,
+        recent_surgery,
     )
 
     dtn = None
@@ -370,7 +393,7 @@ def build_stroke_observations(
     mrs_base = severity * 5.0
     if tpa_admin and nihss_score <= 15:
         mrs_base *= 0.75
-    if stroke_type == 'hemorrhagic':
+    if stroke_type == "hemorrhagic":
         mrs_base = min(mrs_base + 1.0, 5.0)
 
     mrs_discharge = int(_clamp(round(_normal(rng, mrs_base, 1.2)), 0, 6))
@@ -378,25 +401,25 @@ def build_stroke_observations(
     mrs_90day = int(_clamp(mrs_90day_raw, 0, 6))
 
     return {
-        'stroke_flag':            True,
-        'stroke_type':            stroke_type,
-        'nihss_score':            nihss_score,
-        'nihss_category':         nihss_cat,
-        'tpa_eligible':           tpa_elig,
-        'tpa_administered':       tpa_admin,
-        'onset_to_door_minutes':  onset_to_door,
-        'door_to_needle_minutes': dtn,
-        'sbp_admission':          sbp,
-        'dbp_admission':          dbp,
-        'glucose_admission':      glucose_lab,
-        'atrial_fibrillation':    afib_modeled,
-        'prior_stroke':           prior_stroke,
-        'prior_ich':              prior_ich,
-        'recent_surgery':         recent_surgery,
-        'anticoagulant_use':      anticoagulant,
-        'mrs_discharge':          mrs_discharge,
-        'mrs_90day':              mrs_90day,
-        'rural_presentation':     rural,
-        'region_profile':         profile_name or None,
-        'stroke_observation_version': 'stroke_generator_v2_calibrated',
+        "stroke_flag": True,
+        "stroke_type": stroke_type,
+        "nihss_score": nihss_score,
+        "nihss_category": nihss_cat,
+        "tpa_eligible": tpa_elig,
+        "tpa_administered": tpa_admin,
+        "onset_to_door_minutes": onset_to_door,
+        "door_to_needle_minutes": dtn,
+        "sbp_admission": sbp,
+        "dbp_admission": dbp,
+        "glucose_admission": glucose_lab,
+        "atrial_fibrillation": afib_modeled,
+        "prior_stroke": prior_stroke,
+        "prior_ich": prior_ich,
+        "recent_surgery": recent_surgery,
+        "anticoagulant_use": anticoagulant,
+        "mrs_discharge": mrs_discharge,
+        "mrs_90day": mrs_90day,
+        "rural_presentation": rural,
+        "region_profile": profile_name or None,
+        "stroke_observation_version": "stroke_generator_v2_calibrated",
     }

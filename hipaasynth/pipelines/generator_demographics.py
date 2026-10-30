@@ -38,18 +38,19 @@ Calibration sources:
        https://www.cdc.gov/nchs/data/series/sr_03/sr03-046-508.pdf
        National reference for age distribution across adult population.
 """
-import random
-from typing import Optional
 from hipaasynth.core.schema import Demographics
 from hipaasynth.core.config import DEFAULT_ETHNICITY_WEIGHTS
+
 
 def _generate_patient_id(patient_seed: int) -> str:
     return f"SYN-{patient_seed:08x}"
 
+
 def _weighted_choice(rng, options, weights):
     weight_list = [weights.get(opt, 0.0) for opt in options]
     total = sum(weight_list)
-    if total == 0: return options[0]
+    if total == 0:
+        return options[0]
     normalized = [w / total for w in weight_list]
     cumulative = []
     cumsum = 0.0
@@ -58,11 +59,14 @@ def _weighted_choice(rng, options, weights):
         cumulative.append(cumsum)
     r = rng.random()
     for i, cum in enumerate(cumulative):
-        if r <= cum: return options[i]
+        if r <= cum:
+            return options[i]
     return options[-1]
 
-def generate_demographics(rng, patient_seed, age_min, age_max, sex_ratio_female,
-                          ethnicity_weights, age_band_weights=None):
+
+def generate_demographics(
+    rng, patient_seed, age_min, age_max, sex_ratio_female, ethnicity_weights, age_band_weights=None
+):
     """Generate synthetic patient demographics.
 
     Default age bands (18-44: 45%, 45-64: 33%, 65-80: 22%) are derived from
@@ -104,4 +108,6 @@ def generate_demographics(rng, patient_seed, age_min, age_max, sex_ratio_female,
     weights = ethnicity_weights if ethnicity_weights is not None else DEFAULT_ETHNICITY_WEIGHTS
     ethnicity_options = ["white", "black", "hispanic", "asian", "native", "other"]
     ethnicity = _weighted_choice(rng, ethnicity_options, weights)
-    return Demographics(patient_id=patient_id, seed=patient_seed, age=age, sex=sex, ethnicity=ethnicity)
+    return Demographics(
+        patient_id=patient_id, seed=patient_seed, age=age, sex=sex, ethnicity=ethnicity
+    )

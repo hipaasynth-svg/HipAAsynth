@@ -51,23 +51,27 @@ def build():
             actual = c["actual"]
             tol = c["tolerance"]
             is_prop = target <= 1.0 and tol <= 1.0
-            checks.append({
-                "label": clean_label(c["metric"]),
-                "target": target,
-                "actual": actual,
-                "tol": tol,
-                "diff": c["diff"],
-                "status": c["status"],
-                "is_prop": is_prop,
-                # fraction of the allowed tolerance budget that the deviation consumes
-                "budget": round(c["diff"] / tol, 4) if tol else 0.0,
-            })
-        modules.append({
-            "name": name.upper(),
-            "pass": md["pass"],
-            "fail": md["fail"],
-            "checks": checks,
-        })
+            checks.append(
+                {
+                    "label": clean_label(c["metric"]),
+                    "target": target,
+                    "actual": actual,
+                    "tol": tol,
+                    "diff": c["diff"],
+                    "status": c["status"],
+                    "is_prop": is_prop,
+                    # fraction of the allowed tolerance budget that the deviation consumes
+                    "budget": round(c["diff"] / tol, 4) if tol else 0.0,
+                }
+            )
+        modules.append(
+            {
+                "name": name.upper(),
+                "pass": md["pass"],
+                "fail": md["fail"],
+                "checks": checks,
+            }
+        )
 
     payload = {
         "generated_utc": report["generated_utc"],
@@ -79,9 +83,9 @@ def build():
 
     fragment = TEMPLATE.replace("__DATA__", json.dumps(payload))
     standalone = (
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n"
-        "<meta charset=\"utf-8\">\n"
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+        '<!doctype html>\n<html lang="en">\n<head>\n'
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         "</head>\n<body>\n" + fragment + "\n</body>\n</html>\n"
     )
     with open(OUT, "w", encoding="utf-8") as fh:

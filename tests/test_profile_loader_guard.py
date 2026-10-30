@@ -37,11 +37,7 @@ PROFILES_DIR = os.path.join(os.path.dirname(hipaasynth.__file__), "profiles")
 
 
 def _bundled_profiles():
-    return [
-        os.path.join(PROFILES_DIR, f)
-        for f in os.listdir(PROFILES_DIR)
-        if f.endswith(".json")
-    ]
+    return [os.path.join(PROFILES_DIR, f) for f in os.listdir(PROFILES_DIR) if f.endswith(".json")]
 
 
 def test_bundled_profiles_load_and_are_well_under_limit():

@@ -84,9 +84,9 @@ def _iter_strings(obj):
 def _assert_no_real_identifiers(record):
     for value in _iter_strings(record):
         for name, pattern in _REAL_ID_PATTERNS.items():
-            assert not pattern.search(value), (
-                f"real-identifier shape '{name}' found in synthetic value: {value!r}"
-            )
+            assert not pattern.search(
+                value
+            ), f"real-identifier shape '{name}' found in synthetic value: {value!r}"
 
 
 def _assert_synthetic_stamp(record):
@@ -95,9 +95,9 @@ def _assert_synthetic_stamp(record):
     # the shared semantic guarantee rather than an exact string, which keeps the
     # check robust if the canonical wording is ever revised.
     disclaimer = str(record.get("disclaimer", "")).upper()
-    assert "SYNTHETIC" in disclaimer and "NO REAL PATIENT" in disclaimer, (
-        f"record missing synthetic / no-real-patient disclaimer: {record.get('disclaimer')!r}"
-    )
+    assert (
+        "SYNTHETIC" in disclaimer and "NO REAL PATIENT" in disclaimer
+    ), f"record missing synthetic / no-real-patient disclaimer: {record.get('disclaimer')!r}"
 
 
 class TestNoRealIdentifiers:
@@ -110,20 +110,22 @@ class TestNoRealIdentifiers:
         for record in patients:
             _assert_no_real_identifiers(record)
             _assert_synthetic_stamp(record)
-            assert str(record["patient_id"]).startswith("SYN-"), (
-                f"{name}: patient_id not SYN-prefixed: {record['patient_id']!r}"
-            )
+            assert str(record["patient_id"]).startswith(
+                "SYN-"
+            ), f"{name}: patient_id not SYN-prefixed: {record['patient_id']!r}"
 
     def test_pipeline_cohort_has_no_real_identifiers(self):
-        records = [p.to_dict() for p in generate_patients(GenerationConfig(patient_count=200, seed=42))]
+        records = [
+            p.to_dict() for p in generate_patients(GenerationConfig(patient_count=200, seed=42))
+        ]
         assert records, "pipeline returned no patients"
         for record in records:
             _assert_no_real_identifiers(record)
             _assert_synthetic_stamp(record)
             patient_id = record["demographics"]["patient_id"]
-            assert patient_id.startswith("SYN-"), (
-                f"pipeline patient_id not SYN-prefixed: {patient_id!r}"
-            )
+            assert patient_id.startswith(
+                "SYN-"
+            ), f"pipeline patient_id not SYN-prefixed: {patient_id!r}"
 
 
 class TestDeterminism:
@@ -147,9 +149,9 @@ class TestStatisticalProperties:
         cfg = GenerationConfig(patient_count=2000, seed=7, sex_ratio_female=0.30)
         demographics = [p.to_dict()["demographics"] for p in generate_patients(cfg)]
         female_fraction = sum(d["sex"] == "female" for d in demographics) / len(demographics)
-        assert abs(female_fraction - 0.30) < self.TOLERANCE, (
-            f"female fraction {female_fraction:.3f} deviates from configured 0.30"
-        )
+        assert (
+            abs(female_fraction - 0.30) < self.TOLERANCE
+        ), f"female fraction {female_fraction:.3f} deviates from configured 0.30"
 
     def test_ethnicity_distribution_matches_config(self):
         # Keys must match the engine's lowercase ethnicity options; mismatched
@@ -168,6 +170,6 @@ class TestStatisticalProperties:
         counts = Counter(d["ethnicity"] for d in demographics)
         for ethnicity, target in weights.items():
             fraction = counts.get(ethnicity, 0) / total
-            assert abs(fraction - target) < self.TOLERANCE, (
-                f"{ethnicity}: {fraction:.3f} deviates from configured {target}"
-            )
+            assert (
+                abs(fraction - target) < self.TOLERANCE
+            ), f"{ethnicity}: {fraction:.3f} deviates from configured {target}"

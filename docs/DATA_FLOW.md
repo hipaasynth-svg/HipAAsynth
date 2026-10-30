@@ -38,6 +38,7 @@ enter or exit. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the component map.
 | `n` / `patient_count` | int | Cohort size. |
 | population profile | JSON file | **Aggregate** distributions only — sex ratio, ethnicity weights, age-band weights (`core/profile_loader.py`, `profiles/`). No individual records. |
 | module selection | str | e.g. `oud`. Chooses the condition generator. |
+| 7AAST model answers | answers CSV/JSONL, or replies from a model endpoint | The model's answers to synthetic cases; never patient data. |
 | generation config | `GenerationConfig` (frozen dataclass) | Age bounds, visit/lab toggles, disclaimer text (`core/config.py`). |
 
 **There is no input path that reads a patient record.** `profile_loader` reads
@@ -63,6 +64,8 @@ files, which are themselves synthetic engine output — not external PHI.)
 |---|---|---|
 | Synthetic cohort | `exporters/` → CSV / JSON / FHIR R5 | Parent dirs auto-created; writes fail loud (`RuntimeError`) on I/O error. FHIR bundle IDs are path-independent (`os.path.basename`). |
 | FairnessPassport | in-memory / serialized | Per-patient structured audit record. |
+| 7AAST report | `--report` path, page download | JSON or self-contained HTML; a 4-stage SHA-256 chain over cohort, method and results; `hipaasynth 7aast verify` recomputes it and can rebuild every case. Endpoint query strings and request headers are never recorded. |
+| 7AAST cases | `export` → `cases.jsonl` + answers template | Blinded synthetic cases, content-hashed `case_id`s. |
 | Run logs | `runs/<run_id>/logs/engine.jsonl` | Structured JSONL; event + hash records only — **not** patient field dumps (`core/logger.py`). |
 | Manifest & snapshots | `runs/<run_id>/` | Config snapshot, environment snapshot (python/platform/cwd/pid), replay command, SHA-256 file hashes (`core/run_context.py`, `core/manifest.py`, `core/hashing.py`). |
 
@@ -71,8 +74,12 @@ Every emitted record carries `synthetic=True` and the disclaimer from
 
 ## Security-relevant properties of the flow
 
-- **No network egress.** Nothing in the flow opens a socket. Output goes only to
-  the local filesystem paths the operator specifies.
+- **No network egress unless the operator asks.** Generation, audits and reports
+  open no sockets. The one exception is a 7AAST run the operator points at a
+  model (`--url`, `--llm`, or the page's model address): synthetic, blinded cases
+  are then sent to that endpoint and its answers read back. The shared API
+  server refuses model URLs; only the local `hipaasynth ui` (127.0.0.1) calls
+  them. An LLM key is read from the environment and never written out.
 - **No PHI at any stage.** Since no PHI enters, none can be logged, exported, or
   leaked. Logs record events and hashes, not record contents.
 - **Reproducible ⇒ non-archival.** Any output can be regenerated from its seed, so
@@ -86,5 +93,5 @@ Every emitted record carries `synthetic=True` and the disclaimer from
   writes wherever told.
 - Treat **profiles and seeds** as the reproducibility record and keep them in
   version control.
-- If moving outputs across a network, apply TLS at that layer — the engine does not
-  transmit.
+- If moving outputs across a network, apply TLS at that layer. When pointing 7AAST
+  at a model endpoint, use `https://` and treat its key like any other secret.

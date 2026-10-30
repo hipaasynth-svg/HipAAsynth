@@ -25,7 +25,6 @@ Stdlib-only (no numpy/pandas). Anchor-compatible.
 
 import random
 import math
-from typing import List, Dict, Optional
 
 from hipaasynth.core.config import DEFAULT_SYNTHETIC_DISCLAIMER
 
@@ -35,17 +34,17 @@ SMA_TYPES = ["SMA-I", "SMA-II", "SMA-III", "SMA-IV"]
 SMA_TYPE_RATES = [0.55, 0.30, 0.14, 0.01]
 
 SMN2_DIST = {
-    "SMA-I":   [0.70, 0.25, 0.05, 0.00],
-    "SMA-II":  [0.10, 0.60, 0.25, 0.05],
+    "SMA-I": [0.70, 0.25, 0.05, 0.00],
+    "SMA-II": [0.10, 0.60, 0.25, 0.05],
     "SMA-III": [0.00, 0.20, 0.50, 0.30],
-    "SMA-IV":  [0.00, 0.05, 0.35, 0.60],
+    "SMA-IV": [0.00, 0.05, 0.35, 0.60],
 }
 
 ONSET_PARAMS = {
-    "SMA-I":   (2.5, 1.5),
-    "SMA-II":  (10.0, 3.0),
+    "SMA-I": (2.5, 1.5),
+    "SMA-II": (10.0, 3.0),
     "SMA-III": (36.0, 12.0),
-    "SMA-IV":  (240.0, 60.0),
+    "SMA-IV": (240.0, 60.0),
 }
 
 SURVIVAL_PARAMS = {
@@ -74,14 +73,14 @@ SURVIVAL_PARAMS = {
 NUSINERSEN_SURVIVAL_BENEFIT = 0.50
 
 VENTILATION_RATES = {
-    "SMA-I":   0.80,
-    "SMA-II":  0.30,
+    "SMA-I": 0.80,
+    "SMA-II": 0.30,
     "SMA-III": 0.05,
-    "SMA-IV":  0.02,
+    "SMA-IV": 0.02,
 }
 
 MILESTONE_PARAMS = {
-    "SMA-II":  {"sits_mean": 12.0, "walks_mean": 20.0, "ambulation_loss_age": 480.0},
+    "SMA-II": {"sits_mean": 12.0, "walks_mean": 20.0, "ambulation_loss_age": 480.0},
     "SMA-III": {"sits_mean": 15.0, "walks_mean": 24.0, "ambulation_loss_age": 480.0},
 }
 
@@ -143,10 +142,11 @@ class SMACohortGenerator:
         patients = []
         for i in range(n):
             pid = f"SMA-{i:06d}"
-            patients.append(self._generate_patient(
-                pid, self.treatment_rate,
-                include_genetics, include_motor_milestones
-            ))
+            patients.append(
+                self._generate_patient(
+                    pid, self.treatment_rate, include_genetics, include_motor_milestones
+                )
+            )
         return patients
 
     def _tracked_random(self):
@@ -176,8 +176,9 @@ class SMACohortGenerator:
         mean, std = ONSET_PARAMS[sma_type]
         return _clamp(self._tracked_gauss(mean, std), 0.1, mean + 4 * std)
 
-    def _generate_patient(self, patient_id, treatment_rate,
-                          include_genetics, include_motor_milestones):
+    def _generate_patient(
+        self, patient_id, treatment_rate, include_genetics, include_motor_milestones
+    ):
         self._call_count = 0
 
         sma_type = self._tracked_choice(SMA_TYPES, SMA_TYPE_RATES)
@@ -222,8 +223,8 @@ class SMACohortGenerator:
             sma_type, onset_age_months, on_nusinersen
         )
 
-        survival_months *= (1 / smn2_modifier)
-        survival_months *= (1 / treatment_effect_multiplier)
+        survival_months *= 1 / smn2_modifier
+        survival_months *= 1 / treatment_effect_multiplier
 
         age_at_death_or_censor_months = onset_age_months + survival_months
         current_age_years = age_at_death_or_censor_months / 12
@@ -242,33 +243,35 @@ class SMACohortGenerator:
             if sma_type == "SMA-I":
                 if presymptomatic:
                     motor_data = {
-                        'achieved_sitting': True,
-                        'age_sitting_months': round(self._tracked_gauss(8, 2), 2),
-                        'achieved_walking': self._tracked_random() < 0.3,
-                        'age_walking_months': round(self._tracked_gauss(16, 4), 2),
-                        'lost_ambulation': False,
-                        'age_ambulation_lost_months': None
+                        "achieved_sitting": True,
+                        "age_sitting_months": round(self._tracked_gauss(8, 2), 2),
+                        "achieved_walking": self._tracked_random() < 0.3,
+                        "age_walking_months": round(self._tracked_gauss(16, 4), 2),
+                        "lost_ambulation": False,
+                        "age_ambulation_lost_months": None,
                     }
                 else:
                     motor_data = {
-                        'achieved_sitting': False,
-                        'age_sitting_months': None,
-                        'achieved_walking': False,
-                        'age_walking_months': None,
-                        'lost_ambulation': False,
-                        'age_ambulation_lost_months': None
+                        "achieved_sitting": False,
+                        "age_sitting_months": None,
+                        "achieved_walking": False,
+                        "age_walking_months": None,
+                        "lost_ambulation": False,
+                        "age_ambulation_lost_months": None,
                     }
 
             elif sma_type == "SMA-II":
                 mp = MILESTONE_PARAMS["SMA-II"]
                 age_sits = self._tracked_gauss(mp["sits_mean"] + milestone_shift, 3)
                 motor_data = {
-                    'achieved_sitting': current_age_years * 12 > age_sits,
-                    'age_sitting_months': round(age_sits, 2),
-                    'achieved_walking': presymptomatic and self._tracked_random() < 0.2,
-                    'age_walking_months': round(self._tracked_gauss(20, 5), 2) if presymptomatic else None,
-                    'lost_ambulation': False,
-                    'age_ambulation_lost_months': None
+                    "achieved_sitting": current_age_years * 12 > age_sits,
+                    "age_sitting_months": round(age_sits, 2),
+                    "achieved_walking": presymptomatic and self._tracked_random() < 0.2,
+                    "age_walking_months": (
+                        round(self._tracked_gauss(20, 5), 2) if presymptomatic else None
+                    ),
+                    "lost_ambulation": False,
+                    "age_ambulation_lost_months": None,
                 }
 
             elif sma_type == "SMA-III":
@@ -281,27 +284,29 @@ class SMACohortGenerator:
                     amb_loss_risk *= 0.7
 
                 lost_amb = (
-                    current_age_years * 12 > mp["ambulation_loss_age"] and
-                    self._tracked_random() < amb_loss_risk
+                    current_age_years * 12 > mp["ambulation_loss_age"]
+                    and self._tracked_random() < amb_loss_risk
                 )
 
                 motor_data = {
-                    'achieved_sitting': current_age_years * 12 > age_sits,
-                    'age_sitting_months': round(age_sits, 2),
-                    'achieved_walking': current_age_years * 12 > age_walks,
-                    'age_walking_months': round(age_walks, 2),
-                    'lost_ambulation': lost_amb,
-                    'age_ambulation_lost_months': round(self._tracked_gauss(480, 60), 2) if lost_amb else None
+                    "achieved_sitting": current_age_years * 12 > age_sits,
+                    "age_sitting_months": round(age_sits, 2),
+                    "achieved_walking": current_age_years * 12 > age_walks,
+                    "age_walking_months": round(age_walks, 2),
+                    "lost_ambulation": lost_amb,
+                    "age_ambulation_lost_months": (
+                        round(self._tracked_gauss(480, 60), 2) if lost_amb else None
+                    ),
                 }
 
             else:
                 motor_data = {
-                    'achieved_sitting': True,
-                    'age_sitting_months': 8.0,
-                    'achieved_walking': True,
-                    'age_walking_months': 14.0,
-                    'lost_ambulation': False,
-                    'age_ambulation_lost_months': None
+                    "achieved_sitting": True,
+                    "age_sitting_months": 8.0,
+                    "achieved_walking": True,
+                    "age_walking_months": 14.0,
+                    "lost_ambulation": False,
+                    "age_ambulation_lost_months": None,
                 }
 
         respiratory_data = self._model_respiratory(
@@ -312,30 +317,30 @@ class SMACohortGenerator:
         if include_genetics:
             smn2_fl = int(self._tracked_gauss(smn2_copies * 0.3, 0.5))
             genetic_data = {
-                'smn1_status': 'homozygous_deletion',
-                'smn2_copies': int(smn2_copies),
-                'smn2_full_length_transcripts': max(0, smn2_fl),
-                'c_859c_t_mutation': self._tracked_random() < 0.05
+                "smn1_status": "homozygous_deletion",
+                "smn2_copies": int(smn2_copies),
+                "smn2_full_length_transcripts": max(0, smn2_fl),
+                "c_859c_t_mutation": self._tracked_random() < 0.05,
             }
 
         return {
-            'patient_id': patient_id,
-            'synthetic': True,
-            'disclaimer': DEFAULT_SYNTHETIC_DISCLAIMER,
-            'sma_type': sma_type,
-            'age_at_onset_months': round(onset_age_months, 2),
-            'age_at_diagnosis_months': round(diagnosis_age_months, 2),
-            'on_disease_modifying_therapy': on_nusinersen,
-            'treatment_start_months': round(treatment_start, 2) if treatment_start else None,
-            'presymptomatic_treatment': presymptomatic,
-            'dmt_type': 'nusinersen' if on_nusinersen else None,
-            'age_at_death_or_censor_years': round(current_age_years, 2),
-            'vital_status': vital_status,
-            'survival_months_from_onset': round(survival_months, 2),
-            'rng_calls': self._call_count,
+            "patient_id": patient_id,
+            "synthetic": True,
+            "disclaimer": DEFAULT_SYNTHETIC_DISCLAIMER,
+            "sma_type": sma_type,
+            "age_at_onset_months": round(onset_age_months, 2),
+            "age_at_diagnosis_months": round(diagnosis_age_months, 2),
+            "on_disease_modifying_therapy": on_nusinersen,
+            "treatment_start_months": round(treatment_start, 2) if treatment_start else None,
+            "presymptomatic_treatment": presymptomatic,
+            "dmt_type": "nusinersen" if on_nusinersen else None,
+            "age_at_death_or_censor_years": round(current_age_years, 2),
+            "vital_status": vital_status,
+            "survival_months_from_onset": round(survival_months, 2),
+            "rng_calls": self._call_count,
             **genetic_data,
             **motor_data,
-            **respiratory_data
+            **respiratory_data,
         }
 
     def _model_survival(self, sma_type, onset_months, on_nusinersen):
@@ -364,13 +369,19 @@ class SMACohortGenerator:
             needs_ventilation = self._tracked_random() < 0.6
 
         if sma_type == "SMA-I":
-            niv_hours = _clamp(round(self._tracked_gauss(16, 4), 1), 0, 24) if needs_ventilation else 0
+            niv_hours = (
+                _clamp(round(self._tracked_gauss(16, 4), 1), 0, 24) if needs_ventilation else 0
+            )
             trach = needs_ventilation and self._tracked_random() < 0.30
         elif sma_type == "SMA-II":
-            niv_hours = _clamp(round(self._tracked_gauss(8, 3), 1), 0, 24) if needs_ventilation else 0
+            niv_hours = (
+                _clamp(round(self._tracked_gauss(8, 3), 1), 0, 24) if needs_ventilation else 0
+            )
             trach = needs_ventilation and self._tracked_random() < 0.05
         else:
-            niv_hours = _clamp(round(self._tracked_gauss(4, 2), 1), 0, 24) if needs_ventilation else 0
+            niv_hours = (
+                _clamp(round(self._tracked_gauss(4, 2), 1), 0, 24) if needs_ventilation else 0
+            )
             trach = False
 
         scoliosis = False
@@ -386,11 +397,11 @@ class SMACohortGenerator:
             feeding_support = self._tracked_random() < 0.25
 
         return {
-            'needs_ventilation': needs_ventilation,
-            'niv_hours_per_day': niv_hours,
-            'tracheostomy': trach,
-            'scoliosis': scoliosis,
-            'feeding_support': feeding_support,
+            "needs_ventilation": needs_ventilation,
+            "niv_hours_per_day": niv_hours,
+            "tracheostomy": trach,
+            "scoliosis": scoliosis,
+            "feeding_support": feeding_support,
         }
 
     def _estimate_cost(self, sma_type, treated, treatment_name, ventilation):
@@ -459,7 +470,7 @@ def main():
     print(f"  Mean RNG calls/patient: {mean_rng:.1f}")
 
     print("--------------------------------")
-    print(f"\nSample record:")
+    print("\nSample record:")
     for k, v in cohort[0].items():
         print(f"  {k}: {v}")
 

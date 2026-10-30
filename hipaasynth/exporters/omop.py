@@ -46,7 +46,6 @@ vocabulary release before using this output for anything beyond testing. See
 hipaasynth/vocabulary/README.md.
 """
 import csv
-import os
 import re
 from pathlib import Path
 
@@ -80,7 +79,7 @@ _NO_CONCEPT = 0
 # active/inactive; the active/inactive distinction lives in SNOMED clinical-status,
 # which is what is used here.
 _CONDITION_STATUS_CONCEPT = {
-    True: (4230911, "active"),    # SNOMED clinical-status "Active" (best-effort)
+    True: (4230911, "active"),  # SNOMED clinical-status "Active" (best-effort)
     False: (4033240, "inactive"),  # SNOMED clinical-status "Inactive" (best-effort)
 }
 
@@ -91,8 +90,13 @@ def _condition_status(active) -> tuple:
     Mirrors :func:`_gender_concept_id`: a small closed lookup from a modeled field
     to a standard OMOP concept. Falls back to (0, "") for an unknown/None value.
     """
-    return _CONDITION_STATUS_CONCEPT.get(bool(active), (_NO_CONCEPT, "")) \
-        if active is not None else (_NO_CONCEPT, "")
+    return (
+        _CONDITION_STATUS_CONCEPT.get(bool(active), (_NO_CONCEPT, ""))
+        if active is not None
+        else (_NO_CONCEPT, "")
+    )
+
+
 # Type concept: "EHR" (32817) — records the provenance of the row. Synthetic
 # data stands in for EHR-sourced records for tooling purposes. Also used as the
 # OBSERVATION_PERIOD period_type_concept_id ("Period covering healthcare
@@ -109,57 +113,115 @@ _RANGE_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)\s*$")
 # included so the output is usable by OHDSI tooling. Columns HipAAsynth does not
 # model are written empty rather than omitted, so a loader sees the full schema.
 _PERSON_COLUMNS = [
-    "person_id", "gender_concept_id", "year_of_birth",
-    "month_of_birth", "day_of_birth", "birth_datetime",
-    "race_concept_id", "ethnicity_concept_id",
-    "location_id", "provider_id", "care_site_id",
+    "person_id",
+    "gender_concept_id",
+    "year_of_birth",
+    "month_of_birth",
+    "day_of_birth",
+    "birth_datetime",
+    "race_concept_id",
+    "ethnicity_concept_id",
+    "location_id",
+    "provider_id",
+    "care_site_id",
     "person_source_value",
-    "gender_source_value", "gender_source_concept_id",
-    "race_source_value", "race_source_concept_id",
-    "ethnicity_source_value", "ethnicity_source_concept_id",
+    "gender_source_value",
+    "gender_source_concept_id",
+    "race_source_value",
+    "race_source_concept_id",
+    "ethnicity_source_value",
+    "ethnicity_source_concept_id",
 ]
 _CONDITION_COLUMNS = [
-    "condition_occurrence_id", "person_id", "condition_concept_id",
-    "condition_start_date", "condition_start_datetime",
-    "condition_end_date", "condition_end_datetime",
-    "condition_type_concept_id", "condition_status_concept_id",
-    "stop_reason", "provider_id", "visit_occurrence_id", "visit_detail_id",
-    "condition_source_value", "condition_source_concept_id",
+    "condition_occurrence_id",
+    "person_id",
+    "condition_concept_id",
+    "condition_start_date",
+    "condition_start_datetime",
+    "condition_end_date",
+    "condition_end_datetime",
+    "condition_type_concept_id",
+    "condition_status_concept_id",
+    "stop_reason",
+    "provider_id",
+    "visit_occurrence_id",
+    "visit_detail_id",
+    "condition_source_value",
+    "condition_source_concept_id",
     "condition_status_source_value",
 ]
 _VISIT_COLUMNS = [
-    "visit_occurrence_id", "person_id", "visit_concept_id",
-    "visit_start_date", "visit_start_datetime",
-    "visit_end_date", "visit_end_datetime",
-    "visit_type_concept_id", "provider_id", "care_site_id",
-    "visit_source_value", "visit_source_concept_id",
-    "admitted_from_concept_id", "admitted_from_source_value",
-    "discharged_to_concept_id", "discharged_to_source_value",
+    "visit_occurrence_id",
+    "person_id",
+    "visit_concept_id",
+    "visit_start_date",
+    "visit_start_datetime",
+    "visit_end_date",
+    "visit_end_datetime",
+    "visit_type_concept_id",
+    "provider_id",
+    "care_site_id",
+    "visit_source_value",
+    "visit_source_concept_id",
+    "admitted_from_concept_id",
+    "admitted_from_source_value",
+    "discharged_to_concept_id",
+    "discharged_to_source_value",
     "preceding_visit_occurrence_id",
 ]
 _MEASUREMENT_COLUMNS = [
-    "measurement_id", "person_id", "measurement_concept_id",
-    "measurement_date", "measurement_datetime", "measurement_time",
-    "measurement_type_concept_id", "operator_concept_id",
-    "value_as_number", "value_as_concept_id", "unit_concept_id",
-    "range_low", "range_high",
-    "provider_id", "visit_occurrence_id", "visit_detail_id",
-    "measurement_source_value", "measurement_source_concept_id",
-    "unit_source_value", "unit_source_concept_id", "value_source_value",
+    "measurement_id",
+    "person_id",
+    "measurement_concept_id",
+    "measurement_date",
+    "measurement_datetime",
+    "measurement_time",
+    "measurement_type_concept_id",
+    "operator_concept_id",
+    "value_as_number",
+    "value_as_concept_id",
+    "unit_concept_id",
+    "range_low",
+    "range_high",
+    "provider_id",
+    "visit_occurrence_id",
+    "visit_detail_id",
+    "measurement_source_value",
+    "measurement_source_concept_id",
+    "unit_source_value",
+    "unit_source_concept_id",
+    "value_source_value",
 ]
 _DRUG_COLUMNS = [
-    "drug_exposure_id", "person_id", "drug_concept_id",
-    "drug_exposure_start_date", "drug_exposure_start_datetime",
-    "drug_exposure_end_date", "drug_exposure_end_datetime",
-    "verbatim_end_date", "drug_type_concept_id", "stop_reason",
-    "refills", "quantity", "days_supply", "sig", "route_concept_id",
-    "lot_number", "provider_id", "visit_occurrence_id", "visit_detail_id",
-    "drug_source_value", "drug_source_concept_id",
-    "route_source_value", "dose_unit_source_value",
+    "drug_exposure_id",
+    "person_id",
+    "drug_concept_id",
+    "drug_exposure_start_date",
+    "drug_exposure_start_datetime",
+    "drug_exposure_end_date",
+    "drug_exposure_end_datetime",
+    "verbatim_end_date",
+    "drug_type_concept_id",
+    "stop_reason",
+    "refills",
+    "quantity",
+    "days_supply",
+    "sig",
+    "route_concept_id",
+    "lot_number",
+    "provider_id",
+    "visit_occurrence_id",
+    "visit_detail_id",
+    "drug_source_value",
+    "drug_source_concept_id",
+    "route_source_value",
+    "dose_unit_source_value",
 ]
 _OBSERVATION_PERIOD_COLUMNS = [
-    "observation_period_id", "person_id",
-    "observation_period_start_date", "observation_period_end_date",
+    "observation_period_id",
+    "person_id",
+    "observation_period_start_date",
+    "observation_period_end_date",
     "period_type_concept_id",
 ]
 
@@ -177,8 +239,10 @@ def _parse_reference_range(ref):
         return "", ""
     return match.group(1), match.group(2)
 
+
 # HipAAsynth Patient.birthDate reference year mirrors the FHIR exporter.
-from datetime import datetime as _dt
+from datetime import datetime as _dt  # noqa: E402  (kept beside the constant it feeds)
+
 _BIRTH_YEAR_REF = _dt.now().year
 
 
@@ -210,30 +274,32 @@ def build_cdm_tables(patients):
     for person_id, patient in enumerate(patients, start=1):
         demo = patient.demographics
         year_of_birth = _BIRTH_YEAR_REF - int(demo.age)
-        person_rows.append({
-            "person_id": person_id,
-            "gender_concept_id": _gender_concept_id(demo.sex),
-            "year_of_birth": year_of_birth,
-            "month_of_birth": "",
-            "day_of_birth": "",
-            "birth_datetime": "",
-            "race_concept_id": _NO_CONCEPT,
-            "ethnicity_concept_id": _NO_CONCEPT,
-            "location_id": "",
-            "provider_id": "",
-            "care_site_id": "",
-            "person_source_value": demo.patient_id,
-            "gender_source_value": demo.sex,
-            "gender_source_concept_id": _NO_CONCEPT,
-            # HipAAsynth models a single demographic category ("ethnicity"), which
-            # is race-like; preserve it in race_source_value so it is not dropped.
-            # Standard race/ethnicity concept mapping stays 0 (unmapped) — see the
-            # roadmap change log for this modeling note.
-            "race_source_value": demo.ethnicity,
-            "race_source_concept_id": _NO_CONCEPT,
-            "ethnicity_source_value": "",
-            "ethnicity_source_concept_id": _NO_CONCEPT,
-        })
+        person_rows.append(
+            {
+                "person_id": person_id,
+                "gender_concept_id": _gender_concept_id(demo.sex),
+                "year_of_birth": year_of_birth,
+                "month_of_birth": "",
+                "day_of_birth": "",
+                "birth_datetime": "",
+                "race_concept_id": _NO_CONCEPT,
+                "ethnicity_concept_id": _NO_CONCEPT,
+                "location_id": "",
+                "provider_id": "",
+                "care_site_id": "",
+                "person_source_value": demo.patient_id,
+                "gender_source_value": demo.sex,
+                "gender_source_concept_id": _NO_CONCEPT,
+                # HipAAsynth models a single demographic category ("ethnicity"), which
+                # is race-like; preserve it in race_source_value so it is not dropped.
+                # Standard race/ethnicity concept mapping stays 0 (unmapped) — see the
+                # roadmap change log for this modeling note.
+                "race_source_value": demo.ethnicity,
+                "race_source_concept_id": _NO_CONCEPT,
+                "ethnicity_source_value": "",
+                "ethnicity_source_concept_id": _NO_CONCEPT,
+            }
+        )
 
         # VISIT_OCCURRENCE first, so conditions/drugs/measurements can link to a
         # visit_occurrence_id and OBSERVATION_PERIOD can be derived from the span.
@@ -245,52 +311,56 @@ def build_cdm_tables(patients):
                 first_visit_id = visit_seq
             visit_dates.append(visit.visit_date)
             vmap = lookup_visit(visit.visit_type)
-            visit_rows.append({
-                "visit_occurrence_id": visit_seq,
-                "person_id": person_id,
-                "visit_concept_id": vmap.omop_concept_id if vmap else _NO_CONCEPT,
-                "visit_start_date": visit.visit_date,
-                "visit_start_datetime": "",
-                "visit_end_date": visit.visit_date,
-                "visit_end_datetime": "",
-                "visit_type_concept_id": _TYPE_CONCEPT_EHR,
-                "provider_id": "",
-                "care_site_id": "",
-                "visit_source_value": visit.visit_type,
-                "visit_source_concept_id": _NO_CONCEPT,
-                "admitted_from_concept_id": _NO_CONCEPT,
-                "admitted_from_source_value": "",
-                "discharged_to_concept_id": _NO_CONCEPT,
-                "discharged_to_source_value": "",
-                "preceding_visit_occurrence_id": "",
-            })
+            visit_rows.append(
+                {
+                    "visit_occurrence_id": visit_seq,
+                    "person_id": person_id,
+                    "visit_concept_id": vmap.omop_concept_id if vmap else _NO_CONCEPT,
+                    "visit_start_date": visit.visit_date,
+                    "visit_start_datetime": "",
+                    "visit_end_date": visit.visit_date,
+                    "visit_end_datetime": "",
+                    "visit_type_concept_id": _TYPE_CONCEPT_EHR,
+                    "provider_id": "",
+                    "care_site_id": "",
+                    "visit_source_value": visit.visit_type,
+                    "visit_source_concept_id": _NO_CONCEPT,
+                    "admitted_from_concept_id": _NO_CONCEPT,
+                    "admitted_from_source_value": "",
+                    "discharged_to_concept_id": _NO_CONCEPT,
+                    "discharged_to_source_value": "",
+                    "preceding_visit_occurrence_id": "",
+                }
+            )
             for lab in visit.labs:
                 measurement_seq += 1
                 mmap = lookup_measurement(lab.lab_name)
                 range_low, range_high = _parse_reference_range(lab.reference_range)
-                measurement_rows.append({
-                    "measurement_id": measurement_seq,
-                    "person_id": person_id,
-                    "measurement_concept_id": mmap.omop_concept_id if mmap else _NO_CONCEPT,
-                    "measurement_date": lab.date_recorded or visit.visit_date,
-                    "measurement_datetime": "",
-                    "measurement_time": "",
-                    "measurement_type_concept_id": _TYPE_CONCEPT_EHR,
-                    "operator_concept_id": _NO_CONCEPT,
-                    "value_as_number": lab.value,
-                    "value_as_concept_id": _NO_CONCEPT,
-                    "unit_concept_id": _NO_CONCEPT,
-                    "range_low": range_low,
-                    "range_high": range_high,
-                    "provider_id": "",
-                    "visit_occurrence_id": visit_seq,
-                    "visit_detail_id": "",
-                    "measurement_source_value": lab.lab_name,
-                    "measurement_source_concept_id": _NO_CONCEPT,
-                    "unit_source_value": lab.unit,
-                    "unit_source_concept_id": _NO_CONCEPT,
-                    "value_source_value": lab.value,
-                })
+                measurement_rows.append(
+                    {
+                        "measurement_id": measurement_seq,
+                        "person_id": person_id,
+                        "measurement_concept_id": mmap.omop_concept_id if mmap else _NO_CONCEPT,
+                        "measurement_date": lab.date_recorded or visit.visit_date,
+                        "measurement_datetime": "",
+                        "measurement_time": "",
+                        "measurement_type_concept_id": _TYPE_CONCEPT_EHR,
+                        "operator_concept_id": _NO_CONCEPT,
+                        "value_as_number": lab.value,
+                        "value_as_concept_id": _NO_CONCEPT,
+                        "unit_concept_id": _NO_CONCEPT,
+                        "range_low": range_low,
+                        "range_high": range_high,
+                        "provider_id": "",
+                        "visit_occurrence_id": visit_seq,
+                        "visit_detail_id": "",
+                        "measurement_source_value": lab.lab_name,
+                        "measurement_source_concept_id": _NO_CONCEPT,
+                        "unit_source_value": lab.unit,
+                        "unit_source_concept_id": _NO_CONCEPT,
+                        "value_source_value": lab.value,
+                    }
+                )
 
         # Condition start dates are not modeled per-condition in the schema; use
         # the earliest visit date when available, else leave blank (DQD-visible).
@@ -301,24 +371,26 @@ def build_cdm_tables(patients):
             status_concept_id, status_source_value = _condition_status(
                 getattr(cond, "active", None)
             )
-            condition_rows.append({
-                "condition_occurrence_id": condition_seq,
-                "person_id": person_id,
-                "condition_concept_id": mapping.omop_concept_id if mapping else _NO_CONCEPT,
-                "condition_start_date": default_date,
-                "condition_start_datetime": "",
-                "condition_end_date": "",
-                "condition_end_datetime": "",
-                "condition_type_concept_id": _TYPE_CONCEPT_EHR,
-                "condition_status_concept_id": status_concept_id,
-                "stop_reason": "",
-                "provider_id": "",
-                "visit_occurrence_id": first_visit_id,
-                "visit_detail_id": "",
-                "condition_source_value": cond.name,
-                "condition_source_concept_id": _NO_CONCEPT,
-                "condition_status_source_value": status_source_value,
-            })
+            condition_rows.append(
+                {
+                    "condition_occurrence_id": condition_seq,
+                    "person_id": person_id,
+                    "condition_concept_id": mapping.omop_concept_id if mapping else _NO_CONCEPT,
+                    "condition_start_date": default_date,
+                    "condition_start_datetime": "",
+                    "condition_end_date": "",
+                    "condition_end_datetime": "",
+                    "condition_type_concept_id": _TYPE_CONCEPT_EHR,
+                    "condition_status_concept_id": status_concept_id,
+                    "stop_reason": "",
+                    "provider_id": "",
+                    "visit_occurrence_id": first_visit_id,
+                    "visit_detail_id": "",
+                    "condition_source_value": cond.name,
+                    "condition_source_concept_id": _NO_CONCEPT,
+                    "condition_status_source_value": status_source_value,
+                }
+            )
 
         # DRUG_EXPOSURE. Medications live on the Patient (schema 1.1.0+); older
         # patients without the field simply produce no drug rows. Class-level
@@ -328,47 +400,51 @@ def build_cdm_tables(patients):
         for med in getattr(patient, "medications", ()) or ():
             drug_seq += 1
             dmap = lookup_medication(med.name)
-            concept_id = (dmap.omop_concept_id if dmap and dmap.omop_concept_id else _NO_CONCEPT)
-            drug_rows.append({
-                "drug_exposure_id": drug_seq,
-                "person_id": person_id,
-                "drug_concept_id": concept_id,
-                "drug_exposure_start_date": default_date,
-                "drug_exposure_start_datetime": "",
-                # 5.4 requires drug_exposure_end_date NOT NULL. Duration is not
-                # modeled, so a single-day exposure (end == start) is the honest
-                # default rather than a fabricated span.
-                "drug_exposure_end_date": default_date,
-                "drug_exposure_end_datetime": "",
-                "verbatim_end_date": "",
-                "drug_type_concept_id": _TYPE_CONCEPT_EHR,
-                "stop_reason": "",
-                "refills": "",
-                "quantity": "",
-                "days_supply": "",
-                "sig": "",
-                "route_concept_id": _NO_CONCEPT,
-                "lot_number": "",
-                "provider_id": "",
-                "visit_occurrence_id": first_visit_id,
-                "visit_detail_id": "",
-                "drug_source_value": med.name,
-                "drug_source_concept_id": _NO_CONCEPT,
-                "route_source_value": "",
-                "dose_unit_source_value": "",
-            })
+            concept_id = dmap.omop_concept_id if dmap and dmap.omop_concept_id else _NO_CONCEPT
+            drug_rows.append(
+                {
+                    "drug_exposure_id": drug_seq,
+                    "person_id": person_id,
+                    "drug_concept_id": concept_id,
+                    "drug_exposure_start_date": default_date,
+                    "drug_exposure_start_datetime": "",
+                    # 5.4 requires drug_exposure_end_date NOT NULL. Duration is not
+                    # modeled, so a single-day exposure (end == start) is the honest
+                    # default rather than a fabricated span.
+                    "drug_exposure_end_date": default_date,
+                    "drug_exposure_end_datetime": "",
+                    "verbatim_end_date": "",
+                    "drug_type_concept_id": _TYPE_CONCEPT_EHR,
+                    "stop_reason": "",
+                    "refills": "",
+                    "quantity": "",
+                    "days_supply": "",
+                    "sig": "",
+                    "route_concept_id": _NO_CONCEPT,
+                    "lot_number": "",
+                    "provider_id": "",
+                    "visit_occurrence_id": first_visit_id,
+                    "visit_detail_id": "",
+                    "drug_source_value": med.name,
+                    "drug_source_concept_id": _NO_CONCEPT,
+                    "route_source_value": "",
+                    "dose_unit_source_value": "",
+                }
+            )
 
         # OBSERVATION_PERIOD — required by OHDSI cohort tooling (ATLAS/ACHILLES).
         # One period per person spanning the earliest to latest recorded visit.
         if visit_dates:
             observation_period_seq += 1
-            observation_period_rows.append({
-                "observation_period_id": observation_period_seq,
-                "person_id": person_id,
-                "observation_period_start_date": min(visit_dates),
-                "observation_period_end_date": max(visit_dates),
-                "period_type_concept_id": _TYPE_CONCEPT_EHR,
-            })
+            observation_period_rows.append(
+                {
+                    "observation_period_id": observation_period_seq,
+                    "person_id": person_id,
+                    "observation_period_start_date": min(visit_dates),
+                    "observation_period_end_date": max(visit_dates),
+                    "period_type_concept_id": _TYPE_CONCEPT_EHR,
+                }
+            )
 
     return {
         "person": person_rows,

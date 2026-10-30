@@ -28,7 +28,9 @@ def engine() -> PolymorphicFormEngine:
 
 
 class TestPolymorphicForms:
-    def test_all_seven_forms_returned(self, engine: PolymorphicFormEngine, sample_patient: Patient) -> None:
+    def test_all_seven_forms_returned(
+        self, engine: PolymorphicFormEngine, sample_patient: Patient
+    ) -> None:
         forms = engine.express_all(sample_patient)
         assert len(forms) == 7
         names = {f["form"] for f in forms}

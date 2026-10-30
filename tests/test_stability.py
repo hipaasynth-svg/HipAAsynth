@@ -44,14 +44,24 @@ from hipaasynth.polymorphic.metrics import PolymorphicMetrics
 def _passport(dcs, overall_pass, *, isg=0.0, lfdi=0.0, saf=0.0, truth=True, pid="x"):
     """A hand-built passport with fully controlled metric values."""
     m = PolymorphicMetrics(
-        dcs=dcs, isg=isg, lfdi=lfdi, saf=saf,
-        dcs_pass=overall_pass, isg_pass=overall_pass,
-        lfdi_pass=overall_pass, saf_pass=overall_pass,
+        dcs=dcs,
+        isg=isg,
+        lfdi=lfdi,
+        saf=saf,
+        dcs_pass=overall_pass,
+        isg_pass=overall_pass,
+        lfdi_pass=overall_pass,
+        saf_pass=overall_pass,
         truth_evaluated=truth,
     )
     return FairnessPassport(
-        device_name="d", device_version="1", test_date="t", patient_id=pid,
-        ground_truth=True, decisions={}, metrics=m,
+        device_name="d",
+        device_version="1",
+        test_date="t",
+        patient_id=pid,
+        ground_truth=True,
+        decisions={},
+        metrics=m,
     )
 
 
@@ -99,8 +109,9 @@ def test_concept_drift_requires_nonempty_cohorts():
 # ─────────────────────────────────────────────────────────────────────────────
 def test_bootstrap_se_matches_analytic_binomial():
     # n=100, pass rate 0.5 → bootstrap SE ≈ sqrt(p(1-p)/n) = 0.05.
-    ps = ([_passport(0.9, True, pid=f"p{i}") for i in range(50)]
-          + [_passport(0.5, False, pid=f"q{i}") for i in range(50)])
+    ps = [_passport(0.9, True, pid=f"p{i}") for i in range(50)] + [
+        _passport(0.5, False, pid=f"q{i}") for i in range(50)
+    ]
     u = bootstrap_uncertainty(ps, metric="overall_pass_rate", n_resamples=2000, seed=0)
     assert u.point_estimate == pytest.approx(0.5)
     analytic = math.sqrt(0.5 * 0.5 / 100)
@@ -119,8 +130,9 @@ def test_bootstrap_se_zero_for_constant_cohort():
 
 
 def test_bootstrap_is_deterministic():
-    ps = ([_passport(0.9, True, pid=f"p{i}") for i in range(20)]
-          + [_passport(0.5, False, pid=f"q{i}") for i in range(20)])
+    ps = [_passport(0.9, True, pid=f"p{i}") for i in range(20)] + [
+        _passport(0.5, False, pid=f"q{i}") for i in range(20)
+    ]
     a = bootstrap_uncertainty(ps, seed=7, n_resamples=300)
     b = bootstrap_uncertainty(ps, seed=7, n_resamples=300)
     assert a == b
@@ -142,8 +154,9 @@ def test_threshold_sensitivity_matches_analytic():
     #   at 0.85: only the 0.90 group → 0.60
     #   at 0.90: only the 0.90 group → 0.60
     #   slope = (0.60 - 1.0) / (2*0.05) = -4.0
-    ps = ([_passport(0.90, True, pid=f"a{i}") for i in range(60)]
-          + [_passport(0.82, True, pid=f"b{i}") for i in range(40)])
+    ps = [_passport(0.90, True, pid=f"a{i}") for i in range(60)] + [
+        _passport(0.82, True, pid=f"b{i}") for i in range(40)
+    ]
     s = threshold_sensitivity(ps, threshold_name="dcs", base_threshold=0.85, delta=0.05)
     assert s.rate_minus == pytest.approx(1.0)
     assert s.rate_base == pytest.approx(0.6)
@@ -184,10 +197,10 @@ def test_stability_report_bundle_and_markdown():
 
 
 def _audit(seed, model):
-    cfg = GenerationConfig(patient_count=40, seed=seed, required_condition="stroke",
-                           run_date="2026-01-01")
-    return run_audit(model, generate_patients, cfg,
-                     DIFConfig(device_name="M", device_version="1"))
+    cfg = GenerationConfig(
+        patient_count=40, seed=seed, required_condition="stroke", run_date="2026-01-01"
+    )
+    return run_audit(model, generate_patients, cfg, DIFConfig(device_name="M", device_version="1"))
 
 
 def test_end_to_end_drift_between_biased_and_fair_model():

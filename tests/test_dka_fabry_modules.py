@@ -108,14 +108,14 @@ class TestFabryRule:
     def test_referral_rule_is_consistent_with_fields(self) -> None:
         for p in _cohort("fabry"):
             o = p.observations
-            organ = o["proteinuria"] or o["left_ventricular_hypertrophy"] or o[
-                "cryptogenic_stroke_young"
-            ]
+            organ = (
+                o["proteinuria"]
+                or o["left_ventricular_hypertrophy"]
+                or o["cryptogenic_stroke_young"]
+            )
             pathognomonic = o["cornea_verticillata"] or o["angiokeratoma"]
             expected = (
-                o["red_flag_count"] >= 2
-                or pathognomonic
-                or (o["family_history_fabry"] and organ)
+                o["red_flag_count"] >= 2 or pathognomonic or (o["family_history_fabry"] and organ)
             )
             assert o["fabry_referral_flag"] == bool(expected)
 
@@ -175,8 +175,9 @@ class TestDIFAudit:
             required_condition=cond,
             synthetic_disclaimer=DEFAULT_SYNTHETIC_DISCLAIMER,
         )
-        return run_audit(model, generate_patients, cfg, DIFConfig(
-            device_name="Test", device_version="1.0.0"))
+        return run_audit(
+            model, generate_patients, cfg, DIFConfig(device_name="Test", device_version="1.0.0")
+        )
 
     def test_fair_model_passes_new_conditions(self) -> None:
         for cond in ("dka", "fabry"):

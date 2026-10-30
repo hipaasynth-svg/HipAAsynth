@@ -21,7 +21,6 @@ Per ground rule 5, the correlation statistic itself is verified against
 independent / degenerate) — not merely "it ran" — before it is trusted to judge
 the engine's clinically-linked variables.
 """
-import math
 
 import pytest
 
@@ -82,8 +81,14 @@ def test_pearson_mismatched_lengths_raises():
 # ─────────────────────────────────────────────────────────────────────────────
 def _cohort(**overrides):
     base = dict(
-        patient_count=150, seed=7, age_min=40, age_max=90,
-        include_visits=True, include_labs=True, visits_min=1, visits_max=2,
+        patient_count=150,
+        seed=7,
+        age_min=40,
+        age_max=90,
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=2,
     )
     base.update(overrides)
     return generate_patients(GenerationConfig(**base))
@@ -175,13 +180,28 @@ def _hand_patient(*, age, onset_age, lab_date, visit_date="2024-06-01"):
     anth = Anthropometrics(height_cm=170, weight_kg=70, bmi=24.2, bmi_category="normal")
     cond = Condition(name="type2_diabetes", onset_age=onset_age, active=True)
     visit = Visit(
-        visit_id="V1", visit_type="outpatient", visit_date=visit_date,
+        visit_id="V1",
+        visit_type="outpatient",
+        visit_date=visit_date,
         primary_diagnosis="type2_diabetes",
-        labs=[LabResult(lab_name="Glucose", value=120.0, unit="mg/dL",
-                        reference_range="70-99", date_recorded=lab_date)],
+        labs=[
+            LabResult(
+                lab_name="Glucose",
+                value=120.0,
+                unit="mg/dL",
+                reference_range="70-99",
+                date_recorded=lab_date,
+            )
+        ],
     )
-    return Patient(demographics=demo, anthropometrics=anth, conditions=[cond],
-                   visits=[visit], engine_version="x", schema_version="y")
+    return Patient(
+        demographics=demo,
+        anthropometrics=anth,
+        conditions=[cond],
+        visits=[visit],
+        engine_version="x",
+        schema_version="y",
+    )
 
 
 def test_temporal_check_fires_on_onset_after_age():
@@ -220,8 +240,11 @@ def test_fidelity_report_shape():
     report = fidelity_report(_cohort())
     assert report["n_patients"] == 150
     assert set(report) >= {
-        "lab_marginals", "condition_prevalence", "linked_lab_correlations",
-        "temporal_consistency", "visit_order",
+        "lab_marginals",
+        "condition_prevalence",
+        "linked_lab_correlations",
+        "temporal_consistency",
+        "visit_order",
     }
     assert report["temporal_consistency"]["ok"] is True
     assert isinstance(report["linked_lab_correlations"], list)

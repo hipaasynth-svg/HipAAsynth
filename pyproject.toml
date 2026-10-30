@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hipaasynth"
-version = "1.5.0"
+version = "1.6.0"
 description = "Synthetic health data fairness testing for invisible populations"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}
@@ -140,3 +140,8 @@ target-version = "py311"
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
+
+# Optional extras, imported lazily behind their [project.optional-dependencies].
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*", "duckdb"]
+ignore_missing_imports = true

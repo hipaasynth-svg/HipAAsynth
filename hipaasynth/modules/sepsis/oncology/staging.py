@@ -35,7 +35,7 @@ class StagingModule:
         config (dict): optional configuration
     """
 
-    def __init__(self, n: int, rng: random.Random, config: dict = None):
+    def __init__(self, n: int, rng: random.Random, config: dict | None = None):
         self.n = n
         self.rng = rng
         self.config = config or self._default_config()
@@ -53,8 +53,8 @@ class StagingModule:
         return {
             "stage_probs": {
                 "breast": [0.38, 0.29, 0.27, 0.06],
-                "lung":   [0.17, 0.08, 0.18, 0.57],
-                "colon":  [0.21, 0.19, 0.36, 0.24],
+                "lung": [0.17, 0.08, 0.18, 0.57],
+                "colon": [0.21, 0.19, 0.36, 0.24],
             },
             "stages": ["I", "II", "III", "IV"],
         }
@@ -108,9 +108,7 @@ class StagingModule:
                 if site == "breast":
                     t = self.rng.choices(["T2", "T3"], weights=[0.8, 0.2], k=1)[0]
                 else:
-                    t = self.rng.choices(
-                        ["T2", "T3", "T4"], weights=[0.5, 0.3, 0.2], k=1
-                    )[0]
+                    t = self.rng.choices(["T2", "T3", "T4"], weights=[0.5, 0.3, 0.2], k=1)[0]
 
             elif s == "III":
                 t = self.rng.choices(["T3", "T4"], weights=[0.6, 0.4], k=1)[0]

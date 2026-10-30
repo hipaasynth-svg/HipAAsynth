@@ -88,9 +88,16 @@ def test_logistic_on_pure_noise_is_near_chance():
 # The end-to-end probe on a generated cohort.
 # ─────────────────────────────────────────────────────────────────────────────
 def _diabetes_cohort(n=400, seed=21):
-    cfg = GenerationConfig(patient_count=n, seed=seed, age_min=40, age_max=90,
-                           include_visits=True, include_labs=True,
-                           visits_min=1, visits_max=2)
+    cfg = GenerationConfig(
+        patient_count=n,
+        seed=seed,
+        age_min=40,
+        age_max=90,
+        include_visits=True,
+        include_labs=True,
+        visits_min=1,
+        visits_max=2,
+    )
     return generate_patients(cfg)
 
 

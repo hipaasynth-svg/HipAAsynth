@@ -41,17 +41,17 @@ import argparse
 import csv
 import json
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
-_CDM_TABLES = ("person", "condition_occurrence", "visit_occurrence",
-               "measurement", "drug_exposure")
+_CDM_TABLES = ("person", "condition_occurrence", "visit_occurrence", "measurement", "drug_exposure")
 _BIRTH_YEAR_FLOOR = 1900
 
 
 # ── Loading ──────────────────────────────────────────────────────────────────
+
 
 def load_cdm_dir(omop_dir: Union[str, Path]) -> dict:
     """Load OMOP CDM CSVs from a directory into {table: list[dict rows]}."""
@@ -83,15 +83,16 @@ def _as_float(value, default=None):
 
 # ── Data-quality checks (DQD-style) ──────────────────────────────────────────
 
+
 @dataclass
 class DQCheck:
     name: str
-    category: str          # Conformance | Completeness | Plausibility
+    category: str  # Conformance | Completeness | Plausibility
     table: str
-    status: str            # PASS | FAIL | NOT_APPLICABLE
+    status: str  # PASS | FAIL | NOT_APPLICABLE
     failed_rows: int
     total_rows: int
-    threshold_pct: float   # max % failing allowed to still PASS
+    threshold_pct: float  # max % failing allowed to still PASS
     description: str = ""
 
     @property
@@ -117,97 +118,182 @@ def run_dq_checks(tables: dict) -> list:
     checks: list[DQCheck] = []
 
     # ---- Conformance ---------------------------------------------------------
-    checks.append(_mk_check(
-        "person_id_not_null", "Conformance", "person", person,
-        lambda r: _as_int(r.get("person_id")) is None, 0.0,
-        "person_id is a required non-null field."))
+    checks.append(
+        _mk_check(
+            "person_id_not_null",
+            "Conformance",
+            "person",
+            person,
+            lambda r: _as_int(r.get("person_id")) is None,
+            0.0,
+            "person_id is a required non-null field.",
+        )
+    )
 
     # Unique person_id (Conformance) — reported as a whole-table check.
     total_person = len(person)
     dup = total_person - len({r.get("person_id") for r in person}) if total_person else 0
-    checks.append(DQCheck(
-        "person_id_unique", "Conformance", "person",
-        "NOT_APPLICABLE" if total_person == 0 else ("PASS" if dup == 0 else "FAIL"),
-        dup, total_person, 0.0, "person_id must be unique across the PERSON table."))
+    checks.append(
+        DQCheck(
+            "person_id_unique",
+            "Conformance",
+            "person",
+            "NOT_APPLICABLE" if total_person == 0 else ("PASS" if dup == 0 else "FAIL"),
+            dup,
+            total_person,
+            0.0,
+            "person_id must be unique across the PERSON table.",
+        )
+    )
 
-    checks.append(_mk_check(
-        "gender_concept_id_valid", "Conformance", "person", person,
-        lambda r: _as_int(r.get("gender_concept_id")) not in (8507, 8532, 0), 0.0,
-        "gender_concept_id must be a valid OMOP gender concept (8507/8532) or 0."))
+    checks.append(
+        _mk_check(
+            "gender_concept_id_valid",
+            "Conformance",
+            "person",
+            person,
+            lambda r: _as_int(r.get("gender_concept_id")) not in (8507, 8532, 0),
+            0.0,
+            "gender_concept_id must be a valid OMOP gender concept (8507/8532) or 0.",
+        )
+    )
 
     # Foreign-key conformance: every fact row references an existing person.
     for table in ("condition_occurrence", "visit_occurrence", "measurement", "drug_exposure"):
         rows = tables.get(table, [])
-        checks.append(_mk_check(
-            f"{table}_person_fk", "Conformance", table, rows,
-            lambda r: r.get("person_id") not in person_ids, 0.0,
-            f"Every {table} row must reference an existing person_id."))
+        checks.append(
+            _mk_check(
+                f"{table}_person_fk",
+                "Conformance",
+                table,
+                rows,
+                lambda r: r.get("person_id") not in person_ids,
+                0.0,
+                f"Every {table} row must reference an existing person_id.",
+            )
+        )
 
     # ---- Completeness --------------------------------------------------------
-    checks.append(_mk_check(
-        "year_of_birth_complete", "Completeness", "person", person,
-        lambda r: _as_int(r.get("year_of_birth")) is None, 0.0,
-        "year_of_birth should be populated for every person."))
+    checks.append(
+        _mk_check(
+            "year_of_birth_complete",
+            "Completeness",
+            "person",
+            person,
+            lambda r: _as_int(r.get("year_of_birth")) is None,
+            0.0,
+            "year_of_birth should be populated for every person.",
+        )
+    )
 
-    checks.append(_mk_check(
-        "condition_start_date_complete", "Completeness", "condition_occurrence",
-        tables.get("condition_occurrence", []),
-        lambda r: not (r.get("condition_start_date") or "").strip(), 5.0,
-        "condition_start_date should be populated."))
+    checks.append(
+        _mk_check(
+            "condition_start_date_complete",
+            "Completeness",
+            "condition_occurrence",
+            tables.get("condition_occurrence", []),
+            lambda r: not (r.get("condition_start_date") or "").strip(),
+            5.0,
+            "condition_start_date should be populated.",
+        )
+    )
 
-    checks.append(_mk_check(
-        "measurement_value_complete", "Completeness", "measurement",
-        tables.get("measurement", []),
-        lambda r: _as_float(r.get("value_as_number")) is None, 5.0,
-        "measurement value_as_number should be populated for quantitative labs."))
+    checks.append(
+        _mk_check(
+            "measurement_value_complete",
+            "Completeness",
+            "measurement",
+            tables.get("measurement", []),
+            lambda r: _as_float(r.get("value_as_number")) is None,
+            5.0,
+            "measurement value_as_number should be populated for quantitative labs.",
+        )
+    )
 
     # Standard-concept mapping completeness per domain (the realism signal):
     # rows with *_concept_id == 0 are unmapped. Conditions/measurements should be
     # near-fully mapped; drugs may legitimately carry 0 for ATC-class terms, so a
     # looser threshold is applied there.
-    checks.append(_mk_check(
-        "condition_concept_mapped", "Completeness", "condition_occurrence",
-        tables.get("condition_occurrence", []),
-        lambda r: _as_int(r.get("condition_concept_id"), 0) == 0, 5.0,
-        "condition_concept_id should map to a standard concept (non-zero)."))
+    checks.append(
+        _mk_check(
+            "condition_concept_mapped",
+            "Completeness",
+            "condition_occurrence",
+            tables.get("condition_occurrence", []),
+            lambda r: _as_int(r.get("condition_concept_id"), 0) == 0,
+            5.0,
+            "condition_concept_id should map to a standard concept (non-zero).",
+        )
+    )
 
-    checks.append(_mk_check(
-        "measurement_concept_mapped", "Completeness", "measurement",
-        tables.get("measurement", []),
-        lambda r: _as_int(r.get("measurement_concept_id"), 0) == 0, 5.0,
-        "measurement_concept_id should map to a standard concept (non-zero)."))
+    checks.append(
+        _mk_check(
+            "measurement_concept_mapped",
+            "Completeness",
+            "measurement",
+            tables.get("measurement", []),
+            lambda r: _as_int(r.get("measurement_concept_id"), 0) == 0,
+            5.0,
+            "measurement_concept_id should map to a standard concept (non-zero).",
+        )
+    )
 
     # ---- Plausibility --------------------------------------------------------
     current_year = datetime.now().year
-    checks.append(_mk_check(
-        "year_of_birth_plausible", "Plausibility", "person", person,
-        lambda r: not (_BIRTH_YEAR_FLOOR <= (_as_int(r.get("year_of_birth")) or -1) <= current_year),
-        0.0, f"year_of_birth must be between {_BIRTH_YEAR_FLOOR} and {current_year}."))
+    checks.append(
+        _mk_check(
+            "year_of_birth_plausible",
+            "Plausibility",
+            "person",
+            person,
+            lambda r: not (
+                _BIRTH_YEAR_FLOOR <= (_as_int(r.get("year_of_birth")) or -1) <= current_year
+            ),
+            0.0,
+            f"year_of_birth must be between {_BIRTH_YEAR_FLOOR} and {current_year}.",
+        )
+    )
 
-    checks.append(_mk_check(
-        "measurement_value_nonneg", "Plausibility", "measurement",
-        tables.get("measurement", []),
-        lambda r: (_as_float(r.get("value_as_number")) or 0) < 0, 0.0,
-        "measurement value_as_number should not be negative."))
+    checks.append(
+        _mk_check(
+            "measurement_value_nonneg",
+            "Plausibility",
+            "measurement",
+            tables.get("measurement", []),
+            lambda r: (_as_float(r.get("value_as_number")) or 0) < 0,
+            0.0,
+            "measurement value_as_number should not be negative.",
+        )
+    )
 
-    checks.append(_mk_check(
-        "visit_dates_ordered", "Plausibility", "visit_occurrence",
-        tables.get("visit_occurrence", []),
-        lambda r: bool((r.get("visit_start_date") or "") and (r.get("visit_end_date") or "")
-                       and r["visit_end_date"] < r["visit_start_date"]), 0.0,
-        "visit_end_date must not precede visit_start_date."))
+    checks.append(
+        _mk_check(
+            "visit_dates_ordered",
+            "Plausibility",
+            "visit_occurrence",
+            tables.get("visit_occurrence", []),
+            lambda r: bool(
+                (r.get("visit_start_date") or "")
+                and (r.get("visit_end_date") or "")
+                and r["visit_end_date"] < r["visit_start_date"]
+            ),
+            0.0,
+            "visit_end_date must not precede visit_start_date.",
+        )
+    )
 
     return checks
 
 
 # ── Characterization (ACHILLES-style) ────────────────────────────────────────
 
+
 def characterize(tables: dict, top_n: int = 10) -> dict:
     """Produce ACHILLES-style characterization of the cohort."""
     person = tables.get("person", [])
     current_year = datetime.now().year
 
-    gender = Counter()
+    gender: Counter[str] = Counter()
     ages = []
     for r in person:
         g = _as_int(r.get("gender_concept_id"))
@@ -222,7 +308,9 @@ def characterize(tables: dict, top_n: int = 10) -> dict:
 
     age_bands = Counter(_age_band(a) for a in ages)
 
-    cond_counts = Counter(r.get("condition_source_value") for r in tables.get("condition_occurrence", []))
+    cond_counts = Counter(
+        r.get("condition_source_value") for r in tables.get("condition_occurrence", [])
+    )
     drug_counts = Counter(r.get("drug_source_value") for r in tables.get("drug_exposure", []))
     visit_counts = Counter(r.get("visit_source_value") for r in tables.get("visit_occurrence", []))
 
@@ -238,8 +326,13 @@ def characterize(tables: dict, top_n: int = 10) -> dict:
         n = len(s)
         mean = sum(s) / n
         median = s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
-        return {"n": n, "min": round(s[0], 3), "max": round(s[-1], 3),
-                "mean": round(mean, 3), "median": round(median, 3)}
+        return {
+            "n": n,
+            "min": round(s[0], 3),
+            "max": round(s[-1], 3),
+            "mean": round(mean, 3),
+            "median": round(median, 3),
+        }
 
     return {
         "record_counts": {t: len(tables.get(t, [])) for t in _CDM_TABLES},
@@ -261,6 +354,7 @@ def characterize(tables: dict, top_n: int = 10) -> dict:
 
 # ── Top-level audit ──────────────────────────────────────────────────────────
 
+
 def audit_cdm(source: Union[dict, str, Path], top_n: int = 10) -> dict:
     """Run characterization + data-quality checks over a CDM cohort.
 
@@ -277,8 +371,12 @@ def audit_cdm(source: Union[dict, str, Path], top_n: int = 10) -> dict:
         "cdm_version": "5.4",
         "characterization": characterize(tables, top_n=top_n),
         "data_quality": {
-            "summary": {"passed": passed, "failed": failed,
-                        "not_applicable": na, "total": len(checks)},
+            "summary": {
+                "passed": passed,
+                "failed": failed,
+                "not_applicable": na,
+                "total": len(checks),
+            },
             "checks": [asdict(c) for c in checks],
         },
         "passed": failed == 0,
@@ -296,21 +394,25 @@ def render_markdown(report: dict) -> str:
     lines.append("")
     verdict = "PASS ✅" if report["passed"] else "FAIL ❌"
     s = dq["summary"]
-    lines.append(f"**Data-quality verdict: {verdict}** "
-                 f"({s['passed']} passed, {s['failed']} failed, "
-                 f"{s['not_applicable']} n/a of {s['total']} checks)")
+    lines.append(
+        f"**Data-quality verdict: {verdict}** "
+        f"({s['passed']} passed, {s['failed']} failed, "
+        f"{s['not_applicable']} n/a of {s['total']} checks)"
+    )
     lines.append("")
 
     lines.append("## Characterization (ACHILLES-style)")
     lines.append("")
     lines.append(f"- Persons: **{ch['person_count']}**")
-    lines.append(f"- Records: " + ", ".join(f"{k}={v}" for k, v in ch["record_counts"].items()))
+    lines.append("- Records: " + ", ".join(f"{k}={v}" for k, v in ch["record_counts"].items()))
     if ch["age"]["count"]:
         a = ch["age"]
         lines.append(f"- Age: min {a['min']}, mean {a['mean']}, max {a['max']}")
-    lines.append(f"- Gender: " + ", ".join(f"{k}={v}" for k, v in ch["gender_distribution"].items()))
+    lines.append("- Gender: " + ", ".join(f"{k}={v}" for k, v in ch["gender_distribution"].items()))
     if ch["top_conditions"]:
-        lines.append("- Top conditions: " + ", ".join(f"{n} ({c})" for n, c in ch["top_conditions"][:5]))
+        lines.append(
+            "- Top conditions: " + ", ".join(f"{n} ({c})" for n, c in ch["top_conditions"][:5])
+        )
     if ch["top_drugs"] and any(n for n, _ in ch["top_drugs"]):
         lines.append("- Top drugs: " + ", ".join(f"{n} ({c})" for n, c in ch["top_drugs"][:5] if n))
     lines.append("")
@@ -321,21 +423,32 @@ def render_markdown(report: dict) -> str:
     lines.append("|---|---|---|---|---|")
     for c in dq["checks"]:
         ratio = f"{c['failed_rows']}/{c['total_rows']}"
-        lines.append(f"| {c['name']} | {c['category']} | {c['table']} | "
-                     f"{c['status']} | {ratio} |")
+        lines.append(
+            f"| {c['name']} | {c['category']} | {c['table']} | " f"{c['status']} | {ratio} |"
+        )
     lines.append("")
     return "\n".join(lines)
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        description="ACHILLES/DQD-style audit of a HipAAsynth OMOP CDM cohort.")
-    parser.add_argument("--omop-dir", required=True, type=Path,
-                        help="Directory of OMOP CDM CSVs (from export_omop).")
-    parser.add_argument("--out", type=Path, default=None,
-                        help="Write a Markdown report to this path (also prints JSON summary).")
-    parser.add_argument("--json", type=Path, default=None,
-                        help="Write the full JSON report to this path.")
+        description="ACHILLES/DQD-style audit of a HipAAsynth OMOP CDM cohort."
+    )
+    parser.add_argument(
+        "--omop-dir",
+        required=True,
+        type=Path,
+        help="Directory of OMOP CDM CSVs (from export_omop).",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Write a Markdown report to this path (also prints JSON summary).",
+    )
+    parser.add_argument(
+        "--json", type=Path, default=None, help="Write the full JSON report to this path."
+    )
     args = parser.parse_args(argv)
 
     if not args.omop_dir.exists():
@@ -351,8 +464,10 @@ def main(argv=None) -> int:
         print(f"Wrote JSON audit to {args.json}")
 
     s = report["data_quality"]["summary"]
-    print(f"DQ: {s['passed']} passed / {s['failed']} failed / {s['not_applicable']} n/a "
-          f"({s['total']} checks). Overall: {'PASS' if report['passed'] else 'FAIL'}")
+    print(
+        f"DQ: {s['passed']} passed / {s['failed']} failed / {s['not_applicable']} n/a "
+        f"({s['total']} checks). Overall: {'PASS' if report['passed'] else 'FAIL'}"
+    )
     return 0 if report["passed"] else 1
 
 

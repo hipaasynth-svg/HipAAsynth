@@ -55,13 +55,15 @@ def _get(url):
 
 def _post(url, body, content_type="application/json"):
     data = body if isinstance(body, bytes) else json.dumps(body).encode()
-    req = urllib.request.Request(url, data=data, method="POST",
-                                 headers={"Content-Type": content_type})
+    req = urllib.request.Request(
+        url, data=data, method="POST", headers={"Content-Type": content_type}
+    )
     with urllib.request.urlopen(req, timeout=10) as resp:
         return resp.status, resp.headers.get("Content-Type"), resp.read()
 
 
 # ── health / discovery ───────────────────────────────────────────────────────
+
 
 def test_health(server):
     status, ctype, body = _get(f"{server}/health")
@@ -81,6 +83,7 @@ def test_formats_lists_capabilities(server):
 
 
 # ── generation happy paths ───────────────────────────────────────────────────
+
 
 def test_generate_json_default(server):
     status, ctype, body = _get(f"{server}/generate?count=4&seed=7")
@@ -160,8 +163,7 @@ def test_generate_module_stroke(server):
 
 
 def test_generate_post_json_body(server):
-    status, ctype, body = _post(f"{server}/generate",
-                                {"count": 6, "seed": 9, "format": "json"})
+    status, ctype, body = _post(f"{server}/generate", {"count": 6, "seed": 9, "format": "json"})
     assert status == 200
     assert len(json.loads(body)) == 6
 
@@ -173,6 +175,7 @@ def test_generate_with_bundled_profile(server):
 
 
 # ── input validation / error responses ───────────────────────────────────────
+
 
 def _expect_status(url, expected):
     try:
@@ -227,8 +230,9 @@ def test_unknown_route_is_404(server):
 
 def test_wrong_method_is_405(server):
     """POST to a GET-only route returns 405 with an Allow header."""
-    req = urllib.request.Request(f"{server}/health", data=b"{}", method="POST",
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(
+        f"{server}/health", data=b"{}", method="POST", headers={"Content-Type": "application/json"}
+    )
     try:
         urllib.request.urlopen(req, timeout=10)
         assert False, "expected HTTPError"
@@ -242,8 +246,9 @@ def test_invalid_json_body_is_400(server):
 
 
 def _expect_status_post(server, body, ctype):
-    req = urllib.request.Request(f"{server}/generate", data=body, method="POST",
-                                 headers={"Content-Type": ctype})
+    req = urllib.request.Request(
+        f"{server}/generate", data=body, method="POST", headers={"Content-Type": ctype}
+    )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             return resp.status
@@ -252,6 +257,7 @@ def _expect_status_post(server, body, ctype):
 
 
 # ── forged / oversized Content-Length (Tier 2 review fix — raw socket) ────────
+
 
 def _raw_http(server, raw_bytes, read_timeout=10):
     """Send raw HTTP bytes over a real socket and return the raw response bytes.
@@ -333,6 +339,7 @@ def test_legitimately_sized_body_still_works(server):
 
 
 # ── unit-level validation (no server) ────────────────────────────────────────
+
 
 def test_parse_generate_request_defaults():
     req = parse_generate_request({})

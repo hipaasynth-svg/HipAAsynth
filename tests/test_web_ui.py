@@ -99,8 +99,9 @@ def test_root_serves_html(server):
 def test_ui_generates_cohort_in_browser(server, browser):
     page = browser.new_page()
     generate_calls: list[str] = []
-    page.on("request", lambda req: generate_calls.append(req.url)
-            if "/generate" in req.url else None)
+    page.on(
+        "request", lambda req: generate_calls.append(req.url) if "/generate" in req.url else None
+    )
 
     page.goto(server, wait_until="networkidle")
     # Capabilities loaded from the real /formats endpoint populate the selects.
@@ -127,8 +128,9 @@ def test_ui_generates_cohort_in_browser(server, browser):
 def test_ui_scenario_dropdown_drives_generation(server, browser):
     page = browser.new_page()
     generate_calls: list[str] = []
-    page.on("request", lambda req: generate_calls.append(req.url)
-            if "/generate" in req.url else None)
+    page.on(
+        "request", lambda req: generate_calls.append(req.url) if "/generate" in req.url else None
+    )
     page.goto(server, wait_until="networkidle")
     page.wait_for_selector("#status.ok", timeout=10_000)
 
@@ -160,8 +162,7 @@ def test_ui_renders_viz_svgs_in_browser(server, browser):
     page.wait_for_selector("#patientCount", timeout=15_000)
     # Both server-rendered SVGs must land in the #viz panel (population + fairness).
     page.wait_for_selector("#viz svg", timeout=15_000)
-    page.wait_for_function("document.querySelectorAll('#viz svg').length >= 2",
-                           timeout=15_000)
+    page.wait_for_function("document.querySelectorAll('#viz svg').length >= 2", timeout=15_000)
     viz_text = page.inner_text("#viz")
     assert "Population distribution" in viz_text
     assert "Fairness heatmap" in viz_text
@@ -195,7 +196,6 @@ def test_ui_has_no_horizontal_overflow_after_a_run(server, browser, width):
     page.fill("#count", "20")
     page.click("#genBtn")
     page.wait_for_selector("#patientCount", timeout=15_000)
-    page.wait_for_function("document.querySelectorAll('#viz svg').length >= 2",
-                           timeout=15_000)
+    page.wait_for_function("document.querySelectorAll('#viz svg').length >= 2", timeout=15_000)
     assert page.evaluate("document.documentElement.scrollWidth") <= width
     page.close()

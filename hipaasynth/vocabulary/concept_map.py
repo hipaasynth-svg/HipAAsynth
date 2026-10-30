@@ -20,6 +20,7 @@ Design notes
   ATHENA vocabulary release before use in production OMOP tooling. See
   ``README.md`` in this package.
 """
+
 from __future__ import annotations
 
 import json
@@ -116,17 +117,18 @@ class ConceptMapping:
 @lru_cache(maxsize=1)
 def _raw_map() -> dict:
     with open(_MAP_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        data: dict = json.load(f)
+    return data
 
 
 def map_version() -> str:
     """Return the semantic version of the shipped concept map."""
-    return _raw_map()["metadata"]["map_version"]
+    return str(_raw_map()["metadata"]["map_version"])
 
 
 def validation_status() -> str:
     """Return the validation status of the concept_id values in the map."""
-    return _raw_map()["metadata"]["validation_status"]
+    return str(_raw_map()["metadata"]["validation_status"])
 
 
 def _normalize(term: str) -> str:
@@ -231,7 +233,9 @@ def lookup_medication(name: str) -> Optional[ConceptMapping]:
     return _lookup("medications", name)
 
 
-def unmapped_terms(conditions=(), measurements=(), visits=(), medications=()) -> dict[str, list[str]]:
+def unmapped_terms(
+    conditions=(), measurements=(), visits=(), medications=()
+) -> dict[str, list[str]]:
     """Return terms with no concept mapping, grouped by domain.
 
     Useful for coverage checks in CI: pass the term sets a generator can emit

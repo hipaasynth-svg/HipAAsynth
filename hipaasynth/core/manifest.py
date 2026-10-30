@@ -26,7 +26,8 @@ def _read_manifest(path: str) -> dict:
         return {}
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            manifest: dict = json.load(f)
+        return manifest
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"Failed to read manifest: {path}") from exc
 

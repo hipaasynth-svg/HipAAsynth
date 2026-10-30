@@ -90,10 +90,10 @@ class PSFReport:
         for level in reversed(SPARSITY_LEVELS):
             score = r.per_level_scores.get(level, 0.0)
             ratio = score / s7 if s7 > 0 else 0.0
-            status = "baseline" if level == "S7" else ("PASS" if ratio >= cfg.sdi_threshold else "FAIL")
-            lines.append(
-                f"| {level} | {score:.4f} | {ratio:.3f} | {status} |"
+            status = (
+                "baseline" if level == "S7" else ("PASS" if ratio >= cfg.sdi_threshold else "FAIL")
             )
+            lines.append(f"| {level} | {score:.4f} | {ratio:.3f} | {status} |")
 
         lines += [
             "",

@@ -235,10 +235,11 @@ def build_config(req: dict) -> GenerationConfig:
 
 
 def _fhir_bundle(patients) -> dict:
-    bundle = {"resourceType": "Bundle", "type": "collection", "entry": []}
+    entries: list[dict] = []
+    bundle = {"resourceType": "Bundle", "type": "collection", "entry": entries}
     for patient in patients:
         for resource in _patient_to_fhir(patient):
-            bundle["entry"].append({"fullUrl": f"urn:uuid:{resource['id']}", "resource": resource})
+            entries.append({"fullUrl": f"urn:uuid:{resource['id']}", "resource": resource})
     return bundle
 
 
@@ -670,7 +671,7 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
     server = make_server(args.host, args.port, args.max_count)
-    host, port = server.server_address[0], server.server_address[1]
+    host, port = str(server.server_address[0]), int(server.server_address[1])
     print(f"HipAAsynth API listening on http://{host}:{port}  (Ctrl-C to stop)")
     print(f"  Web UI: http://{host}:{port}/")
     print("  GET / | GET /health | GET /formats | GET /scenarios | GET|POST /generate")

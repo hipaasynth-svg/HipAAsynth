@@ -29,21 +29,24 @@ import pytest
 pandas = pytest.importorskip("pandas")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples" / "seismometer"))
 
-from seismometer_adapter import PROFILES, _infer_module
+from seismometer_adapter import PROFILES, _infer_module  # noqa: E402
 
 
 def _infer(label, col="cohort_label"):
     return _infer_module(pandas.DataFrame({col: [label]}))
 
 
-@pytest.mark.parametrize("label, expected", [
-    ("us_oud_calibration", "oud"),
-    ("us_copd_hf_public", "copd"),
-    ("us_chf_calibration", "chf"),
-    ("us_sma_calibration", "sma"),
-    ("COPD", "copd"),
-    ("fabry", "fabry"),
-])
+@pytest.mark.parametrize(
+    "label, expected",
+    [
+        ("us_oud_calibration", "oud"),
+        ("us_copd_hf_public", "copd"),
+        ("us_chf_calibration", "chf"),
+        ("us_sma_calibration", "sma"),
+        ("COPD", "copd"),
+        ("fabry", "fabry"),
+    ],
+)
 def test_real_labels_resolve(label, expected):
     assert _infer(label) == expected
 

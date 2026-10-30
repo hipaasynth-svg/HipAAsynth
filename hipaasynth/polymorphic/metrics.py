@@ -62,7 +62,10 @@ class PolymorphicMetrics:
 
     def all_pass(self) -> bool:
         return (
-            self.dcs_pass and self.isg_pass and self.lfdi_pass and self.saf_pass
+            self.dcs_pass
+            and self.isg_pass
+            and self.lfdi_pass
+            and self.saf_pass
             and self.accuracy_pass
         )
 
@@ -174,9 +177,7 @@ class PolymorphicMetricCalculator:
             return 0.0
         return sum(1 for d in relevant if d == ground_truth) / len(relevant)
 
-    def _information_source_gradient(
-        self, decisions: Dict[str, bool], ground_truth: bool
-    ) -> float:
+    def _information_source_gradient(self, decisions: Dict[str, bool], ground_truth: bool) -> float:
         """ISG: accuracy gap between clinician-facing and patient/LEP forms.
 
         Positive values indicate the model performs better on clinician forms
@@ -190,22 +191,16 @@ class PolymorphicMetricCalculator:
         self, decisions: Dict[str, bool], ground_truth: bool
     ) -> float:
         """LFDI: accuracy drop on low-literacy / LEP forms vs high-literacy form."""
-        high_lit_acc = self._accuracy(
-            decisions, ground_truth, {Form.PATIENT_HIGH_LITERACY}
-        )
+        high_lit_acc = self._accuracy(decisions, ground_truth, {Form.PATIENT_HIGH_LITERACY})
         disadvantage_acc = self._accuracy(
             decisions, ground_truth, self.LINGUISTIC_DISADVANTAGE_FORMS
         )
         return high_lit_acc - disadvantage_acc
 
-    def _sdoh_amplification_factor(
-        self, decisions: Dict[str, bool], ground_truth: bool
-    ) -> float:
+    def _sdoh_amplification_factor(self, decisions: Dict[str, bool], ground_truth: bool) -> float:
         """SAF: accuracy drop on the SDoH-rich CHW form relative to the mean."""
         all_acc = [
-            1 if decisions[f.value] == ground_truth else 0
-            for f in Form
-            if f.value in decisions
+            1 if decisions[f.value] == ground_truth else 0 for f in Form if f.value in decisions
         ]
         if not all_acc:
             return 0.0

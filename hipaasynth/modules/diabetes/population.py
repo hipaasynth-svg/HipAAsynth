@@ -55,17 +55,19 @@ class DiabetesPopulationGenerator:
         population = []
 
         for i in range(self.n):
-            population.append({
-                'patient_id': f'DM_{i:05d}',
-                'synthetic': True,
-                'disclaimer': DEFAULT_SYNTHETIC_DISCLAIMER,
-                'current_age': current_ages[i],
-                'diabetes_type': types[i],
-                'age_at_diagnosis': diagnosis_ages[i],
-                'diabetes_duration_years': durations[i],
-                'sex': sexes[i],
-                'race': races[i]
-            })
+            population.append(
+                {
+                    "patient_id": f"DM_{i:05d}",
+                    "synthetic": True,
+                    "disclaimer": DEFAULT_SYNTHETIC_DISCLAIMER,
+                    "current_age": current_ages[i],
+                    "diabetes_type": types[i],
+                    "age_at_diagnosis": diagnosis_ages[i],
+                    "diabetes_duration_years": durations[i],
+                    "sex": sexes[i],
+                    "race": races[i],
+                }
+            )
 
         return population
 
@@ -106,9 +108,9 @@ class DiabetesPopulationGenerator:
                 prob = base_prob
 
             if self.rng.random() < prob:
-                types.append('type1')
+                types.append("type1")
             else:
-                types.append('type2')
+                types.append("type2")
 
         return types
 
@@ -120,7 +122,7 @@ class DiabetesPopulationGenerator:
             age = current_ages[i]
             t = types[i]
 
-            if t == 'type1':
+            if t == "type1":
                 # Type 1 → long duration typical
                 max_dur = max(1, age - 5)
 
@@ -148,17 +150,17 @@ class DiabetesPopulationGenerator:
         sexes = []
 
         for t in types:
-            if t == 'type2':
-                sexes.append('M' if self.rng.random() < 0.55 else 'F')
+            if t == "type2":
+                sexes.append("M" if self.rng.random() < 0.55 else "F")
             else:
-                sexes.append('M' if self.rng.random() < 0.50 else 'F')
+                sexes.append("M" if self.rng.random() < 0.50 else "F")
 
         return sexes
 
     def _assign_races(self) -> List[str]:
         """Assign race with diabetes-weighted prevalence."""
         races = []
-        categories = ['White', 'Black', 'Hispanic', 'Asian', 'Other']
+        categories = ["White", "Black", "Hispanic", "Asian", "Other"]
         probs = [0.55, 0.18, 0.15, 0.08, 0.04]
 
         for _ in range(self.n):
@@ -181,26 +183,24 @@ class DiabetesPopulationGenerator:
         """Return statistics for validation."""
         data = self.generate()
 
-        type_counts = {'type1': 0, 'type2': 0}
+        type_counts = {"type1": 0, "type2": 0}
         age_sum = 0
         diag_sum = 0
         duration_sum = 0
 
         for row in data:
-            type_counts[row['diabetes_type']] += 1
-            age_sum += row['current_age']
-            diag_sum += row['age_at_diagnosis']
-            duration_sum += row['diabetes_duration_years']
+            type_counts[row["diabetes_type"]] += 1
+            age_sum += row["current_age"]
+            diag_sum += row["age_at_diagnosis"]
+            duration_sum += row["diabetes_duration_years"]
 
         n = len(data)
 
         return {
-            'type_distribution': {
-                k: v / n for k, v in type_counts.items()
-            },
-            'current_age_mean': age_sum / n,
-            'diagnosis_age_mean': diag_sum / n,
-            'duration_mean': duration_sum / n
+            "type_distribution": {k: v / n for k, v in type_counts.items()},
+            "current_age_mean": age_sum / n,
+            "diagnosis_age_mean": diag_sum / n,
+            "duration_mean": duration_sum / n,
         }
 
 
@@ -208,7 +208,7 @@ class DiabetesPopulationGenerator:
 # Test Block
 # -----------------------------
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     gen1 = DiabetesPopulationGenerator(n=1000, seed=42)
     gen2 = DiabetesPopulationGenerator(n=1000, seed=42)
 

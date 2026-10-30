@@ -35,7 +35,7 @@ class PopulationModule:
         config (dict): configuration for distributions
     """
 
-    def __init__(self, n: int, rng: random.Random, config: dict = None):
+    def __init__(self, n: int, rng: random.Random, config: dict | None = None):
         self.n = n
         self.rng = rng
         self.config = config or self._default_config()

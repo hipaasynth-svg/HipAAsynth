@@ -29,9 +29,16 @@ from pathlib import Path
 from tools import athena_extract, concept_diagnose, concept_resolve
 
 _COLUMNS = [
-    "concept_id", "concept_name", "domain_id", "vocabulary_id",
-    "concept_class_id", "standard_concept", "concept_code",
-    "valid_start_date", "valid_end_date", "invalid_reason",
+    "concept_id",
+    "concept_name",
+    "domain_id",
+    "vocabulary_id",
+    "concept_class_id",
+    "standard_concept",
+    "concept_code",
+    "valid_start_date",
+    "valid_end_date",
+    "invalid_reason",
 ]
 
 
@@ -40,13 +47,20 @@ def _write_tsv_with_bare_leading_quote(path: Path) -> None:
     # exact shape that triggers the runaway-field bug on tab-delimited input.
     rows = [
         _COLUMNS,
-        ["1", '"6 tube', "Device", "SNOMED", "X", "S", "CODE1",
-         "20000101", "20991231", ""],
-        ["2", "Normal saline", "Drug", "RxNorm", "Y", "S", "CODE2",
-         "20000101", "20991231", ""],
-        ["3", "Troponin I.cardiac [Mass/volume] in Serum or Plasma by "
-              "High sensitivity method", "Measurement", "LOINC", "Z", "S",
-         "89579-7", "20000101", "20991231", ""],
+        ["1", '"6 tube', "Device", "SNOMED", "X", "S", "CODE1", "20000101", "20991231", ""],
+        ["2", "Normal saline", "Drug", "RxNorm", "Y", "S", "CODE2", "20000101", "20991231", ""],
+        [
+            "3",
+            "Troponin I.cardiac [Mass/volume] in Serum or Plasma by " "High sensitivity method",
+            "Measurement",
+            "LOINC",
+            "Z",
+            "S",
+            "89579-7",
+            "20000101",
+            "20991231",
+            "",
+        ],
     ]
     with open(path, "w", encoding="utf-8", newline="") as f:
         for row in rows:

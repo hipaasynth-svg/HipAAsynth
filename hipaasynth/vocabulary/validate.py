@@ -57,8 +57,12 @@ from .concept_map import _MAP_PATH, _raw_map
 
 # CONCEPT columns we rely on (OMOP CDM vocabulary spec).
 _REQUIRED_COLUMNS = {
-    "concept_id", "concept_name", "domain_id",
-    "vocabulary_id", "standard_concept", "concept_code",
+    "concept_id",
+    "concept_name",
+    "domain_id",
+    "vocabulary_id",
+    "standard_concept",
+    "concept_code",
 }
 # Which recorded terminology code to compare against concept_code, per section.
 # Visits carry no terminology code in our map, so their code check is skipped.
@@ -94,6 +98,7 @@ class ConceptTable:
     from the RxNorm/ATC codes we ship (their concept_id is intentionally null in
     the map).
     """
+
     by_id: dict
     by_code: dict
 
@@ -116,13 +121,12 @@ def load_concept_table(concept_csv: Path) -> ConceptTable:
         # are RFC-4180-quoted (a concept_name may contain a comma), so keep normal
         # quote handling there.
         quoting = csv.QUOTE_NONE if delim == "\t" else csv.QUOTE_MINIMAL
-        reader = csv.DictReader(f, delimiter=delim, quoting=quoting)
+        reader = csv.DictReader(f, delimiter=delim, quoting=quoting)  # type: ignore[call-overload]
         header = set(reader.fieldnames or [])
         missing = _REQUIRED_COLUMNS - header
         if missing:
             raise ValueError(
-                f"CONCEPT file {concept_csv} is missing required columns: "
-                f"{sorted(missing)}"
+                f"CONCEPT file {concept_csv} is missing required columns: " f"{sorted(missing)}"
             )
         by_id: dict[int, dict] = {}
         by_code: dict[tuple, dict] = {}
@@ -144,9 +148,11 @@ def _validate_id_sections(table: ConceptTable, findings: list) -> None:
     raw = _raw_map()
     for section in ("conditions", "measurements", "visits"):
         code_field = _CODE_FIELD_BY_SECTION.get(section)
-        expected_domain = {"conditions": "Condition",
-                           "measurements": "Measurement",
-                           "visits": "Visit"}[section]
+        expected_domain = {
+            "conditions": "Condition",
+            "measurements": "Measurement",
+            "visits": "Visit",
+        }[section]
 
         for term, entry in raw.get(section, {}).items():
             cid = entry.get("omop_concept_id")
@@ -156,29 +162,46 @@ def _validate_id_sections(table: ConceptTable, findings: list) -> None:
 
             row = table.by_id.get(int(cid))
             if row is None:
-                findings.append(Finding(section, term, cid, "concept_id not found in CONCEPT table"))
+                findings.append(
+                    Finding(section, term, cid, "concept_id not found in CONCEPT table")
+                )
                 continue
 
             if (row.get("standard_concept") or "").strip().upper() != "S":
-                findings.append(Finding(
-                    section, term, cid,
-                    f"not a standard concept (standard_concept="
-                    f"{row.get('standard_concept')!r})"))
+                findings.append(
+                    Finding(
+                        section,
+                        term,
+                        cid,
+                        f"not a standard concept (standard_concept="
+                        f"{row.get('standard_concept')!r})",
+                    )
+                )
 
             actual_domain = (row.get("domain_id") or "").strip()
             if actual_domain != expected_domain:
-                findings.append(Finding(
-                    section, term, cid,
-                    f"domain mismatch: expected {expected_domain}, got {actual_domain!r}"))
+                findings.append(
+                    Finding(
+                        section,
+                        term,
+                        cid,
+                        f"domain mismatch: expected {expected_domain}, got {actual_domain!r}",
+                    )
+                )
 
             if code_field:
                 expected_code = entry.get(code_field)
                 actual_code = (row.get("concept_code") or "").strip()
                 if expected_code and actual_code and expected_code != actual_code:
-                    findings.append(Finding(
-                        section, term, cid,
-                        f"concept_code mismatch: map says {code_field}="
-                        f"{expected_code!r}, CONCEPT says {actual_code!r}"))
+                    findings.append(
+                        Finding(
+                            section,
+                            term,
+                            cid,
+                            f"concept_code mismatch: map says {code_field}="
+                            f"{expected_code!r}, CONCEPT says {actual_code!r}",
+                        )
+                    )
 
 
 def _med_lookups(term: str, entry: dict) -> list:
@@ -210,28 +233,48 @@ def _validate_medications(table: ConceptTable, findings: list) -> None:
     for term, entry in raw.get("medications", {}).items():
         checks = _med_lookups(term, entry)
         if not checks:
-            findings.append(Finding("medications", term, None,
-                                    f"unknown concept_type {entry.get('concept_type')!r}"))
+            findings.append(
+                Finding(
+                    "medications", term, None, f"unknown concept_type {entry.get('concept_type')!r}"
+                )
+            )
             continue
         for vocab, code, expected_standard in checks:
             if not code:
-                findings.append(Finding("medications", term, None,
-                                        f"no {vocab} code recorded"))
+                findings.append(Finding("medications", term, None, f"no {vocab} code recorded"))
                 continue
             row = table.by_code.get((vocab, code))
             if row is None:
-                findings.append(Finding("medications", term, None,
-                                        f"{vocab} code {code!r} not found in CONCEPT table"))
+                findings.append(
+                    Finding(
+                        "medications",
+                        term,
+                        None,
+                        f"{vocab} code {code!r} not found in CONCEPT table",
+                    )
+                )
                 continue
             actual_domain = (row.get("domain_id") or "").strip()
             if actual_domain != "Drug":
-                findings.append(Finding("medications", term, int(row["concept_id"]),
-                                        f"domain mismatch: expected Drug, got {actual_domain!r}"))
+                findings.append(
+                    Finding(
+                        "medications",
+                        term,
+                        int(row["concept_id"]),
+                        f"domain mismatch: expected Drug, got {actual_domain!r}",
+                    )
+                )
             actual_standard = (row.get("standard_concept") or "").strip().upper()
             if actual_standard != expected_standard:
-                findings.append(Finding("medications", term, int(row["concept_id"]),
-                                        f"{vocab} {code} standard_concept expected "
-                                        f"{expected_standard!r}, got {actual_standard!r}"))
+                findings.append(
+                    Finding(
+                        "medications",
+                        term,
+                        int(row["concept_id"]),
+                        f"{vocab} {code} standard_concept expected "
+                        f"{expected_standard!r}, got {actual_standard!r}",
+                    )
+                )
 
 
 def validate_map(concept_table: ConceptTable) -> list[Finding]:
@@ -267,8 +310,9 @@ def resolve_medication_concept_ids(table: ConceptTable) -> dict[str, int]:
     return resolved
 
 
-def write_validated_status(vocabulary_release: str,
-                           medication_concept_ids: Optional[dict] = None) -> None:
+def write_validated_status(
+    vocabulary_release: str, medication_concept_ids: Optional[dict] = None
+) -> None:
     """Flip the map metadata to validated against the given ATHENA release.
 
     If ``medication_concept_ids`` is given, fill each term's resolved
@@ -288,15 +332,24 @@ def write_validated_status(vocabulary_release: str,
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        description="Validate the HipAAsynth concept map against an OMOP CONCEPT table.")
-    parser.add_argument("--concept-csv", required=True, type=Path,
-                        help="Path to ATHENA CONCEPT.csv (tab- or comma-delimited).")
-    parser.add_argument("--write-status", action="store_true",
-                        help="On success, flip map metadata to validated.")
-    parser.add_argument("--release", default=None,
-                        help="Vocabulary release label to record with --write-status "
-                             "(e.g. 'ATHENA 2026-07'). Defaults to the CONCEPT file's "
-                             "parent directory name.")
+        description="Validate the HipAAsynth concept map against an OMOP CONCEPT table."
+    )
+    parser.add_argument(
+        "--concept-csv",
+        required=True,
+        type=Path,
+        help="Path to ATHENA CONCEPT.csv (tab- or comma-delimited).",
+    )
+    parser.add_argument(
+        "--write-status", action="store_true", help="On success, flip map metadata to validated."
+    )
+    parser.add_argument(
+        "--release",
+        default=None,
+        help="Vocabulary release label to record with --write-status "
+        "(e.g. 'ATHENA 2026-07'). Defaults to the CONCEPT file's "
+        "parent directory name.",
+    )
     args = parser.parse_args(argv)
 
     if not args.concept_csv.exists():
@@ -312,16 +365,19 @@ def main(argv=None) -> int:
             print(f"  - {f}")
         return 1
 
-    total = sum(len(_raw_map().get(s, {}))
-                for s in ("conditions", "measurements", "visits", "medications"))
+    total = sum(
+        len(_raw_map().get(s, {})) for s in ("conditions", "measurements", "visits", "medications")
+    )
     print(f"OK: all {total} mapped concepts validated against {args.concept_csv}")
 
     if args.write_status:
         release = args.release or args.concept_csv.resolve().parent.name
         resolved = resolve_medication_concept_ids(table)
         write_validated_status(release, resolved)
-        print(f"Updated concept_map.json metadata: validation_status=validated, "
-              f"vocabulary_release={release!r}")
+        print(
+            f"Updated concept_map.json metadata: validation_status=validated, "
+            f"vocabulary_release={release!r}"
+        )
         if resolved:
             print(f"Resolved {len(resolved)} medication concept_id(s) from RxNorm/ATC codes.")
 
