@@ -156,6 +156,8 @@ The last row is a real article on another topic, counted with the mismatches.
 
 ## Still unsourced (needs a real reference or clinical sign-off)
 
+> Most items below now have sources: see "Real sources found" further down.
+
 - 7AAST: altered mental status 25%; Monk tone distribution by group; the
   look-alike ranges (already labelled "starting points for clinician sign-off").
 - OUD: primary opioid type mix; route of administration; benzodiazepine co-use
@@ -193,6 +195,28 @@ Yohannes figures, now cited as Willgoss & Yohannes 2013 plus the 2014 review),
 one likely-intended source is identified (Jiang/Jones 2021 for the opioid-type
 mix), and six citations are confirmed not to exist under any reasonable
 correction (Casagrande, Rhee, Rhoads, Freedman, Cicero, White).
+
+## Real sources found for the unsourced values (2026-10-31)
+
+Each source below was checked in PubMed (abstract) or at the publisher. "Matches"
+means the code's value sits inside what the source reports.
+
+| Value in code | Source | What it reports | Verdict |
+|---|---|---|---|
+| Sepsis infection source: pneumonia 0.34, urinary 0.21, intra-abdominal 0.16, skin 0.11, other 0.18 | Novosad SA et al. *MMWR* 2016;65(33):864-869 (PMID 27559759) | 246 adults, four New York hospitals: pneumonia 35%, urinary 25%, gastrointestinal 11%, skin/soft tissue 11% | **Matches** (intra-abdominal a little high) |
+| Oliguria threshold 0.5 mL/kg/h | KDIGO AKI guideline, *Kidney Int Suppl* 2012;2(1):1-138 | Urine output < 0.5 mL/kg/h for 6 h defines AKI stage 1 | **Matches** (definition) |
+| OUD hepatitis C 0.38 | Jordan AE et al. *J Infect Dis* 2020;222(S5):S335 (PMID 32877560); office-based buprenorphine cohort | Anti-HCV 36% (2013-14) to 51% (2015-16) among tested NYC OTP patients; 47.7% in office-based buprenorphine | **Matches** (low end) |
+| OUD route: injection 0.32, intranasal 0.28, smoking 0.18, oral 0.16 | TEDS heroin admissions 2003-2006; Tanz LJ et al. *MMWR* 2024;73(6):124 (PMID 38358969) | Heroin admissions: injection 61-64%, inhalation 32-34%; overdose deaths 2022: smoking 23.1%, injection 16.1% | **Plausible mix**; no single source gives it (the mix spans heroin, fentanyl and pills) |
+| Insulin use ~26% | CDC national fact sheets 2004-2006; Le P et al. *Diabetes Care* 2020;43:1227 (PMID 32234720) | Insulin alone 14% + insulin with oral 13% = 27% of treated adults; insulin-analog use rising | **Matches** |
+| **AF anticoagulation 0.72** (CHA₂DS₂-VASc ≥ 2) | Marzec LN et al. *JACC* 2017;69:2475 (PMID 28521884); Lubitz SA et al. *Am Heart J* 2018;200:24 (PMID 29898845); Contreras JP et al. *Clin Cardiol* 2019;42:339 (PMID 30582177) | US registries: 52.4% rising to 60.7% (PINNACLE, 2008-2014); 57% of 674,841 patients; 60.6-64.2% with heart failure | **Too high** — US data say about 57-64%. Flagged for a decision |
+| **Sepsis altered mental status 0.25** (7AAST) | Lusaka sepsis cohort (PMC3239283); review of brain dysfunction in sepsis (PMC3673822) | Altered mentation 31% (Zambia); about a third with GCS < 12 in an older cohort | **Plausible**, likely a little low; no US ED figure found |
+| OUD benzodiazepine on urine screen 0.38 | Austrian maintenance-clinic urine series; NSDUH analyses | 16-23% any additional drug; benzodiazepine-positive cohorts 25-61% by year | **Within a wide range**; no current US figure found |
+| OUD primary opioid type mix | Jiang X, …, Jones CM. *Drug Alcohol Depend* 2021;229:109160 (PMID 34740067) | Compares adults reporting illicit fentanyl vs heroin vs prescription opioids | **Right source, shares need the full text** |
+
+Two values disagree with their sources and need a decision before changing,
+because changing them changes released cohorts: **AF anticoagulation (0.72 vs
+57-64% in US registries)** and, from the first pass, **Fabry stroke history
+(15% vs about 6%)**.
 
 ## How to re-run this audit
 

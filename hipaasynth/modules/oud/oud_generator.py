@@ -129,7 +129,9 @@ PRIMARY_OPIOID = {
 }
 
 # ── Route of administration ───────────────────────────────────────────────────
-# Source: no verified source (citation removed in the 2026-10 source audit; see docs/calibration/SOURCE_AUDIT.md).
+# Sources (ranges, not this exact mix): TEDS heroin admissions 2003-2006, injection
+# 61-64%, inhalation 32-34%, smoking ~2%; Tanz LJ et al. MMWR 2024;73(6):124-130
+# (PMID 38358969): by 2022 smoking (23.1%) overtook injection (16.1%) in overdose deaths.
 ROUTE_OF_ADMIN = {
     "injection_iv": 0.32,
     "intranasal": 0.28,
@@ -195,7 +197,8 @@ COMORBIDITY_RATES = {
     "stimulant_use_disorder": 0.28,  # Co-occurring stimulant (meth, cocaine)
     "cannabis_use_disorder": 0.32,
     "tobacco_use_disorder": 0.72,  # Extremely high in OUD population
-    "hepatitis_c": 0.38,  # PWID — injection-associated
+    "hepatitis_c": 0.38,  # anti-HCV 36-51% in a NYC opioid treatment program (Jordan AE et al.
+    # J Infect Dis 2020;222(S5):S335, PMID 32877560); 47.7% in office-based buprenorphine
     "hepatitis_b": 0.08,
     "hiv": 0.06,
     "endocarditis_history": 0.05,  # IV drug use complication

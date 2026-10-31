@@ -28,14 +28,14 @@ Important boundary:
 Calibration sources:
   [S1] Singer M et al. Sepsis-3. JAMA. 2016;315(8):801-810.
   [S2] Gavazzi G, Krause KH. Lancet Infect Dis. 2002;2(11):659-666. (Afebrile elderly)
-  [S3] Infection-source mix: no verified source (an earlier citation did not
-       exist; see docs/calibration/SOURCE_AUDIT.md).
+  [S3] Novosad SA et al. Vital Signs: Epidemiology of Sepsis. MMWR 2016;65(33):864-869
+       (PMID 27559759): adult sources pneumonia 35%, urinary 25%, GI 11%, skin/soft tissue 11%.
   [S4] Evans L et al. Surviving Sepsis Campaign 2021. Crit Care Med. 2021;49(11):e1063-e1143.
        Initial fluid resuscitation 30 mL/kg; vasopressor targets; O2 management.
   [S5] Frat JP et al. NEJM. 2015;372(23):2185-2196. (HFNC vs NIV in hypoxemic ARF)
   [S6] Bellani G et al. JAMA. 2016;315(8):788-800. (LUNG SAFE: ventilation modes)
-  [S7] Oliguria as a sepsis predictor: no verified source (an earlier citation did
-       not exist; see docs/calibration/SOURCE_AUDIT.md).
+  [S7] KDIGO Clinical Practice Guideline for Acute Kidney Injury. Kidney Int Suppl
+       2012;2(1):1-138: oliguria criterion urine output < 0.5 mL/kg/h.
   [S8] Cecconi M et al. Intensive Care Med. 2014;40(12):1795-1815. (Fluid balance)
   [S9] Internal calibration review, 2026-04-22.
        Respiratory context, urine output, fluid balance, deterioration realism,
