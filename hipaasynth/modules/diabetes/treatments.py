@@ -177,8 +177,9 @@ class TreatmentGenerator:
         # Threshold B: progressive beta-cell failure with long duration
         # UKPDS showed ~50% of newly diagnosed T2DM required insulin within 10 years
         # to maintain glycemic targets (Turner RC et al. JAMA 1999;281:2005-2012).
-        # ~26% of adults with treated T2DM use insulin: no verified source
-        # (citation removed in the 2026-10 source audit; see docs/calibration/SOURCE_AUDIT.md).
+        # ~26% of adults with diabetes use insulin: CDC national fact sheets report insulin alone
+        # 14% plus insulin with oral agents 13% (2004-2006); insulin use rising since (Le P et al.
+        # Diabetes Care 2020;43:1227, PMID 32234720).
         elif a1c > 7.5 and duration > 10:
             insulin_prob = min(0.60 + 0.025 * (duration - 10), 0.75)
             if self.rng.random() < insulin_prob:

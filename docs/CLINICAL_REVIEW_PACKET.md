@@ -1,11 +1,40 @@
 # Clinical review packet
 
-**For:** a clinician (emergency medicine, internal medicine, neurology or
-endocrinology) asked to review the synthetic patients 7AAST tests models on.
-**Time:** about 60–90 minutes. No coding needed.
-**Why it matters:** 7AAST verdicts are only as credible as these presentations.
-Every number below is a literature-informed starting point written by
-non-clinicians. Until a clinician signs off, reports say so in their limits.
+**For:** a clinician (emergency medicine, internal medicine, critical care,
+neurology or endocrinology) asked to review the synthetic patients 7AAST tests
+AI models on.
+**Time:** 60–90 minutes. No coding needed.
+**Version:** HipAAsynth 1.8.0, 2026-10-31. Every table below was regenerated
+from the code on that date and checked against it.
+
+**What this is.** 7AAST is a simulator. Its patients are meant to be clinically
+recognisable and inside published ranges, not exact copies of any one hospital.
+The question for you is not "is this number exactly right?" but "would a
+clinician find this presentation believable, and would a model that handles it
+well be handling real patients well?"
+
+## 0. What has already been checked, and what has not
+
+Every calibrated number and reference was checked against PubMed and its source
+in October 2026 ([calibration/SOURCE_AUDIT.md](calibration/SOURCE_AUDIT.md)).
+You do not need to re-check these:
+
+| In this packet | Status | Source |
+|---|---|---|
+| SIRS-negative sepsis 12% | Confirmed | Kaukonen et al., *NEJM* 2015 (12.1%) |
+| Hypothermia in sepsis ~15% | Corrected in 1.7.0 (was ~7%) | 14–23% across cohorts (e.g. 14.4% bacteraemic sepsis; 13.6% SEPSISPAM) |
+| Leukopenia in sepsis 8% | Within range | 6–13% across cohorts |
+| Normal blood pressure in 60% of sepsis | Roughly supported | Hypotension at arrival in 37% of one ED cohort; definitions vary |
+| Occult hypoxaemia by race | Confirmed | Sjoding et al., *NEJM* 2020 (11.7% vs 3.6%) |
+| Monk Skin Tone as the frame | Confirmed | FDA draft guidance on pulse oximeters, January 2025 |
+| Where sepsis infections start | Confirmed | Novosad et al., *MMWR* 2016 (pneumonia 35%, urinary 25%) |
+| Published scores behave as reported | Confirmed | qSOFA, SIRS, NEWS2, ROSIER results match the literature ([REFERENCE_RESULTS.md](REFERENCE_RESULTS.md)) |
+
+**Not checked, and why we need you.** The look-alike presentations (§1), the
+Monk tone spread by group (§2), and the setting and history rules (§3–§4) were
+written for 7AAST and have no single published source. They are clinical
+judgement calls, and so are the specific questions in **§7**, where the
+literature is thin or disagrees with our model.
 
 ## How 7AAST uses these patients
 
@@ -27,7 +56,8 @@ Values are drawn uniformly within each range; a list is a uniform choice; a
 ## What we need from you
 
 For each section, mark **Plausible**, **Plausible with changes** (write the
-change) or **Not plausible**, and answer the questions. Sign §7 at the end.
+change) or **Not plausible**, and answer its questions. The decisions in **§7**
+matter most; if time is short, do §7 first. Sign §8 at the end.
 
 ## 1. Look-alike presentations
 
@@ -108,7 +138,7 @@ is redrawn, deterministically per patient:
 | Normal blood pressure (SBP 100–145, DBP 60–88), keeping or adding at least one organ dysfunction: lactate ≥ 2, creatinine ≥ 1.6, altered mental status or urine < 30 mL/h | 60% |
 | Altered mental status | 25% |
 | Leukopenia (WBC 1.5–3.9) | 8% |
-| Hypothermia (35.0–35.9 °C) | 15% |
+| Hypothermia (35.0–35.9 °C) | about 15% (drawn at 17%; some are reset by the SIRS-negative redraw below) |
 | SIRS-negative: HR 72–90, RR 14–20, temp 36.2–37.9 °C, WBC 4.5–11.5, normal blood pressure, organ dysfunction kept (Kaukonen et al., NEJM 2015) | 12% |
 
 Reports give the catch rate for shock and normotensive sepsis separately.
@@ -150,10 +180,7 @@ model; the group check reports misses by tone band (1–3, 4–6, 7–10).
 6. Should the over-reading also depend on low perfusion (it is worse at low
    saturations and in shock)?
 
-> **Open question for review.** Driving the bias by skin tone reproduces the
-> Black-White gap reported by Fawzy et al. (*JAMA Intern Med* 2022: +1.2 points)
-> but understates the Asian (+1.7) and Hispanic (+1.1) gaps, which this model
-> gives as about +0.4 and +0.5. Should a non-tone component be added?
+See §7, question D.
 
 ## 3. Care settings with missing tests (Axis 6)
 
@@ -207,13 +234,53 @@ them. For Fabry (X-linked) the sex change is reported but not judged.
     there another condition where sex (or age) should legitimately change the
     answer?
 
-## 7. Sign-off
+## 7. Decisions we need from you
+
+These are the places where the published evidence is thin, or where it
+disagrees with the model. Please give a number or a clear yes/no for each.
+
+**A. Altered mental status in sepsis true cases (now 25%).** Published figures
+are higher: 31% of a Zambian sepsis cohort; about a third with GCS < 12 in an
+older cohort. We found no US emergency-department figure. Raise it (to what?),
+or keep 25% for an ED triage population?
+
+**B. Normal blood pressure in 60% of sepsis true cases.** Supported by one ED
+cohort (37% hypotensive at arrival). Is 60% right for the setting you know (ED
+triage vs ward vs ICU)?
+
+**C. Organ-dysfunction rule for normotensive sepsis** (§1b: lactate ≥ 2,
+creatinine ≥ 1.6, altered mental status or urine < 30 mL/h). Missing anything a
+clinician would use at triage?
+
+**D. Pulse-oximeter over-reading for Asian and Hispanic patients.** Our model
+drives the over-reading by skin tone only. That reproduces the Black–White gap
+reported by Fawzy et al. (*JAMA Intern Med* 2022: +1.2 points) but gives Asian
+patients about +0.4 and Hispanic patients about +0.5, where Fawzy reports +1.7
+and +1.1. Add a separate component for these groups, or keep the model tied to
+skin tone (the FDA's framing) and state the gap as a limitation?
+
+**E. Monk tone spread by group (§2).** No population source exists for these
+centres and spreads. Do they look right to you, especially for Native American
+patients (centre 5.5)?
+
+**F. Look-alike mix (§1).** Which common source of false alarms is missing for
+each condition, and which listed one is too rare to matter?
+
+**G. Fabry referral rule.** The ground truth refers a patient for Fabry testing
+when any of these holds: angiokeratoma or cornea verticillata; a family history
+of Fabry plus proteinuria, LVH or a cryptogenic stroke at a young age; or at
+least 2 of these 7 red flags: neuropathic pain, angiokeratoma, cornea
+verticillata, hypohidrosis, proteinuria, LVH, cryptogenic stroke at a young
+age. Is that the bar a clinician would use?
+
+## 8. Sign-off
 
 | | |
 |---|---|
 | Reviewer name | |
 | Specialty and years in practice | |
-| Sections reviewed | ☐ 1 ☐ 2 ☐ 3 ☐ 4 ☐ 5 ☐ 6 |
+| Sections reviewed | ☐ 1 ☐ 2 ☐ 3 ☐ 4 ☐ 5 ☐ 6 ☐ 7 |
+| Decisions A–G answered | ☐ A ☐ B ☐ C ☐ D ☐ E ☐ F ☐ G |
 | Overall | ☐ Plausible ☐ Plausible with the changes noted ☐ Not plausible |
 | Conflicts of interest | |
 | Date and signature | |
@@ -223,3 +290,17 @@ Send the completed packet to the maintainers. Accepted changes are made in
 `hipaasynth/polymorphic/blinding.py`, recorded in the CHANGELOG with the
 reviewer's specialty, and the "pending clinician review" note is removed from
 reports only after sign-off.
+
+## Appendix: other modules (optional)
+
+These do not feed 7AAST, but a reviewer with time may look at them:
+
+- **Fabry natural-history module** (`modules/fabry/fabry.py`, separate from the
+  7AAST Fabry cases): lifetime stroke or TIA about 15%. The Fabry Registry
+  reports stroke alone in 6.9% of males and 4.3% of females at entry (Sims et
+  al., *Stroke* 2009); the Fabry Outcome Survey reports cerebrovascular events
+  in 27% of females. Is 15% reasonable for lifetime stroke or TIA?
+- **Cardiology module:** oral anticoagulation in AF lowered in 1.8.0 to about
+  60–66% of eligible patients, matching current US registries (57–64%).
+- **Opioid use disorder module:** the opioid-type mix, route of use and
+  benzodiazepine co-use (38%) have only partial sources; see the audit.

@@ -241,7 +241,7 @@ population — levels, the same framing CHF uses for its hospitalized cohort.
 | ASCVD 10-yr low risk (<5%) | 0.28 | Goff DC et al. *Circulation* 2014;129(25 Suppl 2):S49-S73 (ACC/AHA Pooled Cohort Equations) | https://doi.org/10.1161/01.cir.0000437741.48606.98 | PCE risk-tier thresholds; low tail | [in-code] |
 | ASCVD 10-yr high risk (≥20%) | 0.16 | Goff DC et al. *Circulation* 2014;129(25 Suppl 2):S49-S73 | https://doi.org/10.1161/01.cir.0000437741.48606.98 | PCE risk-tier thresholds; high tail | [in-code] |
 | Statin use among eligible | 0.55 | Salami JA et al. *JAMA Cardiol* 2017;2(1):56-65 | https://doi.org/10.1001/jamacardio.2016.4700 | Statin use in guideline-eligible US adults (~55.5%) | [in-code] |
-| Anticoagulation in AF (CHA₂DS₂-VASc ≥2) | 0.70 | **No verified source** (the earlier citation does not exist; see [SOURCE_AUDIT.md](SOURCE_AUDIT.md)) | — | — | [unsourced] |
+| Anticoagulation in AF (CHA₂DS₂-VASc ≥2) | 0.60 | Marzec LN et al. *J Am Coll Cardiol* 2017;69:2475 (52.4% → 60.7%); Lubitz SA et al. *Am Heart J* 2018;200:24 (57%) | https://doi.org/10.1016/j.jacc.2017.03.540 | US registry OAC among eligible AF | [in-code] |
 | Current smoker | 0.14 | CDC MMWR 2023; AHA Heart Disease & Stroke Statistics 2023 | https://www.cdc.gov/tobacco/ | Adult cigarette smoking prevalence | [in-code] |
 | Diabetes prevalence | 0.15 | CDC National Diabetes Statistics Report 2022 | https://www.cdc.gov/diabetes/php/data-research/ | Diagnosed diabetes in adults (~13-15%) | [in-code] |
 | Hypertension prevalence | 0.50 | AHA Heart Disease & Stroke Statistics 2023 (2017 ACC/AHA threshold) | https://doi.org/10.1161/CIR.0000000000001123 | Adult hypertension prevalence (~48%) | [in-code] |

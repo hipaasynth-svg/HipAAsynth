@@ -491,13 +491,14 @@ def validate_cardiology(rows):
     )
     results.append(check("Statin use among eligible (target 0.55)", statin_rate, 0.55, tol=0.10))
 
-    # Oral anticoagulation in AF with CHA2DS2-VASc >= 2 ~70% (no verified source; SOURCE_AUDIT.md)
+    # Oral anticoagulation in AF with CHA2DS2-VASc >= 2: US registries 57-64% (Marzec 2017,
+    # Lubitz 2018, Williams 2024; SOURCE_AUDIT.md)
     af_high = [r for r in rows if r.get("atrial_fibrillation") and r.get("cha2ds2_vasc", 0) >= 2]
     ac_rate = (
         sum(1 for r in af_high if r.get("on_anticoagulant")) / len(af_high) if af_high else 0.0
     )
     results.append(
-        check("Anticoagulation in AF (CHA2DS2-VASc>=2) (target 0.70)", ac_rate, 0.70, tol=0.12)
+        check("Anticoagulation in AF (CHA2DS2-VASc>=2) (target 0.60)", ac_rate, 0.60, tol=0.08)
     )
 
     # Risk-factor prevalences (NHANES / CDC / AHA), CV-risk-enriched clinic frame
@@ -521,6 +522,10 @@ def validate_cardiology(rows):
 
 
 # ── extended runner ───────────────────────────────────────────────────────────
+#: Cohort size per module when it needs more than 1000 for a stable check. Cardiology
+#: at n=1000 has only ~45 eligible AF patients; n=5000 gives ~230.
+VALIDATION_N = {"cardiology": 5000}
+
 EXT_MODULES = [
     ("stroke", generate_stroke_cohort, validate_stroke),
     ("diabetes", generate_diabetes_cohort, validate_diabetes),
@@ -536,7 +541,7 @@ def run_extended(base_dir):
     """Generate + validate the extended modules; save CSVs; return report dict."""
     modules = {}
     for name, gen, validator in EXT_MODULES:
-        rows = gen(n=1000)
+        rows = gen(n=VALIDATION_N.get(name, 1000))
         csv_path = os.path.join(base_dir, f"{name}_1000", f"{name}_calibration_n1000.csv")
         save_cohort_csv(rows, csv_path)
         results = validator(rows)
