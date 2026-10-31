@@ -78,7 +78,7 @@ Marginals unchanged from the published `COMORBIDITY_RATES`. Resolved rates
 | cardiovascular_disease | 0.25 | steep | 0.14 | 0.42 | Chen W et al. *Lancet Respir Med* 2015;3(8):631-639 |
 | type2_diabetes | 0.22 | shallow | 0.19 | 0.26 | Mirrakhimov AE. *Cardiovasc Diabetol* 2012;11:132 |
 | depression | 0.27 | moderate | 0.19 | 0.38 | Yohannes AM, Alexopoulos GS. *Eur Respir Rev* 2014;23:345-349 |
-| anxiety | 0.19 | moderate | 0.13 | 0.27 | Yohannes AM et al. 2014 |
+| anxiety | 0.19 | moderate | 0.13 | 0.27 | Willgoss TG, Yohannes AM. *Respir Care* 2013;58:858-866 |
 | osa | 0.15 | moderate | 0.10 | 0.21 | Shawon MS et al. *Respir Med* 2017;131:79-90 |
 | pulmonary_hypertension | 0.18 | very_steep | 0.08 | 0.33 | Chaouat A et al. *Eur Respir J* 2008;32(5):1371-1385 |
 | osteoporosis | 0.24 | steep | 0.13 | 0.40 | Graat-Verboom L et al. *Eur Respir J* 2009;34:209-218 |

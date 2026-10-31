@@ -148,8 +148,9 @@ YEARS_USE_BY_SEVERITY = {
 
 # ── MOUD (Medications for OUD) status ────────────────────────────────────────
 # Treatment gap: ~25% of adults needing OUD treatment received MOUD in 2022
-# Source: CDC. Treatment for Opioid Use Disorder: Population Estimates, United
-# States, 2022. MMWR 2024;73(25):567-574 (PMID 38935567).
+# Source: Dowell D, ..., Jones CM, et al. Treatment for Opioid Use Disorder:
+# Population Estimates, United States, 2022. MMWR 2024;73(25):567-574
+# (PMID 38935567).
 MOUD_STATUS = {
     "buprenorphine": 0.12,  # Most accessible in primary care
     "methadone_otp": 0.05,  # Opioid Treatment Program (clinic-based)

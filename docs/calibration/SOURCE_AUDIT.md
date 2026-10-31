@@ -17,6 +17,9 @@ review of the cohorts is a separate step (see `../CLINICAL_REVIEW_PACKET.md`).
 
 ## Summary
 
+> Updated by the 2026-10-31 recheck (end of this file): two citations
+> rescued, one likely-intended source identified, six confirmed not to exist.
+
 | Result | Rows |
 |---|---|
 | Confirmed: real source, number matches | 31 |
@@ -63,7 +66,7 @@ The last row is a real article on another topic, counted with the mismatches.
 | Where | Cited as | PubMed finding | Value now |
 |---|---|---|---|
 | `oud_generator.py` route of administration; registry "illicit fentanyl" | Cicero TJ et al. *NEJM* 2014;371(22):2063-2066, doi 10.1056/NEJMc1406300 | No such article. Cicero's 2014 heroin paper is *JAMA Psychiatry* 2014;71(7):821 (PMID 24871348) and does not give these shares | unsourced |
-| `oud_generator.py` MOUD status | Jones CM et al. *JAMA Psychiatry* 2022;79(5):512-520 | No such article | **replaced**: CDC, *MMWR* 2024;73(25):567-574 (PMID 38935567), 25.1% received MOUD; supports 0.78 without MOUD |
+| `oud_generator.py` MOUD status | Jones CM et al. *JAMA Psychiatry* 2022;79(5):512-520 | No article at that volume, issue and pages, and the DOI (…2022.0246) is not in PubMed. Jones did publish two real 2022 *JAMA Psychiatry* papers on pandemic MOUD flexibilities: 79(10):981-992 (PMID 36044198, Medicare telehealth: 12.6% received MOUD) and 79(9):932-934 (PMID 35830198, take-home methadone); the citation was probably a garbled version of one of these, but neither gives the ~18% stated | **replaced**: Dowell D, …, Jones CM, et al. *MMWR* 2024;73(25):567-574 (PMID 38935567), 25.1% of adults needing OUD treatment received MOUD; supports 0.78 without MOUD |
 | `oud_generator.py` ED visits; registry HCV | White AM et al. *Drug Alcohol Depend* 2021;227:109002 | No such article; the DOI is a Thai alcohol-screening study (PMID 34488075) | unsourced |
 | `copd_generator.py`, `core/dependence.py` depression/anxiety | Yohannes AM et al. *Respir Care* 2014;59(7):1112-1120 | No such article; the DOI is an unrelated case report (PMID 24026185) | **replaced**: Yohannes & Alexopoulos, *Eur Respir Rev* 2014;23:345 (PMID 25176970), depression 26% |
 | `diabetes/treatments.py` insulin use | Casagrande SS et al. *Diabetes Care* 2018;41:2020-2028 | No such article; the DOI is a glycaemic-control/infection study (PMID 30104296) | unsourced |
@@ -162,7 +165,34 @@ The last row is a real article on another topic, counted with the mismatches.
 - Sepsis: infection-source mix; oliguria thresholds.
 - CHF: NYHA III+IV 0.83 (OPTIMIZE-HF is real, but the breakdown is not in the abstract).
 - COPD: GOLD 1–4 split (the BOLD abstract gives only stage ≥ II prevalence).
-- Tribal: CKD (conference abstract), sepsis social determinants (Ardabili 2025, not in PubMed).
+- Tribal: CKD (conference abstract). Sepsis social determinants: confirmed in the recheck below (Ardabili, medRxiv 2024).
+
+## Recheck, 2026-10-31 (wider search)
+
+The first pass looked each citation up by its exact journal, volume and first
+page, which misses a real paper whose details were mangled. This recheck
+searched each author's papers in that journal (and nearby years) instead. The
+verdicts are per citation as written; where a real paper is probably what was
+meant, it is named so the reference can be repaired rather than dropped.
+
+| Cited as | Exact citation | Closest real paper(s) found (PMID) | Does it support the value? |
+|---|---|---|---|
+| Jones CM et al. *JAMA Psychiatry* 2022;79(5):512-520 (MOUD ~18%) | does not exist | Jones CM et al. *JAMA Psychiatry* 2022;79(10):981-992 (36044198), Medicare telehealth and MOUD; Jones CM et al. 2022;79(9):932-934 (35830198), take-home methadone | No: 12.6% of Medicare beneficiaries with OUD received MOUD; a Medicare figure, not 18% overall. Replaced with Dowell D, …, Jones CM, et al. *MMWR* 2024 (25.1%) |
+| Jones CM et al. *Drug Alcohol Depend* 2020;214:108174 (primary opioid type) | page belongs to another paper | Jones CM et al. *DAD* 2020;214:108169 (32682218), substance-use recovery; **Jiang X, …, Jones CM. *DAD* 2021;229:109160 (34740067), adults using illicitly manufactured fentanyl vs heroin vs prescription opioids** | 108169 no. 109160 is the right kind of source for the fentanyl/heroin/Rx mix; its shares need reading from the full text |
+| Cicero TJ et al. *NEJM* 2014;371(22):2063-2066 (route of administration) | does not exist | Cicero's *NEJM* letters: 2012;367:187 (22784140), 2015;373:1789 (26510045), 2016;374:1295 (27028931); *JAMA Psychiatry* 2014;71:821 (24871348) | No route-of-administration shares in any |
+| White AM et al. *DAD* 2021;227:109002 (HCV ~38%, ED visits) | does not exist (DOI is another paper) | Wagner K, …, White K, et al. *DAD* 2021;220:108527 (33465605), HCV in young rural PWID in New Mexico | Partly: anti-HCV 60.9%, current infection 44.8% among people who **inject**; supports a high HCV rate in injecting OUD, not 38% of all OUD |
+| Yohannes AM et al. *Respir Care* 2014;59(7):1112-1120 (depression 0.27, anxiety 0.19) | does not exist | **Willgoss TG, Yohannes AM. *Respir Care* 2013;58(5):858-866 (22906542)**, anxiety in COPD systematic review; Yohannes & Alexopoulos *Eur Respir Rev* 2014;23:345 (25176970) | Yes: anxiety 13–46% in outpatients (Willgoss 2013) and depression 26% (2014 review). The citation was these two merged; both now cited |
+| Casagrande SS et al. *Diabetes Care* 2018;41:2020-2028 (insulin ~26%) | does not exist | Casagrande's only 2016–19 *Diabetes Care* paper is on insurance (29475841) | No match found; stays unsourced |
+| Rhee C et al. *JAMA Intern Med* 2017;177(7):944-951 (infection source) | does not exist | Rhee's only *JAMA Intern Med* paper is a 2023 COVID testing letter (37273229); his 2017 sepsis paper is *JAMA* 2017;318:1241 (28903154) | *JAMA* 2017 gives sepsis incidence and trends, not a source-of-infection mix; stays unsourced |
+| Rhoads CM et al. *Chest* 2019;155(4):744-752 (oliguria) | does not exist | no Rhoads paper in *Chest* 2019; no *Chest* paper on oliguria in sepsis | stays unsourced |
+| Freedman B et al. *JAMA Cardiol* 2017;2(4):442-451 (OAC in AF ~70%) | does not exist | Freedman's *JAMA Cardiol* papers: 2016;1:366 (27438123), 2019;4:91 (30586142), 2020;5:105 (31774461), 2022;7:247 (35076686) | None reports guideline OAC uptake; stays unsourced |
+| Ardabili AK et al. *World Med Health Policy* 2025 (sepsis SDOH) | journal not indexed in PubMed | **Ardabili AK et al. medRxiv 2024 (39763570), "Social Determinants of Sepsis Mortality in the United States"**, 4.4 million patients | Yes: higher Area Deprivation Index and lower income associated with higher sepsis mortality. **Real; the earlier "not in PubMed" was wrong** |
+
+Net change from the first pass: two citations are rescued (Ardabili; and the
+Yohannes figures, now cited as Willgoss & Yohannes 2013 plus the 2014 review),
+one likely-intended source is identified (Jiang/Jones 2021 for the opioid-type
+mix), and six citations are confirmed not to exist under any reasonable
+correction (Casagrande, Rhee, Rhoads, Freedman, Cicero, White).
 
 ## How to re-run this audit
 

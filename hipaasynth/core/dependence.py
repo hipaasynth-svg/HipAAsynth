@@ -185,7 +185,7 @@ COPD_GOLD_WEIGHTS: Tuple[float, ...] = (0.20, 0.38, 0.28, 0.14)
 #                                             Mirrakhimov AE. Cardiovasc Diabetol 2012;11:132.
 #   depression              0.27 moderate   — tracks dyspnea/symptom burden.
 #                                             Yohannes AM, Alexopoulos GS. Eur Respir Rev 2014;23(133):345-349 (PMID 25176970).
-#   anxiety                 0.19 moderate   — tracks dyspnea/symptom burden. Yohannes 2014.
+#   anxiety                 0.19 moderate   — tracks dyspnea/symptom burden. Willgoss & Yohannes 2013.
 #   osa                     0.15 moderate   — overlap syndrome more common in advanced disease.
 #                                             Shawon MS et al. Respir Med 2017;131:79-90.
 #   pulmonary_hypertension  0.18 very_steep — strongly downstream of severe airflow
