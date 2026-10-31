@@ -52,11 +52,33 @@ The hypothermia change moves the published-score results by at most one point
 (SIRS sensitivity 87% to 88%, now exactly Kaukonen's figure);
 `docs/REFERENCE_RESULTS.md` is regenerated.
 
+## Corrected in 1.8.0
+
+**AF anticoagulation.** The rate was calibrated to its old 70% target: 0.72 gave
+69.8% among CHA₂DS₂-VASc ≥ 2 patients at n = 20,000. The target itself was out of
+date; current US data are 57-64%. `OAC_IN_AF` is now 0.63 (60-66% across seeds).
+
+How the change was contained. The cardiology module draws every patient's
+medications from one shared random stream, and the anticoagulant-type draw only
+happens for treated patients. Simply lowering 0.72 would have removed draws and
+shifted the stream: measured on the validator cohort it changed **421 of 1,000
+patients, 377 of them without AF** (statins, blood-pressure drugs, antiplatelets,
+diabetes drugs). The 1.8.0 code keeps the draws exactly as before and moves only
+the treated threshold, so **8 of 1,000 patients change, all with AF, and only in
+`on_anticoagulant`, `anticoagulant_type` and `total_meds`**.
+
+The validator's AF check now runs the cardiology cohort at n = 5,000 (about 230
+eligible AF patients); at n = 1,000 it rested on 45, too few for the check to mean
+much. Measured: 63.4%, target 60%, tolerance ±8 points.
+
+Nothing else uses this module: 7AAST, the API, the CLI and the cohort pipeline
+do not import it.
+
 ## Flagged for clinical review (not changed)
 
 | What | Code | Source says | Why not changed here |
 |---|---|---|---|
-| Fabry stroke/TIA history | ~15% | Sims et al., *Stroke* 2009;40:788 (PMID 19150871): stroke in 6.9% of males and 4.3% of females in the Fabry Registry (n = 2,446) | TIA is not counted in Sims; the module's cohort definition needs a clinician's call; changing it changes every Fabry cohort |
+| Fabry stroke/TIA history | ~15% (lifetime, stroke **or** TIA) | Sims et al., *Stroke* 2009;40:788 (PMID 19150871): stroke only, at registry entry: 6.9% of males, 4.3% of females. Fabry Outcome Survey: cerebrovascular events (stroke or TIA) reported in 27% of females (full text; abstracts PMID 15025684, 16227523) | **Not shown to be wrong** (re-examined 2026-10-31): the two sources measure different things and 15% sits between them. Left for the clinician; it does not feed 7AAST (7AAST's Fabry cases come from `fabry/observations.py`) |
 | Pulse-oximeter over-reading for Asian and Hispanic patients | about +0.4 and +0.5 points more than White (tone-driven model) | Fawzy et al., *JAMA Intern Med* 2022;182:730 (PMID 35639368): +1.7 Asian, +1.1 Hispanic, +1.2 Black vs White | The model follows skin tone (the FDA 2025 framing); Black patients match (+1.25), but Asian and Hispanic gaps are understated. Whether to add a non-tone component is a modelling decision for review |
 
 ## Citations that did not exist (removed)
@@ -208,15 +230,14 @@ means the code's value sits inside what the source reports.
 | OUD hepatitis C 0.38 | Jordan AE et al. *J Infect Dis* 2020;222(S5):S335 (PMID 32877560); office-based buprenorphine cohort | Anti-HCV 36% (2013-14) to 51% (2015-16) among tested NYC OTP patients; 47.7% in office-based buprenorphine | **Matches** (low end) |
 | OUD route: injection 0.32, intranasal 0.28, smoking 0.18, oral 0.16 | TEDS heroin admissions 2003-2006; Tanz LJ et al. *MMWR* 2024;73(6):124 (PMID 38358969) | Heroin admissions: injection 61-64%, inhalation 32-34%; overdose deaths 2022: smoking 23.1%, injection 16.1% | **Plausible mix**; no single source gives it (the mix spans heroin, fentanyl and pills) |
 | Insulin use ~26% | CDC national fact sheets 2004-2006; Le P et al. *Diabetes Care* 2020;43:1227 (PMID 32234720) | Insulin alone 14% + insulin with oral 13% = 27% of treated adults; insulin-analog use rising | **Matches** |
-| **AF anticoagulation 0.72** (CHA₂DS₂-VASc ≥ 2) | Marzec LN et al. *JACC* 2017;69:2475 (PMID 28521884); Lubitz SA et al. *Am Heart J* 2018;200:24 (PMID 29898845); Contreras JP et al. *Clin Cardiol* 2019;42:339 (PMID 30582177) | US registries: 52.4% rising to 60.7% (PINNACLE, 2008-2014); 57% of 674,841 patients; 60.6-64.2% with heart failure | **Too high** — US data say about 57-64%. Flagged for a decision |
+| **AF anticoagulation** (CHA₂DS₂-VASc ≥ 2), was 0.72, **now 0.63 (1.8.0)** | Marzec LN et al. *JACC* 2017;69:2475 (PMID 28521884); Lubitz SA et al. *Am Heart J* 2018;200:24 (PMID 29898845); Contreras JP et al. *Clin Cardiol* 2019;42:339 (PMID 30582177) | US registries: 52.4% rising to 60.7% (PINNACLE, 2008-2014); 57% of 674,841 patients; 60.6-64.2% with heart failure | Was too high (0.72 produced 69.8%); **corrected in 1.8.0** to 0.63, which produces 60-66% (Williams 2024: 59.4% in 2020) |
 | **Sepsis altered mental status 0.25** (7AAST) | Lusaka sepsis cohort (PMC3239283); review of brain dysfunction in sepsis (PMC3673822) | Altered mentation 31% (Zambia); about a third with GCS < 12 in an older cohort | **Plausible**, likely a little low; no US ED figure found |
 | OUD benzodiazepine on urine screen 0.38 | Austrian maintenance-clinic urine series; NSDUH analyses | 16-23% any additional drug; benzodiazepine-positive cohorts 25-61% by year | **Within a wide range**; no current US figure found |
 | OUD primary opioid type mix | Jiang X, …, Jones CM. *Drug Alcohol Depend* 2021;229:109160 (PMID 34740067) | Compares adults reporting illicit fentanyl vs heroin vs prescription opioids | **Right source, shares need the full text** |
 
-Two values disagree with their sources and need a decision before changing,
-because changing them changes released cohorts: **AF anticoagulation (0.72 vs
-57-64% in US registries)** and, from the first pass, **Fabry stroke history
-(15% vs about 6%)**.
+Of the two values flagged here, AF anticoagulation is corrected in 1.8.0 (see
+"Corrected in 1.8.0" below) and Fabry stroke history was re-examined and is not
+shown to be wrong.
 
 ## How to re-run this audit
 

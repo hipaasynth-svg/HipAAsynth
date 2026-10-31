@@ -31,7 +31,7 @@ from typing import Optional
 # third party re-running a cohort uses it to confirm which engine produced the
 # result. It must therefore track the distribution version in pyproject.toml.
 # tests/test_version_consistency.py asserts the two stay equal.
-ENGINE_VERSION = "1.7.0"
+ENGINE_VERSION = "1.8.0"
 SCHEMA_VERSION = "1.1.0"
 ADVERSARIAL_VERSION = "1.0.0"
 

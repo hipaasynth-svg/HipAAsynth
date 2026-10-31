@@ -27,6 +27,10 @@ Generates:
 """
 
 
+#: Share of AF patients put on an oral anticoagulant (see SOURCE_AUDIT.md).
+OAC_IN_AF = 0.63
+
+
 class CardioMedications:
     def __init__(self, n, rng):
         self.n = n
@@ -89,14 +93,18 @@ class CardioMedications:
                         out["statin_intensity"][i] = "moderate"
 
             # ---------------- ANTICOAG ----------------
-            # Oral anticoagulation in AF with elevated stroke risk
-            # (CHA2DS2-VASc >= 2) ~70%; DOACs now dominate over warfarin.
-            # US registries report LOWER rates: 52-61% of eligible AF patients (Marzec LN et al.
-            # J Am Coll Cardiol 2017;69:2475, PMID 28521884); 57% (Lubitz SA et al. Am Heart J
-            # 2018;200:24, PMID 29898845). 0.72 is flagged for review in SOURCE_AUDIT.md.
-            if af and self.rng.random() < 0.72:
-                out["on_anticoagulant"][i] = True
-                out["anticoagulant_type"][i] = "doac" if self.rng.random() < 0.8 else "warfarin"
+            # Oral anticoagulation in AF: US registries report 57-64% of eligible patients treated
+            # (Marzec LN et al. J Am Coll Cardiol 2017;69:2475, PMID 28521884; Lubitz SA et al.
+            # Am Heart J 2018;200:24, PMID 29898845; Williams 2024 J Stroke Cerebrovasc Dis,
+            # 59.4% in 2020). OAC_IN_AF = 0.63 lands at ~0.60-0.66 among CHA2DS2-VASc >= 2.
+            # The draws are kept exactly as in 1.7.0 (u, then the type draw when u < 0.72) so
+            # every other field keeps its value; only the treated threshold moves.
+            u = self.rng.random() if af else 1.0
+            if u < 0.72:
+                doac = self.rng.random() < 0.8
+                if u < OAC_IN_AF:
+                    out["on_anticoagulant"][i] = True
+                    out["anticoagulant_type"][i] = "doac" if doac else "warfarin"
 
             # ---------------- ANTIPLATELET ----------------
             if prior_ascvd and self.rng.random() < 0.9:

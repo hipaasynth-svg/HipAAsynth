@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-10-31
+
+### Changed
+
+- Cardiology: oral anticoagulation in atrial fibrillation lowered from 0.72 to
+  0.63, so about 60-66% of CHA2DS2-VASc >= 2 patients are treated, as current US
+  registries report (57-64%). The random draws are kept as before, so only the
+  anticoagulation fields of AF patients change (8 of 1,000 in the validator
+  cohort); every other patient and field is identical to 1.7.0. Install 1.7.0
+  to reproduce an older cardiology cohort exactly.
+- The calibration validator checks cardiology at n = 5,000 (about 230 eligible
+  AF patients instead of 45).
+- Real, PubMed-checked sources added for the values the audit left unsourced;
+  the clinical review packet is rebuilt around what is sourced and what still
+  needs a clinician.
+
 ## [1.7.0] — 2026-10-30
 
 Every calibrated number and every reference checked against PubMed and its
