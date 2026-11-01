@@ -38,25 +38,38 @@ the final ``report`` hash. :func:`verify` recomputes the chain, and with
 ``regenerate=True`` rebuilds the cohort from its settings and checks every case.
 
 What the chain does and does not show: it shows the document is internally
-consistent and unchanged since the hashes were written. It cannot show who
-wrote it. To make an edit detectable, record the ``report`` hash somewhere the
-editor cannot change (an email, a ticket, a contract annex) when the run is
-made. A report is a stress-test record on synthetic patients, not a
-certification.
+consistent and unchanged since the hashes were written. On its own it cannot
+show who wrote it or when. The optional **seal** adds both, outside the chain
+because it is made from the final hash:
 
-Pure standard library. Same inputs, same model, same hashes.
+* ``seal.signature``: an Ed25519 signature over the ``report`` hash with the
+  tester's key (:mod:`hipaasynth.aast.sign`). It shows which key issued it.
+* ``seal.opentimestamps``: an OpenTimestamps proof of the ``report`` hash
+  (:mod:`hipaasynth.aast.ots`), anchored in Bitcoin a few hours after the run.
+  It shows the report existed by that block's time.
+
+Who ran the test, the model version, the organization and the start and end
+times are in ``method.provenance``, so they are covered by the chain, the
+signature and the timestamp. A report is a stress-test record on synthetic
+patients, not a certification.
+
+Pure standard library. Same inputs and model: the same cohort and results. Reports made by
+the CLI or the page also lock in when the run happened, so each run has its own report hash;
+``run_7aast`` + :func:`build_document` alone (no provenance) give the same hashes every time.
 """
 
 from __future__ import annotations
 
 import hashlib
-import html
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from hipaasynth.aast import ots
 from hipaasynth.aast import run as _run
+from hipaasynth.aast import sign as _sign
 from hipaasynth.aast.run import AXIS_ORDER, AASTReport
 from hipaasynth.aast.stats import FAIL, INCONCLUSIVE, PASS
 
@@ -198,6 +211,8 @@ def build_document(report: AASTReport) -> dict[str, Any]:
             "retention": _run.RETENTION_THRESHOLD,
         },
     }
+    if d.get("provenance"):
+        method["provenance"] = d["provenance"]
     results = {
         "overall": d["overall"],
         "axes": d["axes"],
@@ -212,6 +227,107 @@ def build_document(report: AASTReport) -> dict[str, Any]:
         "results": results,
         "chain": {"algorithm": "sha256", **chain(population, method, results)},
     }
+
+
+PROVENANCE_FIELDS = {
+    "model_version": "Model version",
+    "run_by": "Tested by",
+    "organization": "Organization",
+    "intended_use": "Intended use",
+    "scenario": "Scenario",
+}
+
+
+def utc_now() -> str:
+    """The current time as ISO-8601 UTC to the second, e.g. 2026-11-01T14:03:22Z."""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def provenance(started_utc: str, finished_utc: str, **fields: Any) -> dict[str, Any]:
+    """Who ran the test, on what, and when; goes in ``AASTReport.provenance``.
+
+    ``fields`` are the keys of :data:`PROVENANCE_FIELDS` (blank ones are left
+    out). The times are when the run started and finished, taken by the tool.
+    """
+    unknown = sorted(set(fields) - set(PROVENANCE_FIELDS))
+    if unknown:
+        raise ValueError(f"unknown provenance field(s): {', '.join(unknown)}")
+    out: dict[str, Any] = {}
+    for key in PROVENANCE_FIELDS:
+        value = str(fields.get(key) or "").strip()
+        if len(value) > 300:
+            raise ValueError(f"{key} is longer than 300 characters")
+        if value:
+            out[key] = value
+    from hipaasynth.core.config import ENGINE_VERSION
+
+    out.update(started_utc=started_utc, finished_utc=finished_utc,
+               tool=f"HipAAsynth {ENGINE_VERSION}")  # fmt: skip
+    return out
+
+
+def seal(
+    doc: dict[str, Any],
+    *,
+    key: dict[str, Any] | None = None,
+    timestamp: bool = False,
+    calendars: tuple[str, ...] | None = None,
+) -> list[str]:
+    """Sign and/or timestamp ``doc`` in place; return notes on anything that failed.
+
+    The seal covers the ``report`` hash, so it is added after the chain and
+    is not part of it. A timestamp needs the internet (only the hash is sent).
+    """
+    report_hash = doc["chain"]["report"]
+    block = doc.setdefault("seal", {})
+    notes = []
+    if key is not None:
+        block["signature"] = _sign.sign_hash(key, report_hash)
+    if timestamp:
+        try:
+            proof, took = ots.stamp(bytes.fromhex(report_hash), calendars=calendars)
+        except ots.OTSError as err:
+            notes.append(f"Not timestamped: {err}. Run 'hipaasynth 7aast stamp' later.")
+        else:
+            block["opentimestamps"] = {"proof": ots.encode(proof), "submitted_utc": utc_now(),
+                                       "calendars": took}  # fmt: skip
+    if not block:
+        del doc["seal"]
+    return notes
+
+
+def upgrade_seal(doc: dict[str, Any]) -> bool:
+    """Fetch the finished Bitcoin path for a pending timestamp; True if it changed."""
+    stamp = (doc.get("seal") or {}).get("opentimestamps")
+    if not stamp:
+        raise ots.OTSError("this report has no timestamp; run 'hipaasynth 7aast stamp' first")
+    proof, changed = ots.upgrade(ots.decode(stamp["proof"]))
+    if changed:
+        stamp["proof"] = ots.encode(proof)
+    return changed
+
+
+def timestamp_files(doc: dict[str, Any]) -> tuple[str, bytes]:
+    """The two files opentimestamps.org needs: the chain text and its ``.ots`` proof.
+
+    The ``report`` hash is the SHA-256 of the results, method and population
+    hashes written one after another, so that text is the stamped "file".
+    """
+    stamp = (doc.get("seal") or {}).get("opentimestamps")
+    if not stamp:
+        raise ots.OTSError("this report has no timestamp")
+    ch = doc["chain"]
+    return ch["results"] + ch["method"] + ch["population"], ots.decode(stamp["proof"])
+
+
+def save_document(doc: dict[str, Any], path: str | Path) -> None:
+    """Write a document (with its chain and seal) as ``.html`` or JSON."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.suffix.lower() in (".html", ".htm"):
+        path.write_text(render_html(doc), encoding="utf-8")
+    else:
+        path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def write_report(report: AASTReport, path: str | Path) -> dict[str, Any]:
@@ -288,8 +404,13 @@ def _overall(axes: list[dict[str, Any]]) -> str:
     return PASS
 
 
-def verify(doc: dict[str, Any], *, regenerate: bool = False) -> Verification:
-    """Recompute the chain of ``doc``; with ``regenerate`` also rebuild the cohort."""
+def verify(doc: dict[str, Any], *, regenerate: bool = False, bitcoin: bool = False) -> Verification:
+    """Recompute the chain of ``doc``; with ``regenerate`` also rebuild the cohort.
+
+    A seal is checked too: the signature against its key, the timestamp
+    against the report hash, and with ``bitcoin`` against the Bitcoin block
+    (read from a block explorer, so it needs the internet).
+    """
     out = Verification()
     try:
         expected = chain(doc["population"], doc["method"], doc["results"])
@@ -318,8 +439,47 @@ def verify(doc: dict[str, Any], *, regenerate: bool = False) -> Verification:
             f"axes give {overall}, report says {results.get('overall')}",
         )
     )
+    out.checks.extend(_seal_checks(doc, bitcoin=bitcoin))
     if regenerate:
         out.checks.append(_regenerate_check(doc["population"]))
+    return out
+
+
+def _seal_checks(doc: dict[str, Any], *, bitcoin: bool) -> list[Check]:
+    block = doc.get("seal")
+    if block is None:
+        return []
+    report_hash = str((doc.get("chain") or {}).get("report"))
+    out = []
+    if not isinstance(block, dict):
+        return [Check("seal", False, "unreadable seal")]
+    if "signature" in block:
+        ok, detail = _sign.check_block(block["signature"], report_hash)
+        out.append(Check("signature", ok, detail))
+    if "opentimestamps" in block:
+        try:
+            proof = ots.decode(block["opentimestamps"]["proof"])
+            pi = ots.info(proof)
+        except (ots.OTSError, KeyError, TypeError) as err:
+            out.append(Check("timestamp", False, f"unreadable proof ({err})"))
+            return out
+        if pi.digest != report_hash:
+            out.append(Check("timestamp", False, "the proof is for a different report hash"))
+        elif bitcoin:
+            try:
+                height, when = ots.verify_bitcoin(proof)
+                out.append(Check("timestamp", True,
+                                 f"Bitcoin block {height} shows the report existed by {when}"))  # fmt: skip
+            except ots.OTSError as err:
+                out.append(Check("timestamp", False, str(err)))
+        elif pi.bitcoin:
+            out.append(Check("timestamp", True,
+                             f"anchored in Bitcoin block {pi.bitcoin[0][0]} (add --bitcoin to "
+                             "check the block)"))  # fmt: skip
+        else:
+            out.append(Check("timestamp", True,
+                             f"pending at {len(pi.pending)} calendar(s); Bitcoin proof is ready "
+                             "a few hours after the run ('hipaasynth 7aast upgrade')"))  # fmt: skip
     return out
 
 
@@ -376,125 +536,9 @@ def _regenerate_check(population: dict[str, Any]) -> Check:
 _EMBED_OPEN = '<script type="application/json" id="report-data">'
 _EMBED_CLOSE = "</script>"
 
-_CSS = """
-:root{--bg:#fff;--fg:#1b1f24;--muted:#57606a;--line:#d0d7de;--card:#f6f8fa;
---pass:#1a7f37;--fail:#cf222e;--inc:#9a6700;--info:#0969da;--na:#6e7781}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#9198a1;
---line:#30363d;--card:#161b22;--pass:#3fb950;--fail:#f85149;--inc:#d29922;--info:#58a6ff;
---na:#8b949e}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,
-"Segoe UI",Roboto,sans-serif}
-main{max-width:960px;margin:0 auto;padding:24px 16px 48px}
-h1{font-size:1.6rem;margin:.2em 0}h2{font-size:1.15rem;margin:1.8em 0 .5em}
-.muted{color:var(--muted)}.demo{background:var(--fail);color:#fff;font-weight:700;
-padding:10px 16px;text-align:center;letter-spacing:.04em}
-.overall>div{flex:1 1 240px}
-.overall{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;background:var(--card);
-border:1px solid var(--line);border-radius:8px;padding:16px;margin:16px 0}
-.badge{display:inline-block;font-weight:700;font-size:.8rem;padding:2px 8px;border-radius:12px;
-color:#fff;white-space:nowrap}
-.big{font-size:1.2rem;padding:6px 14px}
-.PASS{background:var(--pass)}.FAIL{background:var(--fail)}.INCONCLUSIVE{background:var(--inc)}
-.DESCRIPTIVE{background:var(--info)}.NOT_APPLICABLE{background:var(--na)}
-.axis{border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0}
-.axis h3{margin:0 0 4px;font-size:1rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.axis p{margin:4px 0}
-code,.hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;
-overflow-wrap:anywhere}
-table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:4px 8px;
-border-bottom:1px solid var(--line);vertical-align:top}
-ul{padding-left:1.2em}li{margin:4px 0}
-"""
-
-
-def _e(value: Any) -> str:
-    return html.escape("" if value is None else str(value))
-
-
-def _pct(part: int, whole: int) -> str:
-    return f"{part} of {whole} ({100 * part / whole:.0f}%)" if whole else str(part)
-
 
 def render_html(doc: dict[str, Any]) -> str:
-    """A self-contained HTML page for ``doc`` (no scripts, no external files)."""
-    pop, method, results, ch = doc["population"], doc["method"], doc["results"], doc["chain"]
-    model, settings = method["model"], method["settings"]
-    overall = results["overall"]
-    n, true_cases = pop.get("n") or 0, pop.get("true_cases") or 0
-    parts = ["<!doctype html><html lang='en'><head><meta charset='utf-8'>",
-             "<meta name='viewport' content='width=device-width,initial-scale=1'>",
-             f"<title>7AAST report: {_e(model.get('name'))}</title>",
-             f"<style>{_CSS}</style></head><body>"]  # fmt: skip
-    if method.get("demo"):
-        parts.append("<div class='demo'>DEMO MODEL: NOT A CLINICAL TOOL</div>")
-    parts.append("<main>")
-    parts.append(
-        f"<p class='muted'>7-Axis Adversarial Stress Test &middot; HipAAsynth "
-        f"{_e(method.get('engine_version'))}</p>"
-        f"<h1>{_e(model.get('name'))}: {_e(pop.get('condition'))}</h1>"
-        f"<p class='muted'>Model reads {_e(model.get('input'))}, answers "
-        f"{_e(model.get('output'))}. {n} synthetic patients: {true_cases} true cases and "
-        f"{n - true_cases} look-alike patients who have a different condition with similar "
-        f"signs. Seed {_e(pop.get('seed'))}. Every case was shown as it would look at the "
-        f"moment of decision, with the answer hidden.</p>"
-    )
-    parts.append(
-        f"<div class='overall'><span class='badge big {_e(overall)}'>{_e(overall)}</span>"
-        f"<div>{_e(OVERALL_MEANING.get(overall, ''))}</div></div>"
-    )
-    parts.append("<h2>The checks</h2><ul class='muted'>")
-    parts.extend(
-        f"<li><span class='badge {_e(k)}'>{_e(k)}</span> {_e(v)}</li>"
-        for k, v in STATUS_MEANING.items()
-    )
-    parts.append("</ul>")
-    for a in results["axes"]:
-        status = a.get("status", "")
-        label = "" if a.get("axis") == "accuracy" else f"Axis {_e(a.get('axis'))} &middot; "
-        parts.append(
-            f"<section class='axis'><h3><span class='badge {_e(status)}'>{_e(status)}</span>"
-            f"{label}{_e(a.get('name'))}</h3>"
-            f"<p class='muted'>{_e(AXIS_QUESTIONS.get(a.get('axis', ''), ''))}</p>"
-            f"<p><strong>Result:</strong> {_e(a.get('summary'))}</p>"
-        )
-        if a.get("reason"):
-            parts.append(f"<p class='muted'>Why: {_e(a.get('reason'))}</p>")
-        parts.append("</section>")
-    rates = results.get("answer_rates", {})
-    cases = rates.get("cases", 0)
-    parts.append(
-        "<h2>Answers</h2><p>"
-        f"The model answered {_pct(rates.get('answered', 0), cases)} of the main cases; "
-        f"it declined {rates.get('abstained', 0)} and {rates.get('unreadable', 0)} answers "
-        f"could not be read. A declined or unreadable answer on a true case counts as a miss. "
-        f"Total model calls: {results.get('model_calls')}.</p>"
-    )
-    parts.append("<h2>Limits of this report</h2><ul>")
-    parts.extend(f"<li>{_e(note)}</li>" for note in results.get("limitations", []))
-    parts.append(
-        "<li>This is a stress-test record on synthetic patients. It is not a certification, "
-        "a regulatory clearance or a measure of real-world performance.</li></ul>"
-    )
-    parts.append("<h2>Settings</h2><table>")
-    parts.extend(
-        f"<tr><th>{_e(k)}</th><td><code>{_e(v)}</code></td></tr>"
-        for k, v in [*settings.items(), *((f"model.{k}", v) for k, v in model.items())]
-        if v is not None
-    )
-    parts.append("</table>")
-    parts.append(
-        "<h2>Checking this report has not been changed</h2>"
-        "<p>Each hash covers the ones above it, so any edit changes the report hash. Keep the "
-        "report hash somewhere the report's holder cannot change it, then run "
-        "<code>hipaasynth 7aast verify THIS_FILE --regenerate</code> to recompute the chain "
-        "and rebuild every case from the seed.</p><table>"
-    )
-    parts.extend(
-        f"<tr><th>{_e(stage)}</th><td class='hash'>{_e(ch.get(stage))}</td></tr>"
-        for stage in STAGES
-    )
-    parts.append("</table></main>")
-    data = json.dumps(doc, ensure_ascii=True).replace("<", "\\u003c")
-    parts.append(f"{_EMBED_OPEN}{data}{_EMBED_CLOSE}</body></html>")
-    return "".join(parts)
+    """A self-contained HTML page for ``doc`` (see :mod:`hipaasynth.aast.render`)."""
+    from hipaasynth.aast.render import render_page
+
+    return render_page(doc)

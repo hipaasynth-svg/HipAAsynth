@@ -39,6 +39,8 @@ Endpoints
 ``GET  /7aast``       → the 7AAST stress-test page (run, read and save a report)
 ``POST /7aast``       → run 7AAST with a demo model or an uploaded answers file
 ``POST /7aast/export`` → the cases to run through a model, plus an answers template
+``POST /7aast/verify`` → check a saved report (hashes, signature, timestamp)
+``POST /7aast/upgrade`` → fetch the Bitcoin proof of a report's timestamp (local tool)
 
 The web UI is a single static ``ui/index.html`` (kept as a real file — not a
 Python string — so it stays editable, lintable and Playwright-testable) served
@@ -314,6 +316,8 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         "/viz/fairness": {"GET"},
         "/7aast": {"GET", "POST"},
         "/7aast/export": {"POST"},
+        "/7aast/verify": {"POST"},
+        "/7aast/upgrade": {"POST"},
     }
 
     # Query/body parameters each route understands. Anything else is rejected,
@@ -371,6 +375,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             body = index.read_bytes()
         except OSError:  # pragma: no cover - the file ships with the package
             return self._send_json(500, {"error": "web UI asset missing", "status": 500})
+        if self.allow_model_url:
+            # Tell the page it is the local tool, so it offers signing and timestamps.
+            body = body.replace(b"<body>", b'<body data-local-tool="1">', 1)
         self._send_bytes(200, "text/html; charset=utf-8", body)
 
     def _read_body(self, declared_length: int, limit: int = MAX_BODY_BYTES) -> bytes:
@@ -622,7 +629,13 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         No code is ever loaded (see hipaasynth/aast/web.py).
         """
         from hipaasynth.aast.files import AnswerFileError
-        from hipaasynth.aast.web import RequestError, export_request, run_request
+        from hipaasynth.aast.web import (
+            RequestError,
+            export_request,
+            run_request,
+            upgrade_request,
+            verify_request,
+        )
 
         if "application/json" not in self.headers.get("Content-Type", ""):
             return self._send_api_error(ApiError(415, "send a JSON object (application/json)"))
@@ -635,6 +648,10 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         try:
             if route == "/7aast":
                 result = run_request(params, allow_url=self.allow_model_url)
+            elif route == "/7aast/verify":
+                result = verify_request(params, allow_network=self.allow_model_url)
+            elif route == "/7aast/upgrade":
+                result = upgrade_request(params, allow_network=self.allow_model_url)
             else:
                 result = export_request(params)
         except (RequestError, AnswerFileError) as err:

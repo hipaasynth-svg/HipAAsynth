@@ -5,7 +5,10 @@
 
   The 7AAST page: pick what the model does, choose the model (a demo, a
   published score, answers by file, a model server or an LLM API with your
-  key), pick which checks to run, read the report, save it. Served at GET
+  key) or a prebuilt scenario, pick which checks to run, lock who is testing
+  which model version, then read, print and save the report. The local tool
+  signs it with this computer's key and timestamps it in Bitcoin
+  (OpenTimestamps), and any saved report can be checked at the bottom. Served at GET
   /7aast by hipaasynth/api.py (start it with `hipaasynth ui`). Pure HTML + CSS +
   vanilla JS: no build step, no framework, no CDN. Only the local tool calls a
   model server or LLM API; an API key is used for this run's calls and is never
@@ -88,6 +91,9 @@
   <section class="card">
     <h2><span class="n">1</span>What does the model do?</h2>
     <p class="sub">This decides which cases the model is shown and how its answers are read.</p>
+    <label for="scenario">Prebuilt scenario <span class="help">optional: sets the condition and the population</span></label>
+    <select id="scenario"><option value="">None: choose the condition and population yourself</option></select>
+    <p id="scenarioText" class="sub" style="margin-top:6px"></p>
     <div class="grid">
       <div>
         <label for="condition">Condition it looks for</label>
@@ -233,7 +239,31 @@
   </section>
 
   <section class="card">
-    <h2><span class="n">4</span>Run the test</h2>
+    <h2><span class="n">4</span>Who is testing</h2>
+    <p class="sub">Locked into the report and covered by its hash. The date and time are recorded by
+      the tool when the run starts and ends, so they cannot be typed in or changed later.</p>
+    <div class="grid">
+      <div><label for="modelVersion">Model version</label>
+        <input id="modelVersion" type="text" placeholder="e.g. 2.3.1 or 2026-10-15 build" /></div>
+      <div><label for="runBy">Tested by</label>
+        <input id="runBy" type="text" placeholder="Your name" /></div>
+      <div><label for="organization">Organization</label>
+        <input id="organization" type="text" placeholder="e.g. Example Health" /></div>
+      <div><label for="intendedUse">Intended use</label>
+        <input id="intendedUse" type="text" placeholder="e.g. ED sepsis alert, adults" /></div>
+    </div>
+    <div id="sealOpts">
+      <label><input id="signReport" type="checkbox" checked /> Sign with this computer's key
+        <span class="help">Ed25519; the key is made on first use and stays on this computer</span></label>
+      <label><input id="stampReport" type="checkbox" checked /> Timestamp in Bitcoin (OpenTimestamps)
+        <span class="help">sends only the report hash; proves the report existed by that date</span></label>
+    </div>
+    <p id="sealShared" class="sub hidden">Signing and Bitcoin timestamps are made by the local tool
+      (<code>hipaasynth ui</code>).</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">5</span>Run the test</h2>
     <div class="actions"><button id="runBtn" type="button">Run 7AAST</button></div>
     <p id="status" role="status" aria-live="polite"></p>
   </section>
@@ -242,13 +272,25 @@
     <h2>Report</h2>
     <div class="verdict"><span id="overall" class="badge"></span><span id="overallText"></span></div>
     <div class="actions">
-      <button id="saveHtml" type="button">Save report (.html)</button>
+      <button id="printBtn" type="button">Print or save as PDF</button>
+      <button id="saveHtml" class="secondary" type="button">Save report (.html)</button>
       <button id="saveJson" class="secondary" type="button">Save data (.json)</button>
+      <button id="saveProof" class="secondary hidden" type="button">Timestamp files (.ots)</button>
+      <button id="upgradeBtn" class="secondary hidden" type="button">Get Bitcoin proof</button>
     </div>
+    <p id="sealStatus" class="sub" style="margin-top:8px"></p>
     <p class="sub" style="margin-top:12px">Report hash, to keep somewhere safe so anyone can check later that
       the report was not changed (<code>hipaasynth 7aast verify report.html</code>):</p>
     <div id="hash" class="hash"></div>
-    <iframe id="reportFrame" title="7AAST report" sandbox="allow-same-origin"></iframe>
+    <iframe id="reportFrame" title="7AAST report" sandbox="allow-same-origin allow-modals"></iframe>
+  </section>
+
+  <section class="card">
+    <h2>Check a saved report</h2>
+    <p class="sub">Open a report (.html or .json) to check that nothing in it was changed: the hash
+      chain, the signature, the timestamp, and every case rebuilt from its seed.</p>
+    <input id="checkFile" type="file" accept=".html,.htm,.json" />
+    <pre id="checkOut" class="hash" style="white-space:pre-wrap"></pre>
   </section>
 </main>
 <footer>HipAAsynth · AGPL-3.0 · all patients synthetic · a stress test, not a certification</footer>
@@ -257,6 +299,8 @@
 const $ = (id) => document.getElementById(id);
 const radio = (name) => document.querySelector(`input[name=${name}]:checked`).value;
 let last = null;
+const LOCAL = document.body.dataset.localTool === "1";
+let SCENARIOS = {};
 const TESTS = [
   ["forms", "Written forms", "The same patient written up seven ways (Axes 1 to 4). Written notes only."],
   ["groups", "Group fairness", "Missed cases by race, sex, age, skin tone, rurality, insurance, language."],
@@ -284,6 +328,13 @@ function refresh() {
   const source = radio("source");
   const demo = source === "demo";
   const llm = source === "llm";
+  const sc = SCENARIOS[$("scenario").value];
+  $("scenarioText").textContent = sc ? sc.description : "";
+  if (sc) { $("condition").value = sc.module; $("profile").value = sc.profile; }
+  $("profile").disabled = Boolean(sc);
+  $("naturalMix").disabled = Boolean(sc);
+  $("sealOpts").classList.toggle("hidden", !LOCAL);
+  $("sealShared").classList.toggle("hidden", LOCAL);
   if (llm) $("output").value = "text";
   const record = radio("input") === "record";
   $("test-forms").disabled = record;
@@ -294,7 +345,11 @@ function refresh() {
     if (choice.dataset.condition) $("condition").value = choice.dataset.condition;
   }
   $("output").disabled = demo || llm;
-  $("condition").disabled = demo && Boolean(choice.dataset.condition);
+  $("condition").disabled = (demo && Boolean(choice.dataset.condition)) || Boolean(sc);
+  if (demo && choice.dataset.condition && sc && sc.module !== choice.dataset.condition) {
+    $("scenario").value = "";
+    return refresh();
+  }
   const out = $("output").value;
   $("llmOpts").classList.toggle("hidden", !llm);
   $("llmBaseWrap").classList.toggle("hidden", $("llmProvider").value !== "compatible");
@@ -305,7 +360,7 @@ function refresh() {
   $("fileOpts").classList.toggle("hidden", source !== "file");
   $("urlOpts").classList.toggle("hidden", source !== "url");
 }
-document.querySelectorAll("input[name=source], input[name=input], #output, #demo, #llmProvider")
+document.querySelectorAll("input[name=source], input[name=input], #output, #demo, #llmProvider, #scenario")
   .forEach((el) => el.addEventListener("change", refresh));
 
 function settings() {
@@ -316,16 +371,19 @@ function settings() {
     seed: Number($("seed").value),
     prevalence: Number($("prevalence").value),
   };
-  if ($("profile").value) s.profile = $("profile").value;
+  if ($("scenario").value) s.scenario = $("scenario").value;
+  else if ($("profile").value) s.profile = $("profile").value;
   else if ($("naturalMix").checked) s.natural_mix = true;
   return s;
 }
 
 async function post(path, body) {
+  // A string body is sent as is: report documents travel as their exact text,
+  // because re-serializing parsed JSON (20.0 -> 20) would change their hashes.
   const resp = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: typeof body === "string" ? body : JSON.stringify(body),
   });
   const data = await resp.json().catch(() => ({ error: `server answered ${resp.status}` }));
   if (!resp.ok) throw new Error(data.error || `server answered ${resp.status}`);
@@ -410,6 +468,12 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
     .filter((key) => $(`test-${key}`).checked || $(`test-${key}`).disabled);
   if (picked.length < TESTS.length) body.tests = picked;
   if ($("deployment").value !== "") body.deployment_prevalence = Number($("deployment").value);
+  for (const [id, key] of [["modelVersion", "model_version"], ["runBy", "run_by"],
+                           ["organization", "organization"], ["intendedUse", "intended_use"]]) {
+    if ($(id).value.trim()) body[key] = $(id).value.trim();
+  }
+  if (LOCAL && $("signReport").checked) body.sign = true;
+  if (LOCAL && $("stampReport").checked) body.stamp = true;
   last = await post("/7aast", body);
   show(last);
 }));
@@ -432,17 +496,81 @@ function show(result) {
   };
   frame.srcdoc = result.html;
   $("results").classList.remove("hidden");
+  showSeal(result);
   setStatus("Done.", "ok");
   $("results").scrollIntoView({ behavior: "smooth" });
 }
 
+function showSeal(result) {
+  const seal = result.document.seal || {};
+  const parts = [];
+  if (seal.signature) parts.push(`Signed with key ${seal.signature.fingerprint}.`);
+  if (seal.opentimestamps) {
+    parts.push(result.bitcoin ? `Timestamp anchored in Bitcoin: ${result.bitcoin}.`
+      : "Timestamp sent to OpenTimestamps; the Bitcoin proof is ready a few hours after the run (Get Bitcoin proof).");
+  }
+  for (const note of result.seal_notes || []) parts.push(note);
+  $("sealStatus").textContent = parts.join(" ");
+  $("saveProof").classList.toggle("hidden", !seal.opentimestamps);
+  $("upgradeBtn").classList.toggle("hidden", !seal.opentimestamps || !LOCAL);
+}
+
+function base64Bytes(text) {
+  return Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
+}
+
+$("printBtn").addEventListener("click", () => $("reportFrame").contentWindow.print());
+
+$("saveProof").addEventListener("click", () => {
+  const doc = last.document, ch = doc.chain;
+  download("7aast-report-hash.txt", ch.results + ch.method + ch.population, "text/plain");
+  download("7aast-report-hash.txt.ots", base64Bytes(doc.seal.opentimestamps.proof),
+           "application/octet-stream");
+  setStatus("Saved the two files: upload both at opentimestamps.org to check the timestamp.", "ok");
+});
+
+$("upgradeBtn").addEventListener("click", () => busy($("upgradeBtn"), "Asking the calendars for the Bitcoin proof…", async () => {
+  const data = await post("/7aast/upgrade", `{"document": ${last.document_json}}`);
+  if (!data.changed) {
+    setStatus("No Bitcoin proof yet: the calendars commit within a few hours. Try again later.", "ok");
+    return;
+  }
+  const check = await post("/7aast/verify", `{"document": ${data.document_json}}`);
+  const stamp = check.checks.find((c) => c.name === "timestamp");
+  last = { ...last, document: data.document, document_json: data.document_json, html: data.html,
+           bitcoin: stamp ? stamp.detail : "" };
+  show(last);
+  setStatus("Bitcoin proof added. Save the report again to keep it.", "ok");
+}));
+
+$("checkFile").addEventListener("change", () => busy($("runBtn"), "Checking the report…", async () => {
+  const file = $("checkFile").files[0];
+  if (!file) return;
+  let text = await file.text();
+  const open = '<script type="application/json" id="report-data">';
+  if (text.includes(open)) text = text.slice(text.indexOf(open) + open.length, text.lastIndexOf("</" + "script>"));
+  try { JSON.parse(text); } catch (e) { throw new Error("That file does not contain a 7AAST report."); }
+  const result = await post("/7aast/verify", `{"document": ${text}, "regenerate": true}`);
+  $("checkOut").textContent = result.text;
+  setStatus(result.ok ? "The report checks out." : "The report does NOT check out.", result.ok ? "ok" : "err");
+}));
+
 $("saveHtml").addEventListener("click", () => last && download("7aast-report.html", last.html, "text/html"));
 $("saveJson").addEventListener("click", () => last &&
-  download("7aast-report.json", JSON.stringify(last.document, null, 2) + "\n", "application/json"));
+  download("7aast-report.json", last.document_json, "application/json"));
 
 fetch("/formats").then((r) => r.json()).then((f) => {
   for (const name of f.profiles || []) {
     $("profile").appendChild(Object.assign(document.createElement("option"), { value: name, textContent: name }));
+  }
+}).catch(() => {});
+fetch("/scenarios").then((r) => r.json()).then((f) => {
+  const conditions = [...$("condition").options].map((o) => o.value);
+  for (const sc of f.scenarios || []) {
+    if (!conditions.includes(sc.module)) continue;
+    SCENARIOS[sc.name] = sc;
+    $("scenario").appendChild(Object.assign(document.createElement("option"),
+      { value: sc.name, textContent: sc.label || sc.name }));
   }
 }).catch(() => {});
 refresh();

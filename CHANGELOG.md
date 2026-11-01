@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] — 2026-11-01
+
+### Added
+
+- **Sealed reports.** Who ran the test, their organization, the model version,
+  intended use and scenario, and the run's start and end time (taken by the
+  tool) are locked into the hashed method. The local tool then signs the report
+  hash with an Ed25519 key (RFC 8032; made on first use, or `hipaasynth 7aast
+  keygen`) and timestamps it with OpenTimestamps, anchored in Bitcoin. Both are
+  standard library, checked against the RFC 8032 test vectors and a real
+  Bitcoin-anchored proof from the OpenTimestamps project. A forger who edits a
+  report and recomputes every hash cannot re-sign it, and the timestamp no
+  longer matches. New commands: `keygen`, `stamp`, `upgrade`, `proof` (the two
+  files opentimestamps.org checks), and `verify --bitcoin`.
+- **A report page that reads like a finished product.** Page one: the seal, the
+  verdict, how the model did in plain English and a scorecard. Then a heatmap
+  of missed true cases by group, interval charts for every check, and every
+  number. Prints cleanly; **Print or save as PDF** on the page.
+- **Prebuilt scenarios** on the 7AAST page and as `--scenario` (sets the
+  condition and population profile), recorded in the report.
+- **Check a saved report** on the page: hashes, signature, timestamp and every
+  case rebuilt from its seed. `POST /7aast/verify` and `POST /7aast/upgrade`.
+
+### Fixed
+
+- A report saved with **Save data (.json)** on the page did not verify: the
+  browser rewrote numbers such as 20.0 as 20, which changes the hashes. The
+  page now saves the exact text the server made (`document_json`). Reports
+  saved as `.html` were not affected. A `.json` saved from an earlier version
+  cannot be repaired; re-run it, or use the `.html` saved from the same run.
+
+### Changed
+
+- Reports made with `hipaasynth 7aast run --report` and on the page now record
+  the run's start and end time, so two runs with the same seed have the same
+  cohort and results but different report hashes. `run_7aast` and
+  `build_document` called directly (no provenance) hash exactly as before.
+
+### Unchanged
+
+- Reports without the new fields hash exactly as before; full runs are
+  byte-identical to 1.9.0.
+
 ## [1.9.0] — 2026-11-01
 
 ### Added

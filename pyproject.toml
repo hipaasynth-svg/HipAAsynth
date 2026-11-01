@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hipaasynth"
-version = "1.9.0"
+version = "1.10.0"
 description = "Synthetic health data fairness testing for invisible populations"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}
@@ -91,7 +91,10 @@ examples = [
 # dependency-gated, so this is the single "run absolutely everything" install and
 # it is what CI's `capabilities` job uses. Keep it exhaustive: a test that skips
 # under this extra is a test CI cannot regression-detect.
-test-full = ["hipaasynth[dev,parquet,duckdb,test-browser,examples]"]
+# The reference OpenTimestamps library, used only by the tests to cross-check
+# hipaasynth.aast.ots (which is standard library). LGPL; never a runtime dependency.
+test-ots = ["opentimestamps>=0.4,<1"]
+test-full = ["hipaasynth[dev,parquet,duckdb,test-browser,examples,test-ots]"]
 
 [project.urls]
 Homepage = "https://hipaasynth.com"

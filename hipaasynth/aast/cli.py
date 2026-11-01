@@ -49,6 +49,16 @@ Save the report (``.html`` to read, ``.json`` for systems) and check it later::
     hipaasynth 7aast run --condition sepsis --input text --demo demo_biased \\
         --report report.html
     hipaasynth 7aast verify report.html --regenerate
+
+Seal a report: lock who ran it and the model version, sign it with your key and
+timestamp it in Bitcoin (OpenTimestamps; only the report hash is sent)::
+
+    hipaasynth 7aast keygen --signer "Jordan Lee" --organization "Example Health"
+    hipaasynth 7aast run ... --model-version 2.3.1 --run-by "Jordan Lee" \\
+        --organization "Example Health" --sign --stamp --report report.html
+    hipaasynth 7aast upgrade report.html          # a few hours later: the Bitcoin proof
+    hipaasynth 7aast verify report.html --bitcoin
+    hipaasynth 7aast proof report.html --out proof  # files for opentimestamps.org
 """
 
 from __future__ import annotations
@@ -56,6 +66,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import sys
+from pathlib import Path
 from typing import Any
 
 from hipaasynth.aast.adapter import INPUT_TYPES, OUTPUT_TYPES, ModelAdapter
@@ -63,9 +74,22 @@ from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import AnswerFileError, answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
 from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
-from hipaasynth.aast.report import load_document, verify, write_report
+from hipaasynth.aast import sign
+from hipaasynth.aast.report import (
+    ReportFileError,
+    build_document,
+    load_document,
+    provenance,
+    save_document,
+    seal,
+    timestamp_files,
+    upgrade_seal,
+    utc_now,
+    verify,
+)
 from hipaasynth.aast.run import TESTS, AASTReport, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
+from hipaasynth.scenarios import available_scenarios, resolve_scenario
 
 _ICON = {
     "PASS": "PASS",
@@ -157,7 +181,10 @@ def _tests(raw: str | None) -> list[str] | None:
 
 
 def _common(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--condition", required=True, choices=sorted(TRUTH_FLAG))
+    p.add_argument("--condition", choices=sorted(TRUTH_FLAG),
+                   help="The condition the model looks for (or give --scenario).")  # fmt: skip
+    p.add_argument("--scenario", choices=available_scenarios(),
+                   help="A prebuilt scenario: sets the condition and population profile.")  # fmt: skip
     p.add_argument("--input", required=True, choices=INPUT_TYPES,
                    help="What the model reads: written text or a structured record.")  # fmt: skip
     p.add_argument("--n", type=int, default=200, help="Synthetic patients (default 200).")
@@ -212,6 +239,15 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--tests",
                      help="Run only these checks, comma separated: "
                      + ", ".join(TESTS) + " (default all; accuracy always runs).")  # fmt: skip
+    run.add_argument("--model-version", help="The model's version, locked into the report.")
+    run.add_argument("--run-by", help="Who ran the test, locked into the report.")
+    run.add_argument("--organization", help="Organization, locked into the report.")
+    run.add_argument("--intended-use", help="What the model is used for, locked into the report.")
+    run.add_argument("--sign", nargs="?", const="", metavar="KEYFILE",
+                     help="Sign the report with your key (default ~/.hipaasynth/signing_key.json; "
+                     "make one with 'keygen').")  # fmt: skip
+    run.add_argument("--stamp", action="store_true",
+                     help="Timestamp the report hash in Bitcoin with OpenTimestamps (internet).")  # fmt: skip
     run.add_argument("--report",
                      help="Also save the full report here: .html to read, .json for systems.")  # fmt: skip
 
@@ -219,7 +255,76 @@ def build_parser() -> argparse.ArgumentParser:
     ver.add_argument("report", help="Report file (.json or .html) from 'run --report'.")
     ver.add_argument("--regenerate", action="store_true",
                      help="Also rebuild every case from the seed and compare.")  # fmt: skip
+    ver.add_argument("--bitcoin", action="store_true",
+                     help="Also check the timestamp against its Bitcoin block (internet).")  # fmt: skip
+
+    key = sub.add_parser("keygen", help="Make a signing key for your reports.")
+    key.add_argument("--out", help="Key file (default ~/.hipaasynth/signing_key.json).")
+    key.add_argument("--signer", default="", help="Your name, shown with the signature.")
+    key.add_argument("--organization", default="", help="Shown with the signature.")
+
+    st = sub.add_parser("stamp", help="Timestamp (and optionally sign) a saved report.")
+    st.add_argument("report", help="Report file (.json or .html); rewritten with the seal.")
+    st.add_argument("--sign", nargs="?", const="", metavar="KEYFILE", help="Also sign it.")
+
+    up = sub.add_parser("upgrade", help="Fetch the finished Bitcoin proof for a timestamp.")
+    up.add_argument("report", help="Report file (.json or .html); rewritten if it changed.")
+
+    pr = sub.add_parser("proof", help="Write the two files opentimestamps.org verifies.")
+    pr.add_argument("report", help="Report file (.json or .html).")
+    pr.add_argument("--out", required=True, help="Base name: writes OUT.txt and OUT.txt.ots.")
     return parser
+
+
+def _key(path: str | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    return sign.load_key(path or sign.default_key_path())
+
+
+def _scenario(args: argparse.Namespace) -> None:
+    """Fill --condition and --profile from --scenario; refuse a contradiction."""
+    if args.scenario:
+        sc = resolve_scenario(args.scenario)
+        if args.condition and args.condition != sc["module"]:
+            raise ValueError(f"--scenario {args.scenario} is for {sc['module']}, not "
+                             f"{args.condition}")  # fmt: skip
+        if args.profile and args.profile != sc["profile"]:
+            raise ValueError(f"--scenario {args.scenario} sets --profile {sc['profile']}")
+        args.condition, args.profile = sc["module"], sc["profile"]
+    if not args.condition:
+        raise ValueError("give --condition or --scenario")
+
+
+def _seal_command(args: argparse.Namespace) -> int:
+    doc = load_document(args.report)
+    if args.command == "proof":
+        text, proof = timestamp_files(doc)
+        Path(f"{args.out}.txt").write_text(text, encoding="utf-8")
+        Path(f"{args.out}.txt.ots").write_bytes(proof)
+        print(f"Wrote {args.out}.txt and {args.out}.txt.ots. Upload both at "
+              "https://opentimestamps.org to check the timestamp independently.")  # fmt: skip
+        return 0
+    if args.command == "upgrade":
+        changed = upgrade_seal(doc)
+        if changed:
+            save_document(doc, args.report)
+        print(verify(doc).checks[-1].detail if changed else
+              "No Bitcoin proof yet; calendars commit within a few hours. Try again later.")  # fmt: skip
+        return 0
+    if not verify(doc).ok:
+        print("hipaasynth 7aast: error: the report does not verify; not sealing it",
+              file=sys.stderr)  # fmt: skip
+        return 3
+    notes = seal(doc, key=_key(args.sign), timestamp=True)
+    for note in notes:
+        print(note, file=sys.stderr)
+    if "seal" in doc:
+        save_document(doc, args.report)
+    if notes:
+        return 1
+    print(f"Sealed {args.report}.")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -232,9 +337,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if exit_.code == 2 else int(exit_.code or 0)
     try:
         if args.command == "verify":
-            result = verify(load_document(args.report), regenerate=args.regenerate)
+            result = verify(load_document(args.report), regenerate=args.regenerate,
+                            bitcoin=args.bitcoin)  # fmt: skip
             print(result.text())
             return 0 if result.ok else 3
+        if args.command == "keygen":
+            info = sign.new_key(args.out or sign.default_key_path(), signer=args.signer,
+                                organization=args.organization)  # fmt: skip
+            print(f"Signing key written to {args.out or sign.default_key_path()} (keep it "
+                  "private; back it up).")  # fmt: skip
+            print(f"Public key fingerprint: {info['fingerprint']}")
+            return 0
+        if args.command in ("stamp", "upgrade", "proof"):
+            return _seal_command(args)
+        _scenario(args)
         if args.command == "export":
             out = export_cases(
                 args.out,
@@ -286,6 +402,8 @@ def main(argv: list[str] | None = None) -> int:
             settings = _adapter_settings(args)
             settings.setdefault("name", args.model)
             adapter = ModelAdapter(fn, args.output, input=args.input, **settings)
+        key = _key(args.sign)
+        started = utc_now()
         report = run_7aast(
             adapter,
             args.condition,
@@ -298,17 +416,30 @@ def main(argv: list[str] | None = None) -> int:
             balance_groups=not args.natural_mix,
             tests=_tests(args.tests),
         )
+        report.provenance = provenance(
+            started, utc_now(), model_version=args.model_version, run_by=args.run_by,
+            organization=args.organization, intended_use=args.intended_use,
+            scenario=args.scenario,
+        )  # fmt: skip
     except (AnswerFileError, ValueError, TypeError, ImportError, AttributeError, OSError,
-            RemoteModelError) as err:  # fmt: skip
+            RemoteModelError, ReportFileError) as err:  # fmt: skip
         print(f"hipaasynth 7aast: error: {err}", file=sys.stderr)
         return 1
     print(summary_text(report))
     if args.report:
+        doc = build_document(report)
+        for note in seal(doc, key=key, timestamp=args.stamp):
+            print(f"hipaasynth 7aast: warning: {note}", file=sys.stderr)
         try:
-            doc = write_report(report, args.report)
+            save_document(doc, args.report)
         except OSError as err:
             print(f"hipaasynth 7aast: error: cannot write report: {err}", file=sys.stderr)
             return 1
         print(f"\nFull report: {args.report}")
         print(f"Report hash: {doc['chain']['report']}")
+        if "seal" in doc:
+            print("Sealed: " + ", ".join(c.detail for c in verify(doc).checks
+                                          if c.name in ("signature", "timestamp")))  # fmt: skip
+    elif args.sign is not None or args.stamp:
+        print("hipaasynth 7aast: warning: --sign and --stamp need --report", file=sys.stderr)
     return 0 if report.overall != "FAIL" else 2

@@ -234,9 +234,58 @@ report gives the catch rate for shock and non-shock sepsis separately.
 ## 5. The report and how to check it later
 
 `--report report.html` (or **Save report** on the page) saves a page anyone can
-read: the verdict, every check with its question, result and reason, the answer
-rates, the settings and the limits of the run. `.json` saves the same content
-for systems.
+read, laid out to print (**Print or save as PDF** on the page):
+
+* **Page one**: the seal (model, model version, condition, who ran it, their
+  organization, intended use, scenario, the run's start and end time, the
+  report hash, the signature and the timestamp), the verdict, how the model did
+  in plain English, and a scorecard of every check.
+* **Charts**: accuracy with 95% ranges, a heatmap of missed true cases by group
+  (race, sex, age, skin tone, rurality, insurance, social needs), each group's
+  gap against everyone else, the written-form checks, the race and sex twins,
+  and how much the model keeps when tests or history are missing.
+* **Every check in full** with every number, the answer rates, the limits of
+  the run, the settings and the hashes.
+
+`.json` saves the same content for systems.
+
+### Who ran it, and when: the seal
+
+Fill in **Who is testing** on the page (or `--model-version`, `--run-by`,
+`--organization`, `--intended-use` on the command line). These, the scenario
+and the run's start and end time (taken by the tool, not typed) are part of the
+hashed method, so changing any of them breaks the report hash.
+
+The local tool then seals the report hash two ways, with nothing to install:
+
+* **Signature** (Ed25519, RFC 8032): signed with this computer's key, made on
+  first use at `~/.hipaasynth/signing_key.json` (or `hipaasynth 7aast keygen`).
+  The key's fingerprint is printed on page one. Someone who edits a report and
+  recomputes every hash still cannot re-sign it. Keep the key private and
+  backed up; publish its fingerprint where your customers can see it.
+* **Timestamp** (OpenTimestamps): only the report hash is sent to the public
+  OpenTimestamps calendars, which anchor it in Bitcoin within a few hours. It
+  proves the report existed by that block's time. Press **Get Bitcoin proof**
+  on the page (or `hipaasynth 7aast upgrade report.html`) once it is ready.
+
+```bash
+hipaasynth 7aast keygen --signer "Jordan Lee" --organization "Example Health"
+hipaasynth 7aast run ... --model-version 2.3.1 --run-by "Jordan Lee" \
+    --organization "Example Health" --sign --stamp --report report.html
+hipaasynth 7aast upgrade report.html            # a few hours later
+hipaasynth 7aast verify report.html --bitcoin   # checks the block too
+hipaasynth 7aast stamp old-report.html --sign   # seal a report saved earlier
+hipaasynth 7aast proof report.html --out proof  # proof.txt + proof.txt.ots
+```
+
+To check a timestamp without HipAAsynth, upload `proof.txt` and
+`proof.txt.ots` (or **Timestamp files** on the page) at
+<https://opentimestamps.org>. The text file holds the results, method and
+population hashes; its SHA-256 is the report hash.
+
+What the seal does not show: the name typed under **Tested by** is what the
+key holder wrote, and the signature shows which key signed, not who holds it.
+Tie the key to a person or company by publishing its fingerprint.
 
 Every report carries a **report hash**: a fingerprint of the cohort, the
 method, the results and all three together. Change one number and the hash no
@@ -247,10 +296,13 @@ hipaasynth 7aast verify report.html               # recompute the fingerprints
 hipaasynth 7aast verify report.html --regenerate  # also rebuild every case from the seed
 ```
 
-`verify` exits 0 when the report checks out and 3 when it does not. The hash
+`verify` exits 0 when the report checks out and 3 when it does not. It checks
+the signature and the timestamp when the report has them; `--bitcoin` also
+reads the Bitcoin block from a public block explorer. Without a seal, the hash
 only proves a report is unchanged if you keep it somewhere the report's holder
 cannot edit (an email, a ticket, a contract annex) when the run is made.
-`--regenerate` needs the same HipAAsynth version that made the report.
+`--regenerate` needs the same HipAAsynth version that made the report. On the
+page, **Check a saved report** does the same for any `.html` or `.json` report.
 
 ---
 
@@ -270,7 +322,11 @@ cannot edit (an email, a ticket, a contract annex) when the run is made.
 | Route | Body (JSON) | Returns |
 |---|---|---|
 | `POST /7aast/export` | `condition`, `input`, optional `n`, `seed`, `prevalence`, `profile` | `cases_jsonl`, `answers_csv`, `cases` |
-| `POST /7aast` | the same settings plus `demo` (`demo_guideline` or `demo_biased`) **or** `answers` (the file's text) with `answers_format`, `output`, `threshold`, `lower_is_positive`, `acute_levels`, `k`, `name`; optional `deployment_prevalence` | `document` (the report with its hashes), `html`, `summary` |
+| `POST /7aast` | the same settings plus `demo` (`demo_guideline` or `demo_biased`), `reference`, **or** `answers` (the file's text) with `answers_format`, `output`, `threshold`, `lower_is_positive`, `acute_levels`, `k`, `name`; optional `deployment_prevalence`, `tests`, `scenario`, `model_version`, `run_by`, `organization`, `intended_use`; local tool only: `url`, `llm_*`, `sign`, `stamp` | `document`, `document_json` (its exact text: save or send this, since re-serializing parsed JSON can change number formats and so the hashes), `html`, `summary`, `seal_notes` |
+| `POST /7aast/verify` | `document`, optional `regenerate`; local tool only: `bitcoin` | `ok`, `checks`, `text` |
+| `POST /7aast/upgrade` | `document` (local tool only) | `document`, `document_json`, `html`, `changed` |
 
-The server never calls a model and never loads code. It runs the demo models or
-replays an answers file. Cohorts are capped at 1000 patients per request.
+A shared server (`python -m hipaasynth.api`) never calls out and never loads
+code: it runs the demo models and published scores or replays an answers file.
+Only the local tool (`hipaasynth ui`, 127.0.0.1) calls a model server or LLM,
+signs, and timestamps. Cohorts are capped at 1000 patients per request.

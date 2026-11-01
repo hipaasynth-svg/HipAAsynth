@@ -166,6 +166,9 @@ class AASTReport:
     #: One row per cohort patient, in run order: ``case_id`` of the case the
     #: model was shown, ``truth`` and ``kind``. Lets anyone check the cohort.
     population: list[dict[str, Any]] = field(default_factory=list)
+    #: Who ran the test, on what model version, when (see report.provenance).
+    #: Locked into the hashed method; ``None`` keeps older reports unchanged.
+    provenance: dict[str, Any] | None = None
 
     @property
     def overall(self) -> str:
@@ -184,6 +187,8 @@ class AASTReport:
 
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
+        if out["provenance"] is None:
+            del out["provenance"]
         out["overall"] = self.overall
         return out
 
