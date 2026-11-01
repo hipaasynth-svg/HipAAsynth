@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-11-01
+
+### Changed
+
+- **No file names or points to a tribal community.** The tribal profiles'
+  source notes named two counties and their `state` field gave a state pair,
+  which together pointed to specific reservations. Those are removed, `state`
+  reads "Northern Plains (US)", and the profiles are renamed `tribal_rural_a`,
+  `tribal_rural_a_v2`, `tribal_rural_b`, `tribal_rural_b_v2`. The former
+  `nd_tribal_region_*` names still work and are recorded as the new names.
+  **No calibration value changed.** Because patients are seeded from a hash of
+  the whole profile file, these four profiles now generate different individual
+  patients from the same distributions; every other profile is byte-identical.
+  `tests/test_tribal_data.py` keeps it that way. See
+  [docs/TRIBAL_DATA.md](docs/TRIBAL_DATA.md).
+
+### Added
+
+- **Paired runs against the US baseline.** `--compare-baseline` on the command
+  line, or the checkbox on the 7AAST page, runs the same model on the scenario's
+  population and on `us_default` and reports the difference in true cases
+  caught and look-alikes cleared, with 95% intervals (Newcombe's method,
+  checked against the paper's worked examples), plus every other check side by
+  side. The comparison document holds both reports and is hashed, signed and
+  timestamped like a report; `verify` checks both reports and recomputes the
+  comparison.
+- **`tribal_dka` scenario**: DKA on rural tribal profile B (adult ages from 18).
+
 ## [1.10.0] — 2026-11-01
 
 ### Added

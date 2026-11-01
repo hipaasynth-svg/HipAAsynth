@@ -94,6 +94,9 @@
     <label for="scenario">Prebuilt scenario <span class="help">optional: sets the condition and the population</span></label>
     <select id="scenario"><option value="">None: choose the condition and population yourself</option></select>
     <p id="scenarioText" class="sub" style="margin-top:6px"></p>
+    <label id="compareWrap" class="hidden"><input id="compareBaseline" type="checkbox" />
+      Also run the same model on the US baseline and compare
+      <span class="help">shows whether it does worse for these patients; twice the model calls</span></label>
     <div class="grid">
       <div>
         <label for="condition">Condition it looks for</label>
@@ -277,6 +280,8 @@
       <button id="saveJson" class="secondary" type="button">Save data (.json)</button>
       <button id="saveProof" class="secondary hidden" type="button">Timestamp files (.ots)</button>
       <button id="upgradeBtn" class="secondary hidden" type="button">Get Bitcoin proof</button>
+      <button id="saveTarget" class="secondary hidden" type="button">Save scenario run (.html)</button>
+      <button id="saveBaseline" class="secondary hidden" type="button">Save baseline run (.html)</button>
     </div>
     <p id="sealStatus" class="sub" style="margin-top:8px"></p>
     <p class="sub" style="margin-top:12px">Report hash, to keep somewhere safe so anyone can check later that
@@ -334,6 +339,10 @@ function refresh() {
   $("profile").disabled = Boolean(sc);
   $("naturalMix").disabled = Boolean(sc);
   $("sealOpts").classList.toggle("hidden", !LOCAL);
+  const population = sc ? sc.profile : $("profile").value;
+  const canCompare = Boolean(population) && population !== "us_default" && source !== "file";
+  $("compareWrap").classList.toggle("hidden", !canCompare);
+  if (!canCompare) $("compareBaseline").checked = false;
   $("sealShared").classList.toggle("hidden", LOCAL);
   if (llm) $("output").value = "text";
   const record = radio("input") === "record";
@@ -360,7 +369,7 @@ function refresh() {
   $("fileOpts").classList.toggle("hidden", source !== "file");
   $("urlOpts").classList.toggle("hidden", source !== "url");
 }
-document.querySelectorAll("input[name=source], input[name=input], #output, #demo, #llmProvider, #scenario")
+document.querySelectorAll("input[name=source], input[name=input], #output, #demo, #llmProvider, #scenario, #profile")
   .forEach((el) => el.addEventListener("change", refresh));
 
 function settings() {
@@ -472,6 +481,7 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
                            ["organization", "organization"], ["intendedUse", "intended_use"]]) {
     if ($(id).value.trim()) body[key] = $(id).value.trim();
   }
+  if ($("compareBaseline").checked) body.compare_baseline = true;
   if (LOCAL && $("signReport").checked) body.sign = true;
   if (LOCAL && $("stampReport").checked) body.stamp = true;
   last = await post("/7aast", body);
@@ -484,11 +494,22 @@ const MEANING = {
   INCONCLUSIVE: "No check failed, but some could not be decided. More patients may settle them.",
 };
 
+const FINDING = {
+  WORSE: ["FAIL", "Worse for these patients than on the US baseline."],
+  NO_CLEAR_GAP: ["INCONCLUSIVE", "No clear gap from the US baseline at this size."],
+  BETTER: ["PASS", "Better for these patients than on the US baseline."],
+};
+
 function show(result) {
-  const overall = result.document.results.overall;
-  $("overall").textContent = overall;
+  const doc = result.document;
+  const paired = doc.format === "hipaasynth-7aast-comparison/1";
+  const [overall, text] = paired ? FINDING[doc.comparison.sensitivity_finding]
+    : [doc.results.overall, MEANING[doc.results.overall] || ""];
+  $("overall").textContent = paired ? doc.comparison.sensitivity_finding.replace(/_/g, " ") : overall;
   $("overall").className = `badge ${overall}`;
-  $("overallText").textContent = MEANING[overall] || "";
+  $("overallText").textContent = text;
+  $("saveTarget").classList.toggle("hidden", !paired || !result.reports);
+  $("saveBaseline").classList.toggle("hidden", !paired || !result.reports);
   $("hash").textContent = result.document.chain.report;
   const frame = $("reportFrame");
   frame.onload = () => {
@@ -521,9 +542,16 @@ function base64Bytes(text) {
 
 $("printBtn").addEventListener("click", () => $("reportFrame").contentWindow.print());
 
+$("saveTarget").addEventListener("click", () => last.reports &&
+  download("7aast-scenario-run.html", last.reports.target.html, "text/html"));
+$("saveBaseline").addEventListener("click", () => last.reports &&
+  download("7aast-baseline-run.html", last.reports.baseline.html, "text/html"));
+
 $("saveProof").addEventListener("click", () => {
   const doc = last.document, ch = doc.chain;
-  download("7aast-report-hash.txt", ch.results + ch.method + ch.population, "text/plain");
+  const text = ch.comparison ? ch.comparison + ch.target + ch.baseline
+    : ch.results + ch.method + ch.population;
+  download("7aast-report-hash.txt", text, "text/plain");
   download("7aast-report-hash.txt.ots", base64Bytes(doc.seal.opentimestamps.proof),
            "application/octet-stream");
   setStatus("Saved the two files: upload both at opentimestamps.org to check the timestamp.", "ok");

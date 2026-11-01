@@ -50,7 +50,7 @@ def test_seed_out_of_range(capsys, tmp_path, seed):
 
 def test_unknown_profile_lists_bundled_names(capsys, tmp_path):
     err = _usage_error(capsys, ["--profile", "nope", "--out", str(tmp_path)])
-    assert "unknown profile 'nope'" in err and "nd_tribal_region_a" in err
+    assert "unknown profile 'nope'" in err and "tribal_rural_a" in err
 
 
 def test_malformed_profile(capsys, tmp_path):

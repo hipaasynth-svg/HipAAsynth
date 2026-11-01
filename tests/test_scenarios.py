@@ -57,7 +57,7 @@ def test_every_scenario_uses_a_real_module_and_profile():
 
 def test_resolve_scenario_returns_module_and_profile():
     resolved = resolve_scenario("tribal_sepsis")
-    assert resolved == {"module": "sepsis", "profile": "nd_tribal_region_a"}
+    assert resolved == {"module": "sepsis", "profile": "tribal_rural_a"}
 
 
 def test_unknown_scenario_raises():

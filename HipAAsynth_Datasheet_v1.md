@@ -38,7 +38,7 @@ Two families of artifacts define patient parameters in this repo.
 
 ### Population profiles (`hipaasynth/profiles/*.json`)
 
-Nine geographic profiles that override engine demographics (age-band weights, sex ratio, ethnicity, rural flag) for the profile-driven hooks (Stroke, Sepsis): `us_default.json`, `fargo_nd.json`, `minot_nd.json`, `nd_tribal_region_a.json`, `nd_tribal_region_a_v2.json`, `nd_tribal_region_b.json`, `nd_tribal_region_b_v2.json`, `karachi_pakistan.json`, `lagos_nigeria.json`. Profile schema and an example are described in the Profiles section.
+Nine geographic profiles that override engine demographics (age-band weights, sex ratio, ethnicity, rural flag) for the profile-driven hooks (Stroke, Sepsis): `us_default.json`, `fargo_nd.json`, `minot_nd.json`, `tribal_rural_a.json`, `tribal_rural_a_v2.json`, `tribal_rural_b.json`, `tribal_rural_b_v2.json`, `karachi_pakistan.json`, `lagos_nigeria.json`. Profile schema and an example are described in the Profiles section.
 
 ### Engine-wide constants (source of the shared fields)
 
@@ -175,7 +175,7 @@ Buprenorphine dose 4.0–32.0, methadone 20.0–120.0 (`:156-158`). Height 148�
 Not self-seeding. It is a hook called by `population_pipeline.py:203` with a per-patient RNG derived from the engine anchor (`obs_seed = anchor.derive_seed("observations:{patient_id}")`, `population_pipeline.py:193`). Randomness uses Box–Muller `_normal` on that RNG (`:90-94`).
 
 ### Age bounds (traced)
-The module does **not** generate age; it consumes `demographics.age` from the engine (`:176`). Engine defaults are `age_min=18, age_max=90` (`config.py:93-94`), and profiles override the age-band weights (e.g., tribal profiles use `[[45,64,0.4],[65,90,0.6]]`, `nd_tribal_region_a.json`). The only age logic inside the module: `age_group = '65_plus' if age >= 65 else '18_64'` (`:175`), and `age < 18` is an absolute tPA contraindication (`:138-139`). **Enforced age range is inherited from the engine/profile, not from this module.**
+The module does **not** generate age; it consumes `demographics.age` from the engine (`:176`). Engine defaults are `age_min=18, age_max=90` (`config.py:93-94`), and profiles override the age-band weights (e.g., tribal profiles use `[[45,64,0.4],[65,90,0.6]]`, `tribal_rural_a.json`). The only age logic inside the module: `age_group = '65_plus' if age >= 65 else '18_64'` (`:175`), and `age < 18` is an absolute tPA contraindication (`:138-139`). **Enforced age range is inherited from the engine/profile, not from this module.**
 
 ### Fields & calibration sources
 For non-stroke patients most fields are `None` with `stroke_flag=False` (`:208-231`). For stroke patients (`:380-402`):
@@ -412,7 +412,7 @@ Docstring calibration (`:20-21`): "Calibration: SPINRAZA trials, SMArtCARE regis
 
 ## Population profiles (`hipaasynth/profiles/*.json`)
 
-Nine JSON profiles override engine demographics for the profile-driven hooks (Stroke, Sepsis). They do **not** define per-field clinical parameters; they set `sex_ratio_female`, `ethnicity_weights`, `age_band_weights`, `rural` flag, and carry a `sources` block plus `calibration_notes`. Example — `nd_tribal_region_a.json`:
+Nine JSON profiles override engine demographics for the profile-driven hooks (Stroke, Sepsis). They do **not** define per-field clinical parameters; they set `sex_ratio_female`, `ethnicity_weights`, `age_band_weights`, `rural` flag, and carry a `sources` block plus `calibration_notes`. Example — `tribal_rural_a.json`:
 - `age_band_weights = [[45,64,0.4],[65,90,0.6]]` (ICU-stroke recalibration, not community median age 28.4 — stated in the profile's `age_distribution` source note).
 - `ethnicity_weights`: native 0.847, white 0.121, other 0.032; `sex_ratio_female` 0.502; `rural: true`.
 - `sources` cites ACS 2020-2024, IHS Trends 2014-2015, Espey DK Am J Public Health 2014, Brinkworth & Shaw Am J Biol Anthropol 2022, Singer Sepsis-3 2016, and lab floors (Singer 2016 / ADA 2024 / KDIGO 2022 / Grundy 2019).
@@ -457,6 +457,6 @@ The engine consumes profiles via `age_band_weights` in `generator_demographics.p
 | Oncology/Cardiology non-wiring & absent sources | `hipaasynth/modules/sepsis/oncology/*.py`; `hipaasynth/modules/cardiology/*.py`; `tests/test_seismometer_adapter.py` |
 | Diabetes stage seeding & fallback-default issue | `hipaasynth/run/diabetes_pipeline.py:33-45`; `hipaasynth/modules/diabetes/complications.py:98,167,262-299`; `treatments.py:172-191,227` |
 | DMD/Fabry/SMA parameters & determinism | `hipaasynth/modules/dmd/dmd.py:39-63,147-228`; `hipaasynth/modules/fabry/fabry.py:42-91,250-388`; `hipaasynth/modules/sma/sma.py:33-86,175-411` |
-| Profile overrides applied to demographics | `hipaasynth/pipelines/generator_demographics.py:64-107`; `hipaasynth/profiles/nd_tribal_region_a.json` |
+| Profile overrides applied to demographics | `hipaasynth/pipelines/generator_demographics.py:64-107`; `hipaasynth/profiles/tribal_rural_a.json` |
 
 *Audit commit: `cae9b145e70cc55990e8639aed8a45a8100fd61e` (HipAAsynth), 2026‑07‑11. Generated 2026‑07‑14.*

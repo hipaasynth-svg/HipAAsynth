@@ -242,8 +242,9 @@ A scenario is a named `module` + `profile` shortcut, usable from the CLI
 |---|---|---|---|
 | `us_baseline_sepsis` | sepsis | us_default | US national reference baseline (ACS/NHANES) |
 | `fabry_baseline` | fabry | us_default | Rare-condition screening against a general US population |
-| `tribal_sepsis` | sepsis | nd_tribal_region_a | Northern Plains tribal / IHS service area, air-gapped context |
-| `tribal_stroke` | stroke | nd_tribal_region_a | Same population, acute-stroke decision support (ICU age bands) |
+| `tribal_sepsis` | sepsis | tribal_rural_a | Rural tribal IHS service area (AI/AN-majority) |
+| `tribal_stroke` | stroke | tribal_rural_a | Same population, acute-stroke decision support (ICU age bands) |
+| `tribal_dka` | dka | tribal_rural_b | Rural tribal, adult ages; the highest diabetes burden in the US |
 | `rural_nd_dka` | dka | minot_nd | Rural upper-Midwest, high diabetes burden |
 | `urban_nd_sepsis` | sepsis | fargo_nd | Urban safety-net contrast to the rural ND scenarios |
 | `karachi_dka` | dka | karachi_pakistan | LMIC urban; stresses limited-English/low-literacy forms |

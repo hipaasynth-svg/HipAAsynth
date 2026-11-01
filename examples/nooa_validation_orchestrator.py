@@ -113,10 +113,10 @@ class PopulationProfile(str, Enum):
     US_DEFAULT = "us_default"
     MINOT_ND = "minot_nd"  # rural critical access
     FARGO_ND = "fargo_nd"  # aging rural composite
-    ND_TRIBAL_REGION_A = "nd_tribal_region_a"
-    ND_TRIBAL_REGION_A_V2 = "nd_tribal_region_a_v2"
-    ND_TRIBAL_REGION_B = "nd_tribal_region_b"
-    ND_TRIBAL_REGION_B_V2 = "nd_tribal_region_b_v2"
+    TRIBAL_RURAL_A = "tribal_rural_a"
+    TRIBAL_RURAL_A_V2 = "tribal_rural_a_v2"
+    TRIBAL_RURAL_B = "tribal_rural_b"
+    TRIBAL_RURAL_B_V2 = "tribal_rural_b_v2"
     KARACHI_PAKISTAN = "karachi_pakistan"
     LAGOS_NIGERIA = "lagos_nigeria"
 
@@ -1041,7 +1041,7 @@ class HipAAsynthAgent(Agent):
 
         Instructions:
         1. Use only PopulationProfile and ClinicalModule enum values.
-           Prefer minot_nd, fargo_nd, nd_tribal_region_a/b (and v2) when rural or
+           Prefer minot_nd, fargo_nd, tribal_rural_a/b (and v2) when rural or
            tribal coverage is requested. Prefer stroke or sepsis when clinical
            focus is ambiguous.
         2. Every PopulationSpec must carry an explicit integer seed. If omitted,
@@ -1095,7 +1095,7 @@ class HipAAsynthAgent(Agent):
         Suggest 1–3 next experiments using real profiles and modules.
 
         Instructions:
-        1. Look for missing coverage of minot_nd, fargo_nd, nd_tribal_region_*,
+        1. Look for missing coverage of minot_nd, fargo_nd, tribal_rural_*,
            or under-tested modules (stroke, sepsis, etc.).
         2. Every proposed PopulationSpec must have an explicit seed (use
            self.derive_seed if needed). Never call random.

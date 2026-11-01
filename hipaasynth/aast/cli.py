@@ -85,8 +85,11 @@ from hipaasynth.aast.report import (
     timestamp_files,
     upgrade_seal,
     utc_now,
-    verify,
+    verify_document,
 )
+from hipaasynth.aast.compare import BASELINE_PROFILE, build_comparison
+from hipaasynth.aast.compare import plain_english as compare_english
+from hipaasynth.sdk import canonical_profile
 from hipaasynth.aast.run import TESTS, AASTReport, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
 from hipaasynth.scenarios import available_scenarios, resolve_scenario
@@ -239,6 +242,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--tests",
                      help="Run only these checks, comma separated: "
                      + ", ".join(TESTS) + " (default all; accuracy always runs).")  # fmt: skip
+    run.add_argument("--compare-baseline", action="store_true",
+                     help="Also run the same model on the US baseline population and report the "
+                     "difference (twice the model calls; needs --scenario or --profile).")  # fmt: skip
     run.add_argument("--model-version", help="The model's version, locked into the report.")
     run.add_argument("--run-by", help="Who ran the test, locked into the report.")
     run.add_argument("--organization", help="Organization, locked into the report.")
@@ -309,10 +315,10 @@ def _seal_command(args: argparse.Namespace) -> int:
         changed = upgrade_seal(doc)
         if changed:
             save_document(doc, args.report)
-        print(verify(doc).checks[-1].detail if changed else
+        print(verify_document(doc).checks[-1].detail if changed else
               "No Bitcoin proof yet; calendars commit within a few hours. Try again later.")  # fmt: skip
         return 0
-    if not verify(doc).ok:
+    if not verify_document(doc).ok:
         print("hipaasynth 7aast: error: the report does not verify; not sealing it",
               file=sys.stderr)  # fmt: skip
         return 3
@@ -337,8 +343,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if exit_.code == 2 else int(exit_.code or 0)
     try:
         if args.command == "verify":
-            result = verify(load_document(args.report), regenerate=args.regenerate,
-                            bitcoin=args.bitcoin)  # fmt: skip
+            result = verify_document(load_document(args.report), regenerate=args.regenerate,
+                                     bitcoin=args.bitcoin)  # fmt: skip
             print(result.text())
             return 0 if result.ok else 3
         if args.command == "keygen":
@@ -403,31 +409,47 @@ def main(argv: list[str] | None = None) -> int:
             settings.setdefault("name", args.model)
             adapter = ModelAdapter(fn, args.output, input=args.input, **settings)
         key = _key(args.sign)
-        started = utc_now()
-        report = run_7aast(
-            adapter,
-            args.condition,
-            n=args.n,
-            seed=args.seed,
-            prevalence=args.prevalence,
-            profile=args.profile,
-            deployment_prevalence=args.deployment_prevalence,
-            demo=bool(args.demo),
-            balance_groups=not args.natural_mix,
-            tests=_tests(args.tests),
-        )
-        report.provenance = provenance(
-            started, utc_now(), model_version=args.model_version, run_by=args.run_by,
-            organization=args.organization, intended_use=args.intended_use,
-            scenario=args.scenario,
-        )  # fmt: skip
+        if args.compare_baseline and canonical_profile(args.profile or BASELINE_PROFILE) == (
+            BASELINE_PROFILE
+        ):
+            raise ValueError("--compare-baseline needs --scenario or a --profile other than "
+                             f"{BASELINE_PROFILE} (the baseline)")  # fmt: skip
+
+        def one(profile: str | None, scenario: str | None) -> AASTReport:
+            started = utc_now()
+            rep = run_7aast(
+                adapter,
+                args.condition,
+                n=args.n,
+                seed=args.seed,
+                prevalence=args.prevalence,
+                profile=profile,
+                deployment_prevalence=args.deployment_prevalence,
+                demo=bool(args.demo),
+                balance_groups=not args.natural_mix,
+                tests=_tests(args.tests),
+            )
+            rep.provenance = provenance(
+                started, utc_now(), model_version=args.model_version, run_by=args.run_by,
+                organization=args.organization, intended_use=args.intended_use,
+                scenario=scenario,
+            )  # fmt: skip
+            return rep
+
+        report = one(args.profile, args.scenario)
+        baseline = one(BASELINE_PROFILE, None) if args.compare_baseline else None
     except (AnswerFileError, ValueError, TypeError, ImportError, AttributeError, OSError,
             RemoteModelError, ReportFileError) as err:  # fmt: skip
         print(f"hipaasynth 7aast: error: {err}", file=sys.stderr)
         return 1
     print(summary_text(report))
+    comparison = None
+    if baseline is not None:
+        comparison = build_comparison(build_document(report), build_document(baseline))
+        print("\nUS BASELINE (" + BASELINE_PROFILE + "):\n" + summary_text(baseline))
+        print("\nCOMPARISON: " + compare_english(comparison["comparison"], args.condition))
     if args.report:
-        doc = build_document(report)
+        doc = comparison or build_document(report)
         for note in seal(doc, key=key, timestamp=args.stamp):
             print(f"hipaasynth 7aast: warning: {note}", file=sys.stderr)
         try:
@@ -438,8 +460,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nFull report: {args.report}")
         print(f"Report hash: {doc['chain']['report']}")
         if "seal" in doc:
-            print("Sealed: " + ", ".join(c.detail for c in verify(doc).checks
+            print("Sealed: " + ", ".join(c.detail for c in verify_document(doc).checks
                                           if c.name in ("signature", "timestamp")))  # fmt: skip
     elif args.sign is not None or args.stamp:
         print("hipaasynth 7aast: warning: --sign and --stamp need --report", file=sys.stderr)
+    if comparison and comparison["comparison"]["sensitivity_finding"] == "WORSE":
+        return 2
     return 0 if report.overall != "FAIL" else 2

@@ -80,9 +80,25 @@ _PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
 PathLike = Union[str, Path]
 
 
+#: Former names of bundled profiles, still accepted. The tribal profiles were
+#: renamed so that no name points to a state or a community (see
+#: docs/TRIBAL_DATA.md); their calibration values did not change.
+PROFILE_ALIASES = {
+    "nd_tribal_region_a": "tribal_rural_a",
+    "nd_tribal_region_a_v2": "tribal_rural_a_v2",
+    "nd_tribal_region_b": "tribal_rural_b",
+    "nd_tribal_region_b_v2": "tribal_rural_b_v2",
+}
+
+
 def available_profiles() -> list[str]:
     """Names of the population profiles bundled with HipAAsynth."""
     return sorted(p.stem for p in _PROFILES_DIR.glob("*.json"))
+
+
+def canonical_profile(name: str) -> str:
+    """The current name of a bundled profile (a former name maps to its new one)."""
+    return PROFILE_ALIASES.get(name, name)
 
 
 def _resolve_profile(profile: Optional[PathLike]) -> Optional[str]:
@@ -94,7 +110,7 @@ def _resolve_profile(profile: Optional[PathLike]) -> Optional[str]:
     """
     if profile in (None, ""):
         return None
-    name = str(profile)
+    name = canonical_profile(str(profile))
     bundled = _PROFILES_DIR / f"{name}.json"
     if bundled.is_file():
         return str(bundled)

@@ -1,24 +1,24 @@
 {
-  "profile_name": "nd_tribal_region_b_v2",
-  "display_name": "Northern Plains Tribal Health Region B",
-  "population": 7280,
+  "profile_name": "tribal_rural_a_v2",
+  "display_name": "Northern Plains Tribal Health Region A",
+  "population": 8250,
   "sources": {
-    "population": "U.S. Census Bureau. ACS 2020-2024 5-Year Estimates. Northern Plains tribal health region Reservation total population ~7,280.",
-    "ethnicity": "U.S. Census Bureau ACS 2020-2024. Northern Plains tribal health region Reservation: American Indian/Alaska Native >80% of population.",
-    "sex_ratio": "U.S. Census Bureau ACS 2020-2024. Female 52.1% on Northern Plains tribal health region Reservation.",
+    "population": "U.S. Census Bureau. ACS 2020-2024 5-Year Estimates. Northern Plains tribal health region Reservation total population ~8,250.",
+    "ethnicity": "U.S. Census Bureau ACS 2020-2024. Northern Plains tribal health region Reservation: American Indian/Alaska Native >85% of population.",
+    "sex_ratio": "U.S. Census Bureau ACS 2020-2024. Female 51.2% on Northern Plains tribal health region Reservation.",
     "diabetes_prevalence": "CDC National Diabetes Statistics Report: 13.6% of AI/AN adults have diagnosed diabetes (via HHS Office of Minority Health). The Dai 2024 paper cited earlier reports medication trends, not prevalence.",
-    "hypertension_prevalence": "Jolly SE et al. J Clin Hypertens. 2015;17(10):812-818. doi:10.1111/jch.12483. Strong Heart Study ND AI/AN HTN ~27%.",
-    "dm_htn_comorbidity": "Walls ML et al. J Diabetes Res. 2025. doi:10.1155/jdr/6591307. 77.9% of AI/AN T2D adults also have HTN.",
-    "ckd_comorbidity": "Nephrology Mini Orals. Nephrology. 2021;26(S2):17-32. doi:10.1111/nep.13930.",
-    "sepsis_social_determinants": "Ardabili AK et al. World Med Health Policy. 2025;17(4):823-830. doi:10.1002/wmh3.70043.",
-    "sepsis_vitals": "Singer M et al. JAMA. 2016;315(8):801-810. doi:10.1001/jama.2016.0287.",
-    "afebrile_elderly": "Gavazzi G, Krause KH. Lancet Infect Dis. 2002;2(11):659-666. doi:10.1016/S1473-3099(02)00437-1.",
+    "hypertension_prevalence": "Jolly SE et al. Prevalence of Hypertension in Western Alaska Native People: WATCH Study. J Clin Hypertens. 2015;17(10):812-818. doi:10.1111/jch.12483. Strong Heart Study North/South Dakota AI/AN HTN prevalence ~27% at baseline.",
+    "dm_htn_comorbidity": "Walls ML et al. Together Overcoming Diabetes Study. J Diabetes Res. 2025. doi:10.1155/jdr/6591307. 77.9% of AI/AN adults with T2D also have hypertension across 14 IHS units.",
+    "ckd_comorbidity": "Nephrology Mini Orals. Nephrology. 2021;26(S2):17-32. doi:10.1111/nep.13930. DM+HTN strongly associated with CKD in indigenous communities.",
+    "sepsis_social_determinants": "Ardabili AK et al. Social Determinants of Sepsis Mortality in the US. World Med Health Policy. 2025;17(4):823-830. doi:10.1002/wmh3.70043. Higher ADI scores and lower income associated with increased sepsis mortality.",
+    "sepsis_vitals": "Singer M et al. Sepsis-3. JAMA. 2016;315(8):801-810. doi:10.1001/jama.2016.0287.",
+    "afebrile_elderly": "Gavazzi G, Krause KH. Ageing and infection. Lancet Infect Dis. 2002;2(11):659-666. doi:10.1016/S1473-3099(02)00437-1.",
     "ihs_workforce": "GAO-18-580 (2018): IHS provider vacancy 25% overall, 13-31% by area; IHS area nurse vacancies up to 40% (IHS 2016 briefing)."
   },
-  "sex_ratio_female": 0.521,
+  "sex_ratio_female": 0.512,
   "ethnicity_weights": {
-    "native": 0.82,
-    "white": 0.13,
+    "native": 0.87,
+    "white": 0.08,
     "other": 0.05
   },
   "age_band_weights": [
@@ -36,45 +36,45 @@
   "rural": true,
   "region": "Northern Plains",
   "country": "USA",
-  "state": "North Dakota",
+  "state": "Northern Plains (US)",
   "ihs_service_unit": "IHS Northern Plains Region",
   "calibration_notes": [
-    "AI/AN DM prevalence 13.6% nationally vs 8.7% US average. Engine uses US-baseline. Documented gap.",
-    "HTN prevalence ~27% in ND AI/AN (Strong Heart Study). Lower than US average but higher DM burden.",
-    "77.9% of AI/AN T2D adults also have HTN (Walls 2025).",
-    "Northern Plains tribal health region has slightly higher white/mixed population than Northern Plains tribal health region due to historical Northern Plains tribal population community.",
-    "Rural flag = True. Pneumonia upweighted.",
-    "IHS access limitations apply \u2014 ICU population is those who reached care, not population-representative."
+    "AI/AN DM prevalence 13.6% nationally \u2014 significantly higher than US average of ~8.7% (ADA 2024). Engine uses US-baseline comorbidity generator; AI/AN-specific prevalence not yet applied as regional adjustment. Documented gap.",
+    "HTN prevalence ~27% in ND AI/AN (Strong Heart Study baseline) vs US average ~45% (AHA 2023). This population has LOWER HTN than US average but HIGHER diabetes burden.",
+    "77.9% of AI/AN adults with T2D also have HTN \u2014 when DM is present, HTN co-occurrence is extremely high.",
+    "CKD elevated due to high DM+HTN comorbidity burden in this population.",
+    "Rural flag = True. Pneumonia weighted higher as sepsis infection source (rural presentation pattern).",
+    "IHS access limitations: nurse vacancy rate 23-40%. This cohort represents patients who did reach ICU care \u2014 not population-representative."
   ],
   "continuous_vars": {
-    "_source": "IHS Trends in Indian Health 2014-2015; NHANES AI/AN oversampling; Strong Heart Study ND data.",
+    "_source": "IHS Trends in Indian Health 2014-2015; NHANES AI/AN oversampling; Strong Heart Study ND/SD data.",
     "hba1c": {
-      "observed_mean": 7.0,
-      "observed_std": 2.1,
+      "observed_mean": 7.1,
+      "observed_std": 2.2,
       "unit": "%",
-      "source": "IHS data; AI/AN DM prevalence 13.6% (Dai 2024); slightly lower mean than Northern Plains tribal health region due to Northern Plains tribal population admixture"
+      "source": "IHS data; AI/AN DM prevalence 13.6% (Dai 2024); higher HbA1c burden vs US mean"
     },
     "bmi": {
-      "observed_mean": 31.5,
-      "observed_std": 7.8,
+      "observed_mean": 31.8,
+      "observed_std": 7.9,
       "unit": "kg/m2",
-      "source": "BRFSS AI/AN oversampling; Strong Heart Study. High obesity burden in AI/AN populations."
+      "source": "BRFSS AI/AN oversampling; Strong Heart Study. Higher obesity burden in AI/AN populations."
     },
     "systolic_bp": {
-      "observed_mean": 124.0,
-      "observed_std": 20.5,
+      "observed_mean": 125.0,
+      "observed_std": 21.0,
       "unit": "mmHg",
-      "source": "Strong Heart Study ND AI/AN; Jolly 2015 WATCH Study; estimated 27-40% HTN AI/AN"
+      "source": "Strong Heart Study ND/SD AI/AN; Jolly 2015 WATCH Study; HTN estimated 27-40% AI/AN"
     },
     "creatinine": {
-      "observed_mean": 1.1,
-      "observed_std": 0.6,
+      "observed_mean": 1.12,
+      "observed_std": 0.62,
       "unit": "mg/dL",
       "source": "NHANES AI/AN CKD data; higher CKD burden from DM+HTN comorbidity; Nephrology 2021"
     },
     "egfr": {
-      "observed_mean": 67.0,
-      "observed_std": 27.0,
+      "observed_mean": 66.0,
+      "observed_std": 27.5,
       "unit": "mL/min/1.73m2",
       "source": "IHS CKD surveillance; CKD-EPI 2021; elevated CKD stage 3+ in AI/AN DM+HTN population"
     }

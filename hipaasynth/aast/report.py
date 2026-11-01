@@ -74,6 +74,7 @@ from hipaasynth.aast.run import AXIS_ORDER, AASTReport
 from hipaasynth.aast.stats import FAIL, INCONCLUSIVE, PASS
 
 FORMAT = "hipaasynth-7aast-report/1"
+COMPARISON_FORMAT = "hipaasynth-7aast-comparison/1"  # see hipaasynth.aast.compare
 STAGES = ("population", "method", "results", "report")
 
 #: Settings that decide which patients are generated (the rest go in ``method``).
@@ -317,6 +318,8 @@ def timestamp_files(doc: dict[str, Any]) -> tuple[str, bytes]:
     if not stamp:
         raise ots.OTSError("this report has no timestamp")
     ch = doc["chain"]
+    if doc.get("format") == COMPARISON_FORMAT:
+        return ch["comparison"] + ch["target"] + ch["baseline"], ots.decode(stamp["proof"])
     return ch["results"] + ch["method"] + ch["population"], ots.decode(stamp["proof"])
 
 
@@ -361,7 +364,7 @@ def load_document(path: str | Path) -> dict[str, Any]:
         doc = json.loads(text)
     except ValueError as err:
         raise ReportFileError(f"{path}: not valid JSON ({err})") from err
-    if not isinstance(doc, dict) or doc.get("format") != FORMAT:
+    if not isinstance(doc, dict) or doc.get("format") not in (FORMAT, COMPARISON_FORMAT):
         raise ReportFileError(f"{path}: not a 7AAST report (expected format {FORMAT!r})")
     return doc
 
@@ -539,6 +542,19 @@ _EMBED_CLOSE = "</script>"
 
 def render_html(doc: dict[str, Any]) -> str:
     """A self-contained HTML page for ``doc`` (see :mod:`hipaasynth.aast.render`)."""
-    from hipaasynth.aast.render import render_page
+    from hipaasynth.aast.render import render_comparison, render_page
 
+    if doc.get("format") == COMPARISON_FORMAT:
+        return render_comparison(doc)
     return render_page(doc)
+
+
+def verify_document(
+    doc: dict[str, Any], *, regenerate: bool = False, bitcoin: bool = False
+) -> Verification:
+    """:func:`verify` for a report, or the paired check for a comparison document."""
+    if doc.get("format") == COMPARISON_FORMAT:
+        from hipaasynth.aast.compare import verify_comparison
+
+        return verify_comparison(doc, regenerate=regenerate, bitcoin=bitcoin)
+    return verify(doc, regenerate=regenerate, bitcoin=bitcoin)
