@@ -140,6 +140,26 @@ Accuracy always runs. The report of a partial run starts with **PARTIAL RUN**,
 lists the checks that were not run, and a PASS covers only the checks shown.
 The chosen list is part of the hashed method, so it cannot be edited away.
 
+### Comparing a scenario with the US baseline
+
+The sharpest question is whether a model does worse for the patients a scenario
+describes than for everyone else. Tick **Also run the same model on the US
+baseline and compare** on the page (it appears once a scenario or population is
+chosen), or:
+
+```bash
+hipaasynth 7aast run --scenario tribal_sepsis --input record --model my.model:predict \
+    --compare-baseline --report pair.html
+```
+
+The same model, settings, seed and size run twice: once on the scenario's
+population and once on `us_default`. The report states the difference in true
+cases caught and look-alikes cleared with 95% intervals (Newcombe's method for
+two independent proportions), and every other check side by side; its verdict
+is WORSE, NO CLEAR GAP or BETTER. It takes twice the model calls, and needs a
+model the tool can call (an answers file covers only its own cases). The exit
+code is 2 when the model is worse for the scenario's patients.
+
 ### D. A published clinical score
 
 To see how a rule hospitals already use behaves, run one of the built-in
@@ -181,7 +201,7 @@ sick patient has missed them.
 | `--n` | 200 | Synthetic patients. More patients give narrower intervals and fewer INCONCLUSIVE results. 400 to 1000 is a good range for a decision. |
 | `--seed` | 42 | Same seed, same patients. Change it to check a result holds on a fresh cohort. |
 | `--prevalence` | 0.5 | Share of true cases. Half and half gives the most power for both misses and false alarms. |
-| `--profile` | balanced | Without a profile, White, Black, Hispanic, Asian and Native American patients are equally represented, so every group gets its own verdict. A bundled profile (for example `nd_tribal_region_a`) uses that population's real mix instead; small groups may then be INCONCLUSIVE. |
+| `--profile` | balanced | Without a profile, White, Black, Hispanic, Asian and Native American patients are equally represented, so every group gets its own verdict. A bundled profile (for example `tribal_rural_a`) uses that population's real mix instead; small groups may then be INCONCLUSIVE. |
 | `--natural-mix` | off | Without a profile, keep the default population's mix instead of balancing. |
 | `--deployment-prevalence` | none | Your real-world rate (for example 0.02) to estimate how many alerts would be right. |
 

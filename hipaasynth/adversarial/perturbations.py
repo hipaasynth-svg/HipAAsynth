@@ -46,10 +46,10 @@ _PROFILE_PARAMS = {
 # Add new profiles here when they are created.
 _FILENAME_TO_TYPE = {
     "minot_nd.json": "rural",
-    "nd_tribal_region_a.json": "tribal",
-    "nd_tribal_region_a_v2.json": "tribal",
-    "nd_tribal_region_b.json": "tribal",
-    "nd_tribal_region_b_v2.json": "tribal",
+    "tribal_rural_a.json": "tribal",
+    "tribal_rural_a_v2.json": "tribal",
+    "tribal_rural_b.json": "tribal",
+    "tribal_rural_b_v2.json": "tribal",
     "fargo_nd.json": "urban",
     "us_default.json": "default",
     "karachi_pakistan.json": "default",

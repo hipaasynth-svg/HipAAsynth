@@ -1,13 +1,13 @@
 {
-  "profile_name": "nd_tribal_region_a",
+  "profile_name": "tribal_rural_a",
   "display_name": "Northern Plains Tribal Health Region A",
   "population": 8250,
   "sources": {
-    "population": "U.S. Census Bureau. American Community Survey 2020-2024. Northern Plains tribal population County ND + Corson County SD combined service area population ~8,250.",
-    "ethnicity": "U.S. Census Bureau ACS 2020-2024. Northern Plains tribal population County ND: American Indian/Alaska Native 84.7% of population. Remaining: white 12.1%, other 3.2%.",
-    "sex_ratio": "U.S. Census Bureau ACS 2020-2024. Northern Plains tribal population County ND female proportion: 50.2%.",
-    "age_distribution": "U.S. Census Bureau ACS 2020-2024. Northern Plains tribal population County ND median age 28.4 years. ICU stroke cohort age bands recalibrated per internal calibration review 2026: 60% 65-90, 40% 45-64. Targets mean age 65-68, under-50 capped at ~13%. General community median age 28.4 not applicable to stroke ICU population.",
-    "diabetes": "Indian Health Service. IHS Trends in Indian Health 2014-2015. Aberdeen Area (ND/SD) diabetes prevalence: 14.5% age-adjusted vs 6.4% US general population. CDC IHS data 2022 update: AI/AN diabetes prevalence 14.7% vs 7.5% non-Hispanic white.",
+    "population": "U.S. Census Bureau. American Community Survey 2020-2024. Rural tribal service area population ~8,250.",
+    "ethnicity": "U.S. Census Bureau ACS 2020-2024. Service area: American Indian/Alaska Native 84.7% of population. Remaining: white 12.1%, other 3.2%.",
+    "sex_ratio": "U.S. Census Bureau ACS 2020-2024. Service area female proportion: 50.2%.",
+    "age_distribution": "U.S. Census Bureau ACS 2020-2024. Service area median age 28.4 years. ICU stroke cohort age bands recalibrated per internal calibration review 2026: 60% 65-90, 40% 45-64. Targets mean age 65-68, under-50 capped at ~13%. General community median age 28.4 not applicable to stroke ICU population.",
+    "diabetes": "Indian Health Service. IHS Trends in Indian Health 2014-2015. Aberdeen Area diabetes prevalence: 14.5% age-adjusted vs 6.4% US general population. CDC IHS data 2022 update: AI/AN diabetes prevalence 14.7% vs 7.5% non-Hispanic white.",
     "hypertension": "Espey DK et al. Leading causes of death and all-cause mortality in American Indians and Alaska Natives. Am J Public Health. 2014;104(S3):S303-S311. Cardiovascular disease mortality 1.2x higher than US all-races. HTN prevalence estimated ~35-40% adult AI/AN.",
     "sepsis_burden": "Brinkworth JF, Shaw JG. On race, human variation, and who gets and dies of sepsis. Am J Biol Anthropol. 2022;178(S74):230-255. Indigenous people disproportionately overrepresented in sepsis incidence and mortality in US.",
     "rural_flag": "Northern Plains tribal health region IHS Service Unit. Rural designation: HRSA Rural Health Grants Eligibility. All ZIP codes in service area rural.",
@@ -38,7 +38,7 @@
   "rural": true,
   "region": "Northern Plains",
   "country": "USA",
-  "state": "ND/SD",
+  "state": "Northern Plains (US)",
   "ihs_service_unit": "IHS Northern Plains Region",
   "calibration_notes": [
     "Diabetes prevalence 14.7% in AI/AN vs 7.5% non-Hispanic white \u2014 engine does not yet apply regional comorbidity override; documented gap",

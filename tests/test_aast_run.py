@@ -453,7 +453,7 @@ def test_cohort_is_balanced_by_group_unless_a_profile_is_chosen():
     assert set(true_by_group) == {"white", "black", "hispanic", "asian", "native"}
     assert min(true_by_group.values()) >= 10  # every group gets its own verdict
 
-    profiled = run_7aast(_const(True), "sepsis", n=40, profile="nd_tribal_region_a")
+    profiled = run_7aast(_const(True), "sepsis", n=40, profile="tribal_rural_a")
     assert profiled.settings["balanced_groups"] is False
 
 

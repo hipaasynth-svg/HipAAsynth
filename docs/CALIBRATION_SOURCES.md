@@ -124,7 +124,7 @@ targets. These are the sources behind the numbers in the calibration chart.
 - Rural-urban OUD disparity — Mack KA et al. *MMWR Surveill Summ* 2017;66(19):1-12.
 - IHS / tribal OUD burden — Sequist TD. *NEJM* 2021.
 
-### ND Tribal Region Profiles — `hipaasynth/profiles/nd_tribal_region_*.json`
+### Tribal rural profiles — `hipaasynth/profiles/tribal_rural_*.json`
 Peer-reviewed anchors carried with DOIs in the profile `sources` block:
 - **Diabetes (AI/AN)**: CDC National Diabetes Statistics Report — 13.6% of AI/AN
   adults have diagnosed diabetes. (Dai J et al. *Diabetes Obes Metab* 2024, cited

@@ -139,7 +139,7 @@ def test_ui_scenario_dropdown_drives_generation(server, browser):
     page.select_option("#scenario", "tribal_stroke")
     # Picking a scenario reflects + locks its module/profile.
     assert page.input_value("#module") == "stroke"
-    assert page.input_value("#profile") == "nd_tribal_region_a"
+    assert page.input_value("#profile") == "tribal_rural_a"
     assert page.locator("#module").is_disabled()
     desc = page.inner_text("#scenarioDesc")
     assert desc.strip()  # a human-readable description is shown

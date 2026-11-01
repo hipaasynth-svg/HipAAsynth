@@ -136,7 +136,7 @@ def test_bad_arguments(kwargs):
 def test_profile_is_applied_to_cases_and_mimics():
     from hipaasynth.sdk import _resolve_profile
 
-    path = _resolve_profile("nd_tribal_region_a")
+    path = _resolve_profile("tribal_rural_a")
     cases = build_decision_cohort("stroke", 40, seed=9, population_profile_path=path)
     ethnicities = Counter(c.patient.demographics.ethnicity for c in cases)
     assert ethnicities.most_common(1)[0][0] == "native"

@@ -95,6 +95,7 @@ from hipaasynth.scenarios import (
     scenario_summaries,
 )
 from hipaasynth.sdk import MODULES as MODULE_TO_CONDITION  # canonical module map
+from hipaasynth.sdk import canonical_profile
 from hipaasynth.viz import demographics_distribution_svg, fairness_heatmap_svg
 
 # Response formats the API can serialize to a single HTTP response.
@@ -192,7 +193,7 @@ def parse_generate_request(params: dict, *, max_count: int = DEFAULT_MAX_COUNT) 
         profile_name = scenario_profile
     profile_path = None
     if profile_name not in (None, ""):
-        profile_name = str(profile_name)
+        profile_name = canonical_profile(str(profile_name))
         if profile_name not in available_profiles():
             raise ApiError(
                 400,

@@ -45,7 +45,7 @@ NOT_RURAL = [p for p in available_profiles() if _flag(p) is not True]
 
 
 def test_bundled_profiles_include_rural_ones():
-    assert {"nd_tribal_region_a", "nd_tribal_region_b", "minot_nd"} <= set(RURAL)
+    assert {"tribal_rural_a", "tribal_rural_b", "minot_nd"} <= set(RURAL)
 
 
 @pytest.mark.parametrize(
@@ -86,12 +86,12 @@ def test_rural_stroke_profiles_carry_the_late_presenter_tail():
         times = sorted(p.observations["onset_to_door_minutes"] for p in cohort)
         return times[int(0.9 * len(times))]
 
-    assert p90("nd_tribal_region_a") > 270  # documented rural tail: >270 min
+    assert p90("tribal_rural_a") > 270  # documented rural tail: >270 min
     assert p90("us_default") <= 300  # documented non-rural ceiling
     assert statistics.median(
         [
             p.observations["onset_to_door_minutes"]
-            for p in generate(count=300, seed=7, module="stroke", profile="nd_tribal_region_a")
+            for p in generate(count=300, seed=7, module="stroke", profile="tribal_rural_a")
         ]
     ) >= statistics.median(
         [

@@ -470,11 +470,14 @@ def _hash_lines(h: str) -> str:
     return "<br>".join(_e(h[i : i + 32]) for i in range(0, len(h), 32))
 
 
-def seal_box(doc: dict[str, Any]) -> str:
+def seal_box(doc: dict[str, Any], outer: dict[str, Any] | None = None) -> str:
+    """The seal panel; for a comparison, ``outer`` gives the pair's hash and seal."""
     method, pop, ch = doc["method"], doc["population"], doc["chain"]
     prov = method.get("provenance") or {}
     model = method["model"]
     seal = doc.get("seal") or {}
+    if outer is not None:
+        ch, seal = outer["chain"], outer.get("seal") or {}
     rows: list[tuple[str, str]] = [
         ("Model", _e(model.get("name"))),
         ("Model version", _e(prov.get("model_version") or "not given")),
@@ -697,6 +700,103 @@ def render_page(doc: dict[str, Any]) -> str:
         f"<tr><th>{_e(stage)}</th><td class='hash'>{_e(ch.get(stage))}</td></tr>"
         for stage in STAGES
     )
+    p.append("</table></main>")
+    data = json.dumps(doc, ensure_ascii=True).replace("<", "\\u003c")
+    p.append(f"{_EMBED_OPEN}{data}{_EMBED_CLOSE}</body></html>")
+    return "".join(p)
+
+
+# -------------------------------------------------------------- comparison
+
+FINDING = {
+    "WORSE": ("FAIL", "Worse for these patients"),
+    "NO_CLEAR_GAP": ("INCONCLUSIVE", "No clear gap at this size"),
+    "BETTER": ("PASS", "Better for these patients"),
+}
+
+
+def render_comparison(doc: dict[str, Any]) -> str:
+    """The page for a paired run: scenario patients against the US baseline."""
+    from hipaasynth.aast.compare import plain_english as compare_english
+
+    target, baseline, comp = doc["target"], doc["baseline"], doc["comparison"]
+    model = target["method"]["model"]
+    cond = CONDITION_NAMES.get(target["population"]["condition"],
+                               target["population"]["condition"])  # fmt: skip
+    who = comp.get("target_label") or comp.get("target_profile")
+    badge, meaning = FINDING.get(comp["sensitivity_finding"], ("INCONCLUSIVE", ""))
+    p = ["<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+         "<meta name='viewport' content='width=device-width,initial-scale=1'>",
+         f"<title>7AAST comparison: {_e(model.get('name'))}</title>",
+         f"<style>{_CSS}</style></head><body>"]  # fmt: skip
+    if target["method"].get("demo"):
+        p.append("<div class='demo'>DEMO MODEL: NOT A CLINICAL TOOL</div>")
+    p.append(
+        "<main><p class='muted'>7AAST paired comparison &middot; HipAAsynth "
+        f"{_e(target['method'].get('engine_version'))}</p>"
+        f"<h1>{_e(model.get('name'))}: {_e(cond)}, {_e(who)} patients vs the US baseline</h1>"
+    )
+    p.append(seal_box(target, outer=doc))
+    p.append(
+        f"<div class='overall'><span class='badge big {badge}'>{_e(meaning)}</span>"
+        f"<div>{_e(compare_english(comp, cond))}</div></div>"
+    )
+    rows = [
+        {"label": r["metric"], **r["difference"],
+         "status": badge if r["key"] == "sensitivity" else "DESCRIPTIVE"}
+        for r in comp["rows"]
+    ]  # fmt: skip
+    p.append(interval_chart(
+        f"{who} minus US baseline", rows, lo=-0.5, hi=0.5,
+        note="Left of zero: worse for these patients. Bars are 95% ranges."))  # fmt: skip
+    p.append("<h2>Side by side</h2><table class='score'><tr><th>Measure</th>"
+             f"<th>{_e(who)}</th><th>US baseline</th><th>Difference</th></tr>")  # fmt: skip
+    for r in comp["rows"]:
+        d = r["difference"]
+        p.append(
+            f"<tr><td>{_e(r['metric'])}</td>"
+            f"<td>{_pc(r['target'])} ({r['target_counts'][0]} of {r['target_counts'][1]})</td>"
+            f"<td>{_pc(r['baseline'])} ({r['baseline_counts'][0]} of {r['baseline_counts'][1]})"
+            f"</td><td>{100 * d['estimate']:+.0f} points [{100 * d['low']:+.0f}, "
+            f"{100 * d['high']:+.0f}]</td></tr>"
+        )
+    for c in comp["checks"]:
+        if c["axis"] == "accuracy":
+            continue
+        diff = c["difference"]
+        p.append(
+            f"<tr><td>{_e(plain_name(c))}</td>"
+            f"<td><span class='badge {_e(c['target_status'])}'>{_e(c['target_status'])}</span>"
+            f" {_pc(c['target_estimate'])}</td>"
+            f"<td><span class='badge {_e(c['baseline_status'])}'>{_e(c['baseline_status'])}"
+            f"</span> {_pc(c['baseline_estimate'])}</td>"
+            f"<td>{'' if diff is None else f'{100 * diff:+.0f} points'}</td></tr>"
+        )
+    p.append("</table>")
+    p.append(f"<p class='note'>{_e(comp['method'])} Both runs used the same model, settings, "
+             "seed and size; only the population profile differs.</p>")  # fmt: skip
+    for title, inner in ((f"{who} patients", target), ("US baseline", baseline)):
+        overall = inner["results"]["overall"]
+        p.append(f"<section class='page'><h2>The {_e(title)} run</h2>"
+                 f"<div class='overall'><span class='badge big {_e(overall)}'>{_e(overall)}"
+                 f"</span><div>{_e(OVERALL_MEANING.get(overall, ''))}</div></div>")  # fmt: skip
+        for item in plain_english(inner):
+            if isinstance(item, list):
+                p.append("<ul>" + "".join(f"<li>{_e(x)}</li>" for x in item) + "</ul>")
+            else:
+                p.append(f"<p>{_e(item)}</p>")
+        p.extend(charts(inner))
+        p.append(f"<p class='note'>Report hash {_e(inner['chain']['report'])}. The full report "
+                 "is inside this file; save it on its own from the 7AAST page.</p></section>")  # fmt: skip
+    p.append(
+        "<h2>Checking this comparison</h2><p>Run <code>hipaasynth 7aast verify THIS_FILE "
+        "--regenerate --bitcoin</code>: it checks both reports, recomputes the comparison and "
+        "checks the seal.</p><table>"
+    )
+    p.extend(f"<tr><th>{k}</th><td class='hash'>{_e(doc['chain'].get(k))}</td></tr>"
+             for k in ("target", "baseline", "comparison", "report"))  # fmt: skip
+    p.append("<tr><th colspan='2'>Limits</th></tr>")
+    p.extend(f"<tr><td colspan='2'>{_e(n)}</td></tr>" for n in target["results"]["limitations"])
     p.append("</table></main>")
     data = json.dumps(doc, ensure_ascii=True).replace("<", "\\u003c")
     p.append(f"{_EMBED_OPEN}{data}{_EMBED_CLOSE}</body></html>")

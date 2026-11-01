@@ -253,7 +253,7 @@ their original derivation rules and are computed, not charted as prevalence.
 
 ---
 
-## ND Tribal Region Profiles  (`hipaasynth/profiles/nd_tribal_region_*.json`)
+## Tribal rural profiles  (`hipaasynth/profiles/tribal_rural_*.json`)
 
 These anchors carry DOIs directly in each profile's `sources` block.
 

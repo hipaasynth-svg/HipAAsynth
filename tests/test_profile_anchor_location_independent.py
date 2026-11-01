@@ -31,7 +31,7 @@ from hipaasynth.core.config import GenerationConfig
 from hipaasynth.pipelines.population_pipeline import generate_one_patient, generate_patients
 from hipaasynth.sdk import generate
 
-_BUNDLED = Path(hipaasynth.__file__).resolve().parent / "profiles" / "nd_tribal_region_a.json"
+_BUNDLED = Path(hipaasynth.__file__).resolve().parent / "profiles" / "tribal_rural_a.json"
 
 
 def _ids(path, n=5, seed=11):
@@ -70,7 +70,7 @@ def test_changing_profile_content_changes_the_cohort(tmp_path):
 def test_bundled_name_and_explicit_path_agree():
     by_name = [
         p.demographics.patient_id
-        for p in generate(count=5, seed=11, module="stroke", profile="nd_tribal_region_a")
+        for p in generate(count=5, seed=11, module="stroke", profile="tribal_rural_a")
     ]
     by_path = [
         p.demographics.patient_id

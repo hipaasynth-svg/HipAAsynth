@@ -34,7 +34,9 @@ Who ran it is locked into the report with ``model_version``, ``run_by``,
 ``organization``, ``intended_use`` and ``scenario`` (a prebuilt scenario sets the
 condition and profile); the tool records the start and end times. On the local
 tool, ``sign`` signs the report with this computer's key and ``stamp`` sends the
-report hash to OpenTimestamps.
+report hash to OpenTimestamps. ``compare_baseline`` also runs the model on the US
+baseline population and returns a comparison document (see
+:mod:`hipaasynth.aast.compare`) plus each run under ``reports``.
 
 ``POST /7aast/verify``  ``{document, regenerate?, bitcoin?}``  checks a saved report.
 ``POST /7aast/upgrade`` ``{document}`` fetches its Bitcoin proof (local tool only).
@@ -61,7 +63,10 @@ from hipaasynth.aast.files import answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
 from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
 from hipaasynth.aast import ots, sign
+from hipaasynth.aast.compare import BASELINE_PROFILE, build_comparison
+from hipaasynth.aast.compare import plain_english as compare_english
 from hipaasynth.aast.report import (
+    COMPARISON_FORMAT,
     FORMAT,
     build_document,
     provenance,
@@ -69,12 +74,12 @@ from hipaasynth.aast.report import (
     seal,
     upgrade_seal,
     utc_now,
-    verify,
+    verify_document,
 )
 from hipaasynth.aast.run import MIN_N, PREVALENCE_RANGE, TESTS, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
 from hipaasynth.scenarios import ScenarioError, resolve_scenario
-from hipaasynth.sdk import SEED_MAX, available_profiles
+from hipaasynth.sdk import SEED_MAX, available_profiles, canonical_profile
 
 #: Largest cohort one HTTP request may ask for (a run makes ~13 calls per patient).
 MAX_N = 1000
@@ -108,6 +113,7 @@ RUN_KEYS = SETTING_KEYS | {
     "scenario",
     "sign",
     "stamp",
+    "compare_baseline",
 }
 PROVENANCE_KEYS = ("model_version", "run_by", "organization", "intended_use", "scenario")
 
@@ -161,7 +167,7 @@ def _settings(params: dict[str, Any]) -> dict[str, Any]:
     input_type = params.get("input")
     if input_type not in INPUT_TYPES:
         raise RequestError(f"'input' must be one of {', '.join(INPUT_TYPES)}")
-    profile = params.get("profile") or None
+    profile = canonical_profile(str(params.get("profile"))) if params.get("profile") else None
     if profile is not None and profile not in available_profiles():
         raise RequestError(f"'profile' must be one of {', '.join(available_profiles())}")
     return {
@@ -225,6 +231,16 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
         provenance("", "", **prov)  # check the fields before the run, not after
     except (ValueError, OSError) as err:
         raise RequestError(str(err)) from err
+    compare_baseline = bool(params.get("compare_baseline"))
+    if compare_baseline:
+        if params.get("answers"):
+            raise RequestError(
+                "comparing with the US baseline needs a model the tool can call (demo, published "
+                "score, model address or LLM); an answers file covers only its own cases"
+            )
+        if (s["profile"] or BASELINE_PROFILE) == BASELINE_PROFILE:
+            raise RequestError("choose a scenario or a population other than the US baseline "
+                               "to compare against it")  # fmt: skip
     started = utc_now()
     demo, answers = params.get("demo"), params.get("answers")
     reference, url = params.get("reference"), params.get("url")
@@ -270,8 +286,8 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             raise RequestError(
                 f"'{reference}' decides {reference_condition(reference)}, not {s['condition']}"
             )
-        report = run_7aast(reference_adapter(reference, s["input_type"]), s["condition"],
-                           **run_kwargs)  # fmt: skip
+        adapter = reference_adapter(reference, s["input_type"])
+        report = run_7aast(adapter, s["condition"], **run_kwargs)
     elif llm:
         if llm not in LLM_PROVIDERS:
             raise RequestError(f"'llm_provider' must be one of {', '.join(LLM_PROVIDERS)}")
@@ -321,9 +337,28 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             report = run_7aast(adapter, s["condition"], **run_kwargs)
     report.provenance = provenance(started, utc_now(), **prov)
     doc = build_document(report)
+    summary = summary_text(report)
+    if compare_baseline:
+        started = utc_now()
+        try:
+            base = run_7aast(adapter, s["condition"], demo=bool(demo),
+                             **{**run_kwargs, "profile": BASELINE_PROFILE})  # fmt: skip
+        except (ValueError, RemoteModelError) as err:
+            raise RequestError(str(err)) from err
+        base.provenance = provenance(started, utc_now(),
+                                     **{**prov, "scenario": None})  # fmt: skip
+        doc = build_comparison(doc, build_document(base))
+        summary += ("\n\nUS BASELINE:\n" + summary_text(base) + "\n\nCOMPARISON: "
+                    + compare_english(doc["comparison"], s["condition"]))  # fmt: skip
     notes = seal(doc, key=key, timestamp=bool(params.get("stamp")))
-    return {"document": doc, "document_json": document_json(doc), "html": render_html(doc),
-            "summary": summary_text(report), "seal_notes": notes}  # fmt: skip
+    out = {"document": doc, "document_json": document_json(doc), "html": render_html(doc),
+           "summary": summary, "seal_notes": notes}  # fmt: skip
+    if compare_baseline:
+        # Each run on its own, to save separately (exact text, so it still verifies).
+        out["reports"] = {side: {"document_json": document_json(doc[side]),
+                                 "html": render_html(doc[side])}
+                          for side in ("target", "baseline")}  # fmt: skip
+    return out
 
 
 def document_json(doc: dict[str, Any]) -> str:
@@ -347,7 +382,7 @@ def _signing_key(params: dict[str, Any]) -> dict[str, Any]:
 def _document(params: dict[str, Any], allowed: set[str]) -> dict[str, Any]:
     _unknown(params, frozenset(allowed))
     doc = params.get("document")
-    if not isinstance(doc, dict) or doc.get("format") != FORMAT:
+    if not isinstance(doc, dict) or doc.get("format") not in (FORMAT, COMPARISON_FORMAT):
         raise RequestError("'document' must be a 7AAST report document (the saved .json)")
     return doc
 
@@ -357,8 +392,8 @@ def verify_request(params: dict[str, Any], *, allow_network: bool = False) -> di
     doc = _document(params, {"document", "regenerate", "bitcoin"})
     if params.get("bitcoin") and not allow_network:
         raise RequestError("checking the Bitcoin block is done by the local tool (hipaasynth ui)")
-    result = verify(doc, regenerate=bool(params.get("regenerate")),
-                    bitcoin=bool(params.get("bitcoin")))  # fmt: skip
+    result = verify_document(doc, regenerate=bool(params.get("regenerate")),
+                             bitcoin=bool(params.get("bitcoin")))  # fmt: skip
     return {"ok": result.ok, "text": result.text(),
             "checks": [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in result.checks]}  # fmt: skip
 

@@ -303,8 +303,10 @@ def run_7aast(
                      records the subset in the report and says that a PASS
                      covers only those checks; skipped checks make no model calls.
     """
-    from hipaasynth.sdk import _resolve_profile
+    from hipaasynth.sdk import _resolve_profile, canonical_profile
 
+    if isinstance(profile, str):
+        profile = canonical_profile(profile)  # a former name is recorded as the current one
     if isinstance(n, bool) or not isinstance(n, int) or n < MIN_N:
         raise ValueError(f"n must be a whole number of at least {MIN_N}, got {n!r}")
     if not PREVALENCE_RANGE[0] <= prevalence <= PREVALENCE_RANGE[1]:

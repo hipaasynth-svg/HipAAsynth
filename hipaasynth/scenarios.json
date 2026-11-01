@@ -5,17 +5,25 @@
       "name": "tribal_sepsis",
       "label": "Tribal ICU · Sepsis",
       "module": "sepsis",
-      "profile": "nd_tribal_region_a",
+      "profile": "tribal_rural_a",
       "default_count": 200,
-      "description": "Sepsis decision module + Northern Plains tribal health profile (rural IHS service area, AI/AN-majority). Reflects the elevated sepsis burden documented for Indigenous populations in a low-connectivity, air-gapped deployment context."
+      "description": "Sepsis decision module + rural tribal health profile A (IHS service area, AI/AN-majority). Reflects the elevated sepsis burden documented for Indigenous populations in a low-connectivity, air-gapped deployment context."
     },
     {
       "name": "tribal_stroke",
       "label": "Tribal ICU · Stroke",
       "module": "stroke",
-      "profile": "nd_tribal_region_a",
+      "profile": "tribal_rural_a",
       "default_count": 200,
-      "description": "Stroke decision module + Northern Plains tribal health profile. The profile's age bands are calibrated for an ICU stroke cohort (mean age 65-68), pairing a rural, majority-AI/AN population with acute-stroke decision support."
+      "description": "Stroke decision module + rural tribal health profile A. The profile's age bands are calibrated for an ICU stroke cohort (mean age 65-68), pairing a rural, majority-AI/AN population with acute-stroke decision support."
+    },
+    {
+      "name": "tribal_dka",
+      "label": "Tribal ICU · DKA",
+      "module": "dka",
+      "profile": "tribal_rural_b",
+      "default_count": 200,
+      "description": "Diabetic ketoacidosis module + rural tribal health profile B (AI/AN-majority, adult age bands from 18). American Indian and Alaska Native adults have the highest diagnosed-diabetes prevalence of any US group (13.6%, CDC), so missed DKA falls hardest here."
     },
     {
       "name": "rural_nd_dka",

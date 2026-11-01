@@ -259,7 +259,7 @@ def test_cli_keygen_run_sign_stamp_upgrade_verify_proof(calendar, tmp_path, monk
     assert "Sealed: signed by key" in out and "pending" in out
     doc = load_document(report)
     assert doc["method"]["provenance"]["scenario"] == "tribal_sepsis"
-    assert doc["population"]["profile"] == "nd_tribal_region_a"
+    assert doc["population"]["profile"] == "tribal_rural_a"
     assert aast_main(["upgrade", str(report)]) == 0
     assert "No Bitcoin proof yet" in capsys.readouterr().out
     calendar.mined = True
