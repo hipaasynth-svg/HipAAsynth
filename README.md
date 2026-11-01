@@ -131,6 +131,14 @@ literature reports (qSOFA catches 42% of sepsis, a quarter of normotensive
 sepsis; SIRS catches 88% but raises a false alarm on half of look-alikes):
 [docs/REFERENCE_RESULTS.md](docs/REFERENCE_RESULTS.md).
 
+Every report is a **sealed test record**: who ran it, the model version and the
+run time are locked into its hash, the local tool signs it (Ed25519) and
+timestamps it in Bitcoin (OpenTimestamps), all with the standard library. Page
+one shows the seal, the verdict and how the model did in plain English, then a
+heatmap of missed cases by group and charts for every check; it prints to PDF,
+and anyone can check it with `hipaasynth 7aast verify report.html --bitcoin` or
+at opentimestamps.org.
+
 Models that answer yes/no, a risk score, a triage level, a ranked differential or
 free text are all supported. **Full guide: [docs/7AAST.md](docs/7AAST.md).** The
 synthetic look-alikes await clinician review

@@ -56,7 +56,9 @@ def _filled(answers_csv, answer):
 
 def test_demo_run_returns_verified_document_html_and_summary():
     result = run_request({**SMALL, "demo": "demo_guideline"})
-    assert set(result) == {"document", "html", "summary"}
+    assert set(result) == {"document", "document_json", "html", "summary", "seal_notes"}
+    assert json.loads(result["document_json"]) == result["document"]
+    assert result["seal_notes"] == [] and "seal" not in result["document"]
     assert verify(result["document"], regenerate=True).ok
     assert "DEMO MODEL" in result["html"] and "DEMO MODEL" in result["summary"]
 

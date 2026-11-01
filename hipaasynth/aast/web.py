@@ -30,6 +30,15 @@ Two requests, both JSON objects:
     Returns ``{"document", "html", "summary"}``: the report document with its
     hash chain, the report page and the terminal summary.
 
+Who ran it is locked into the report with ``model_version``, ``run_by``,
+``organization``, ``intended_use`` and ``scenario`` (a prebuilt scenario sets the
+condition and profile); the tool records the start and end times. On the local
+tool, ``sign`` signs the report with this computer's key and ``stamp`` sends the
+report hash to OpenTimestamps.
+
+``POST /7aast/verify``  ``{document, regenerate?, bitcoin?}``  checks a saved report.
+``POST /7aast/upgrade`` ``{document}`` fetches its Bitcoin proof (local tool only).
+
 It can also be ``{"reference": <published score>}``, and, on the local tool
 only (``hipaasynth ui``, 127.0.0.1), ``{"url": <model server>, "headers"?}`` or
 ``{"llm_provider": "openai" | "anthropic", "llm_model": ..., "llm_api_key"?,
@@ -40,6 +49,7 @@ keys) runs only those checks; accuracy always runs. No code is ever loaded.
 
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -50,16 +60,27 @@ from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
 from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
-from hipaasynth.aast.report import build_document, render_html
+from hipaasynth.aast import ots, sign
+from hipaasynth.aast.report import (
+    FORMAT,
+    build_document,
+    provenance,
+    render_html,
+    seal,
+    upgrade_seal,
+    utc_now,
+    verify,
+)
 from hipaasynth.aast.run import MIN_N, PREVALENCE_RANGE, TESTS, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
+from hipaasynth.scenarios import ScenarioError, resolve_scenario
 from hipaasynth.sdk import SEED_MAX, available_profiles
 
 #: Largest cohort one HTTP request may ask for (a run makes ~13 calls per patient).
 MAX_N = 1000
 
 SETTING_KEYS = frozenset(
-    {"condition", "input", "n", "seed", "prevalence", "profile", "natural_mix"}
+    {"condition", "input", "n", "seed", "prevalence", "profile", "natural_mix", "scenario"}
 )
 RUN_KEYS = SETTING_KEYS | {
     "demo",
@@ -80,7 +101,15 @@ RUN_KEYS = SETTING_KEYS | {
     "llm_model",
     "llm_api_key",
     "llm_base_url",
+    "model_version",
+    "run_by",
+    "organization",
+    "intended_use",
+    "scenario",
+    "sign",
+    "stamp",
 }
+PROVENANCE_KEYS = ("model_version", "run_by", "organization", "intended_use", "scenario")
 
 
 class RequestError(ValueError):
@@ -115,6 +144,17 @@ def _unknown(params: dict[str, Any], allowed: frozenset[str]) -> None:
 
 
 def _settings(params: dict[str, Any]) -> dict[str, Any]:
+    if params.get("scenario"):
+        try:
+            sc = resolve_scenario(str(params["scenario"]))
+        except ScenarioError as err:
+            raise RequestError(str(err)) from None
+        if params.get("condition") not in (None, "", sc["module"]):
+            raise RequestError(f"scenario {params['scenario']} is for {sc['module']}, "
+                               f"not {params['condition']}")  # fmt: skip
+        if params.get("profile") not in (None, "", sc["profile"]):
+            raise RequestError(f"scenario {params['scenario']} uses profile {sc['profile']}")
+        params = {**params, "condition": sc["module"], "profile": sc["profile"]}
     condition = params.get("condition")
     if condition not in TRUTH_FLAG:
         raise RequestError(f"'condition' must be one of {', '.join(sorted(TRUTH_FLAG))}")
@@ -177,6 +217,15 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
     """
     _unknown(params, RUN_KEYS)
     s = _settings(params)
+    if (params.get("sign") or params.get("stamp")) and not allow_url:
+        raise RequestError("signing and timestamping are done by the local tool (hipaasynth ui)")
+    try:
+        key = _signing_key(params) if params.get("sign") else None
+        prov = {k: params.get(k) for k in PROVENANCE_KEYS}
+        provenance("", "", **prov)  # check the fields before the run, not after
+    except (ValueError, OSError) as err:
+        raise RequestError(str(err)) from err
+    started = utc_now()
     demo, answers = params.get("demo"), params.get("answers")
     reference, url = params.get("reference"), params.get("url")
     llm = params.get("llm_provider")
@@ -229,12 +278,12 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
         model_name = str(params.get("llm_model") or "").strip()
         if not model_name:
             raise RequestError("give 'llm_model', the model name your provider uses")
-        key = str(params.get("llm_api_key") or "").strip() or None
+        api_key = str(params.get("llm_api_key") or "").strip() or None
         base_url = str(params.get("llm_base_url") or "").strip() or None
         try:
             adapter = llm_adapter(llm, model_name, input=s["input_type"],
                                   condition=s["condition"], base_url=base_url,
-                                  api_key=key)  # fmt: skip
+                                  api_key=api_key)  # fmt: skip
             report = run_7aast(adapter, s["condition"], **run_kwargs)
         except (ValueError, RemoteModelError) as err:
             raise RequestError(str(err)) from err
@@ -270,5 +319,58 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             settings.setdefault("name", "uploaded answers")
             adapter = answers_adapter(path, output, input=s["input_type"], **settings)
             report = run_7aast(adapter, s["condition"], **run_kwargs)
+    report.provenance = provenance(started, utc_now(), **prov)
     doc = build_document(report)
-    return {"document": doc, "html": render_html(doc), "summary": summary_text(report)}
+    notes = seal(doc, key=key, timestamp=bool(params.get("stamp")))
+    return {"document": doc, "document_json": document_json(doc), "html": render_html(doc),
+            "summary": summary_text(report), "seal_notes": notes}  # fmt: skip
+
+
+def document_json(doc: dict[str, Any]) -> str:
+    """The document as text to save or send back unchanged.
+
+    A browser re-serializing the parsed document would write 20.0 as 20 and so
+    change the hashes; the page keeps this text instead.
+    """
+    return json.dumps(doc, indent=2, ensure_ascii=False) + "\n"
+
+
+def _signing_key(params: dict[str, Any]) -> dict[str, Any]:
+    """This computer's signing key; made on first use with the tester's name."""
+    path = sign.default_key_path()
+    if not path.exists():
+        sign.new_key(path, signer=str(params.get("run_by") or ""),
+                     organization=str(params.get("organization") or ""))  # fmt: skip
+    return sign.load_key(path)
+
+
+def _document(params: dict[str, Any], allowed: set[str]) -> dict[str, Any]:
+    _unknown(params, frozenset(allowed))
+    doc = params.get("document")
+    if not isinstance(doc, dict) or doc.get("format") != FORMAT:
+        raise RequestError("'document' must be a 7AAST report document (the saved .json)")
+    return doc
+
+
+def verify_request(params: dict[str, Any], *, allow_network: bool = False) -> dict[str, Any]:
+    """Handle ``POST /7aast/verify``: check a saved report."""
+    doc = _document(params, {"document", "regenerate", "bitcoin"})
+    if params.get("bitcoin") and not allow_network:
+        raise RequestError("checking the Bitcoin block is done by the local tool (hipaasynth ui)")
+    result = verify(doc, regenerate=bool(params.get("regenerate")),
+                    bitcoin=bool(params.get("bitcoin")))  # fmt: skip
+    return {"ok": result.ok, "text": result.text(),
+            "checks": [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in result.checks]}  # fmt: skip
+
+
+def upgrade_request(params: dict[str, Any], *, allow_network: bool = False) -> dict[str, Any]:
+    """Handle ``POST /7aast/upgrade``: fetch the Bitcoin proof for a pending timestamp."""
+    doc = _document(params, {"document"})
+    if not allow_network:
+        raise RequestError("upgrading a timestamp is done by the local tool (hipaasynth ui)")
+    try:
+        changed = upgrade_seal(doc)
+    except ots.OTSError as err:
+        raise RequestError(str(err)) from err
+    return {"document": doc, "document_json": document_json(doc), "html": render_html(doc),
+            "changed": changed}  # fmt: skip
