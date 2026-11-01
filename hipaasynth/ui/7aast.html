@@ -3,11 +3,13 @@
   HipAAsynth — Synthetic health data fairness testing for invisible populations.
   Copyright (C) 2026 HipAAsynth Contributors. Licensed under the GNU AGPL v3+.
 
-  The 7AAST page: pick what the model does, try a demo model or test your own
-  model by file, read the report, save it. Served at GET /7aast by
-  hipaasynth/api.py (start it with `hipaasynth ui`). Pure HTML + CSS + vanilla
-  JS: no build step, no framework, no CDN. Everything runs on the machine that
-  serves this page; the server never calls a model or loads code.
+  The 7AAST page: pick what the model does, choose the model (a demo, a
+  published score, answers by file, a model server or an LLM API with your
+  key), pick which checks to run, read the report, save it. Served at GET
+  /7aast by hipaasynth/api.py (start it with `hipaasynth ui`). Pure HTML + CSS +
+  vanilla JS: no build step, no framework, no CDN. Only the local tool calls a
+  model server or LLM API; an API key is used for this run's calls and is never
+  saved or written into the report. No code is ever loaded.
 -->
 <html lang="en">
 <head>
@@ -42,7 +44,7 @@
     .sub { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
     label { display: block; margin: 12px 0 4px; font-size: 14px; font-weight: 600; }
     .help { font-weight: 400; color: var(--muted); font-size: 13px; }
-    select, input[type=number], input[type=text] { width: 100%; padding: 8px 10px; font-size: 14px;
+    select, input[type=number], input[type=text], input[type=password] { width: 100%; padding: 8px 10px; font-size: 14px;
       background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 16px; }
     .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
@@ -138,6 +140,8 @@
         <b>Test my model with files</b><span>No integration: download cases, run them through your model, upload the answers.</span></label>
       <label class="choice"><input type="radio" name="source" value="url" />
         <b>My model's web address</b><span>The page sends each case to your model server and reads its answer.</span></label>
+      <label class="choice"><input type="radio" name="source" value="llm" />
+        <b>An LLM with my API key</b><span>OpenAI, Anthropic or any OpenAI-compatible server. Each case is asked as a question.</span></label>
     </div>
     <div id="demoOpts">
       <label for="demo">Demo model</label>
@@ -165,6 +169,27 @@
       <input id="modelHeader" type="text" placeholder="Authorization: Bearer ..." />
       <label for="urlName">Model name for the report</label>
       <input id="urlName" type="text" placeholder="e.g. Hospital sepsis model v2" />
+    </div>
+    <div id="llmOpts" class="hidden">
+      <div class="grid">
+        <div><label for="llmProvider">Provider</label>
+          <select id="llmProvider">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="compatible">OpenAI-compatible server (local or hosted)</option>
+          </select></div>
+        <div><label for="llmModel">Model name <span class="help">as your provider spells it</span></label>
+          <input id="llmModel" type="text" placeholder="e.g. gpt-4o or claude-sonnet-5-5" autocomplete="off" /></div>
+      </div>
+      <div id="llmBaseWrap" class="hidden">
+        <label for="llmBaseUrl">Server address <span class="help">the base that ends before /chat/completions</span></label>
+        <input id="llmBaseUrl" type="text" placeholder="http://localhost:11434/v1" autocomplete="off" />
+      </div>
+      <label for="llmKey">API key <span class="help">used only for this run's calls; never saved, never in the report</span></label>
+      <input id="llmKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+      <p class="sub" style="margin-top:8px">The model reads each case and must end with
+        <code>FINAL_ANSWER: yes</code> or <code>no</code>; temperature is 0. A full run makes about
+        13 calls per patient (fewer if you turn checks off below), billed to your key.</p>
     </div>
     <div id="fileOpts" class="hidden">
       <ol class="steps">
@@ -201,7 +226,14 @@
   </section>
 
   <section class="card">
-    <h2><span class="n">3</span>Run the test</h2>
+    <h2><span class="n">3</span>Which checks?</h2>
+    <p class="sub">Accuracy always runs. Turning a check off saves model calls, but the report then
+      says it is a partial run and a PASS covers only the checks shown.</p>
+    <div id="tests" class="choices"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="n">4</span>Run the test</h2>
     <div class="actions"><button id="runBtn" type="button">Run 7AAST</button></div>
     <p id="status" role="status" aria-live="polite"></p>
   </section>
@@ -225,6 +257,23 @@
 const $ = (id) => document.getElementById(id);
 const radio = (name) => document.querySelector(`input[name=${name}]:checked`).value;
 let last = null;
+const TESTS = [
+  ["forms", "Written forms", "The same patient written up seven ways (Axes 1 to 4). Written notes only."],
+  ["groups", "Group fairness", "Missed cases by race, sex, age, skin tone, rurality, insurance, language."],
+  ["twins", "Race and sex twins", "Change only race or sex and see if the answer changes (Axis 5)."],
+  ["settings", "Care settings", "Clinics and rural sites with tests missing (Axis 6)."],
+  ["history", "Fragmented history", "Records split across systems (Axis 7)."],
+];
+for (const [key, title, text] of TESTS) {
+  const label = document.createElement("label");
+  label.className = "choice";
+  const box = Object.assign(document.createElement("input"), { type: "checkbox", value: key, checked: true });
+  box.id = `test-${key}`;
+  box.addEventListener("change", refresh);
+  label.append(box, Object.assign(document.createElement("b"), { textContent: title }),
+    Object.assign(document.createElement("span"), { textContent: text }));
+  $("tests").appendChild(label);
+}
 
 function setStatus(text, kind) {
   $("status").textContent = text;
@@ -234,14 +283,21 @@ function setStatus(text, kind) {
 function refresh() {
   const source = radio("source");
   const demo = source === "demo";
+  const llm = source === "llm";
+  if (llm) $("output").value = "text";
+  const record = radio("input") === "record";
+  $("test-forms").disabled = record;
+  $("test-forms").closest("label").title = record ? "Written forms apply to models that read notes." : "";
   const choice = $("demo").selectedOptions[0];
   if (demo) {
     $("output").value = choice.value === "ref:news2" ? "score" : "binary";
     if (choice.dataset.condition) $("condition").value = choice.dataset.condition;
   }
-  $("output").disabled = demo;
+  $("output").disabled = demo || llm;
   $("condition").disabled = demo && Boolean(choice.dataset.condition);
   const out = $("output").value;
+  $("llmOpts").classList.toggle("hidden", !llm);
+  $("llmBaseWrap").classList.toggle("hidden", $("llmProvider").value !== "compatible");
   $("scoreOpts").classList.toggle("hidden", demo || out !== "score");
   $("ordinalOpts").classList.toggle("hidden", demo || out !== "ordinal");
   $("rankedOpts").classList.toggle("hidden", demo || out !== "ranked");
@@ -249,7 +305,7 @@ function refresh() {
   $("fileOpts").classList.toggle("hidden", source !== "file");
   $("urlOpts").classList.toggle("hidden", source !== "url");
 }
-document.querySelectorAll("input[name=source], input[name=input], #output, #demo")
+document.querySelectorAll("input[name=source], input[name=input], #output, #demo, #llmProvider")
   .forEach((el) => el.addEventListener("change", refresh));
 
 function settings() {
@@ -311,6 +367,18 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
     const value = $("demo").value;
     if (value.startsWith("ref:")) body.reference = value.slice(4);
     else body.demo = value;
+  } else if (source === "llm") {
+    const provider = $("llmProvider").value;
+    if (!$("llmModel").value.trim()) throw new Error("Enter the model name (step 2).");
+    body.llm_provider = provider === "compatible" ? "openai" : provider;
+    body.llm_model = $("llmModel").value.trim();
+    if (provider === "compatible") {
+      if (!$("llmBaseUrl").value.trim()) throw new Error("Enter the server address (step 2).");
+      body.llm_base_url = $("llmBaseUrl").value.trim();
+    } else if (!$("llmKey").value.trim()) {
+      throw new Error("Enter your API key (step 2).");
+    }
+    if ($("llmKey").value.trim()) body.llm_api_key = $("llmKey").value.trim();
   } else {
     if (source === "url") {
       if (!$("modelUrl").value.trim()) throw new Error("Enter your model's web address (step 2).");
@@ -337,6 +405,10 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
     if (body.output === "ordinal") body.acute_levels = $("acuteLevels").value;
     if (body.output === "ranked") body.k = Number($("k").value);
   }
+  // Written forms are not applicable to record models (no calls), so they never make a run partial.
+  const picked = TESTS.map(([key]) => key)
+    .filter((key) => $(`test-${key}`).checked || $(`test-${key}`).disabled);
+  if (picked.length < TESTS.length) body.tests = picked;
   if ($("deployment").value !== "") body.deployment_prevalence = Number($("deployment").value);
   last = await post("/7aast", body);
   show(last);

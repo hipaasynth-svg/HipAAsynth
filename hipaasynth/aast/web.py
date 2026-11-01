@@ -30,9 +30,12 @@ Two requests, both JSON objects:
     Returns ``{"document", "html", "summary"}``: the report document with its
     hash chain, the report page and the terminal summary.
 
-A model is never called over the network and no code is loaded: the server
-only runs built-in demo models or replays an answers file. To test a live
-model, use ``hipaasynth 7aast run --model module:function`` or the Python API.
+It can also be ``{"reference": <published score>}``, and, on the local tool
+only (``hipaasynth ui``, 127.0.0.1), ``{"url": <model server>, "headers"?}`` or
+``{"llm_provider": "openai" | "anthropic", "llm_model": ..., "llm_api_key"?,
+"llm_base_url"?}``. An API key or header is used for the calls and never
+written into the report. ``tests`` (a list of :data:`~hipaasynth.aast.run.TESTS`
+keys) runs only those checks; accuracy always runs. No code is ever loaded.
 """
 
 from __future__ import annotations
@@ -46,9 +49,9 @@ from hipaasynth.aast.cli import summary_text
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
-from hipaasynth.aast.remote import RemoteModelError, url_adapter
+from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
 from hipaasynth.aast.report import build_document, render_html
-from hipaasynth.aast.run import MIN_N, PREVALENCE_RANGE, run_7aast
+from hipaasynth.aast.run import MIN_N, PREVALENCE_RANGE, TESTS, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
 from hipaasynth.sdk import SEED_MAX, available_profiles
 
@@ -72,6 +75,11 @@ RUN_KEYS = SETTING_KEYS | {
     "reference",
     "url",
     "headers",
+    "tests",
+    "llm_provider",
+    "llm_model",
+    "llm_api_key",
+    "llm_base_url",
 }
 
 
@@ -171,16 +179,24 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
     s = _settings(params)
     demo, answers = params.get("demo"), params.get("answers")
     reference, url = params.get("reference"), params.get("url")
-    if sum(bool(x) for x in (demo, answers, reference, url)) != 1:
+    llm = params.get("llm_provider")
+    if sum(bool(x) for x in (demo, answers, reference, url, llm)) != 1:
         raise RequestError(
             "give exactly one of 'demo' (a built-in model), 'reference' (a published score), "
-            "'answers' (a file) or 'url' (a model server)"
+            "'answers' (a file), 'url' (a model server) or 'llm_provider' (an LLM API)"
         )
-    if url and not allow_url:
+    if (url or llm) and not allow_url:
         raise RequestError(
-            "'url' is only accepted by the local tool (hipaasynth ui); this server does not "
-            "call out to other addresses"
+            f"'{'url' if url else 'llm_provider'}' is only accepted by the local tool "
+            "(hipaasynth ui); this server does not call out to other addresses"
         )
+    tests = params.get("tests")
+    if tests is not None:
+        if not isinstance(tests, list) or not all(isinstance(t, str) for t in tests):
+            raise RequestError("'tests' must be a list of test names")
+        unknown = sorted(set(tests) - set(TESTS))
+        if unknown:
+            raise RequestError(f"unknown test(s) {unknown}; choose from {', '.join(TESTS)}")
     deployment = None
     if params.get("deployment_prevalence") not in (None, ""):
         deployment = _number(params, "deployment_prevalence", float, None, 1e-6, 1.0)
@@ -191,6 +207,7 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
         "profile": s["profile"],
         "balance_groups": s["balance_groups"],
         "deployment_prevalence": deployment,
+        "tests": tests,
     }
     if demo:
         if demo not in DEMO_MODELS:
@@ -206,6 +223,21 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             )
         report = run_7aast(reference_adapter(reference, s["input_type"]), s["condition"],
                            **run_kwargs)  # fmt: skip
+    elif llm:
+        if llm not in LLM_PROVIDERS:
+            raise RequestError(f"'llm_provider' must be one of {', '.join(LLM_PROVIDERS)}")
+        model_name = str(params.get("llm_model") or "").strip()
+        if not model_name:
+            raise RequestError("give 'llm_model', the model name your provider uses")
+        key = str(params.get("llm_api_key") or "").strip() or None
+        base_url = str(params.get("llm_base_url") or "").strip() or None
+        try:
+            adapter = llm_adapter(llm, model_name, input=s["input_type"],
+                                  condition=s["condition"], base_url=base_url,
+                                  api_key=key)  # fmt: skip
+            report = run_7aast(adapter, s["condition"], **run_kwargs)
+        except (ValueError, RemoteModelError) as err:
+            raise RequestError(str(err)) from err
     elif url:
         output = params.get("output", "binary")
         if output not in OUTPUT_TYPES:

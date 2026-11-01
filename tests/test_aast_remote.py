@@ -26,7 +26,7 @@ from hipaasynth.aast.remote import (
     public_endpoint,
     url_adapter,
 )
-from hipaasynth.aast.run import run_7aast
+from hipaasynth.aast.run import TESTS, run_7aast
 from hipaasynth.aast.web import RequestError, run_request
 
 
@@ -229,3 +229,100 @@ def test_web_reference_and_url_rules(server):
         run_request({**base, "reference": "qsofa", "demo": "demo_guideline"})
     with pytest.raises(RequestError, match="decides stroke"):
         run_request({**base, "reference": "rosier"})
+
+
+# --- LLM with a typed-in key, and choosing which checks run (the 7AAST page) -----------
+
+
+def test_web_llm_with_typed_key_never_records_it(server):
+    _Model.seen.clear()
+    params = {"condition": "sepsis", "input": "text", "n": 30, "llm_provider": "openai",
+              "llm_model": "gpt-test", "llm_base_url": f"{server}/v1",
+              "llm_api_key": "sk-typed-SECRET-123"}  # fmt: skip
+    out = run_request(params, allow_url=True)
+    assert out["document"]["method"]["model"]["name"] == "openai:gpt-test"
+    assert any(h.get("authorization") == "Bearer sk-typed-SECRET-123" for _, h, _ in _Model.seen)
+    text = json.dumps(out["document"]) + out["html"] + out["summary"]
+    assert "SECRET" not in text
+    with pytest.raises(RequestError, match="only accepted by the local tool"):
+        run_request(params)
+    with pytest.raises(RequestError, match="llm_model"):
+        run_request({**params, "llm_model": " "}, allow_url=True)
+    with pytest.raises(RequestError, match="llm_provider"):
+        run_request({**params, "llm_provider": "gemini"}, allow_url=True)
+
+
+def test_web_anthropic_key_goes_in_its_header(server):
+    _Model.seen.clear()
+    run_request({"condition": "sepsis", "input": "record", "n": 30, "llm_provider": "anthropic",
+                 "llm_model": "claude-test", "llm_base_url": f"{server}/v1",
+                 "llm_api_key": "anthropic-key", "tests": ["groups"]},
+                allow_url=True)  # fmt: skip
+    assert all(h.get("x-api-key") == "anthropic-key" for p, h, _ in _Model.seen)
+    assert {p for p, _, _ in _Model.seen} == {"/v1/messages"}
+
+
+def test_chosen_tests_skip_their_calls_and_are_hashed():
+    from hipaasynth.aast.demo import demo_adapter
+    from hipaasynth.aast.report import build_document, verify
+
+    adapter = demo_adapter("demo_guideline", "sepsis", "text")
+    full = run_7aast(adapter, "sepsis", n=40, demo=True)
+    part = run_7aast(adapter, "sepsis", n=40, demo=True, tests=["groups"])
+    assert {a.axis for a in part.axes} == {"accuracy", "2b"}
+    assert part.model_calls == 40 < full.model_calls
+    assert part.settings["tests"] == ["groups"] and "tests" not in full.settings
+    assert "PARTIAL RUN" in part.limitations[1] and part.limitations[0].startswith("DEMO")
+    assert not any("PARTIAL" in x for x in full.limitations)
+    doc = build_document(part)
+    assert verify(doc).ok
+    doc["method"]["settings"]["tests"] = list(TESTS)  # claim every check ran
+    assert not verify(doc).ok
+    with pytest.raises(ValueError, match="unknown test"):
+        run_7aast(adapter, "sepsis", n=40, tests=["axis9"])
+    with pytest.raises(RequestError, match="unknown test"):
+        run_request({"condition": "sepsis", "input": "text", "n": 30, "demo": "demo_guideline",
+                     "tests": ["axis9"]})  # fmt: skip
+    with pytest.raises(RequestError, match="list"):
+        run_request({"condition": "sepsis", "input": "text", "n": 30, "demo": "demo_guideline",
+                     "tests": "groups"})  # fmt: skip
+
+
+def test_cli_tests_flag(capsys):
+    assert aast_main(["run", "--condition", "sepsis", "--input", "record", "--n", "30",
+                      "--demo", "demo_guideline", "--tests", "groups,history"]) in (0, 2)  # fmt: skip
+    out = capsys.readouterr().out
+    assert "PARTIAL RUN" in out
+    assert aast_main(["run", "--condition", "sepsis", "--input", "record", "--n", "30",
+                      "--demo", "demo_guideline", "--tests", "nope"]) == 1  # fmt: skip
+
+
+def test_local_tool_refuses_other_hosts_and_origins():
+    import urllib.error
+    import urllib.request
+
+    from hipaasynth.api import make_server
+
+    srv = make_server("127.0.0.1", 0, allow_model_url=True)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    port = srv.server_address[1]
+    body = json.dumps({"condition": "sepsis", "input": "record", "n": 30,
+                       "demo": "demo_guideline", "tests": ["groups"]}).encode()  # fmt: skip
+
+    def post(extra):
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/7aast", data=body, method="POST",
+                                     headers={"Content-Type": "application/json", **extra})  # fmt: skip
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return resp.status
+        except urllib.error.HTTPError as err:
+            return err.code
+
+    try:
+        assert post({}) == 200
+        assert post({"Origin": f"http://localhost:{port}"}) == 200
+        assert post({"Host": f"evil.example:{port}"}) == 403  # DNS rebinding
+        assert post({"Origin": "https://evil.example"}) == 403  # another site's page
+    finally:
+        srv.shutdown()
+        srv.server_close()

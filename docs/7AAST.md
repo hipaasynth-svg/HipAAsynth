@@ -110,8 +110,14 @@ without its query string, and headers are never recorded. On the page choose
 **My model's web address**; only the local tool (`hipaasynth ui`) will call an
 address, a shared server refuses.
 
-For an LLM, give the provider and model; the key comes from
-`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`:
+For an LLM on the page choose **An LLM with my API key**, pick the provider
+(OpenAI, Anthropic, or an OpenAI-compatible server with its address), type the
+model name and your key, and run. The key is used only for that run's calls,
+is never saved and never appears in the report; only the local tool accepts it,
+and it only answers pages served from this computer. Each case is one call at
+temperature 0, and the model must end its reply with `FINAL_ANSWER: yes` or
+`no`. On the command line the key comes from `OPENAI_API_KEY` or
+`ANTHROPIC_API_KEY`:
 
 ```bash
 hipaasynth 7aast run --condition stroke --input text --llm openai --llm-model gpt-4o
@@ -119,6 +125,20 @@ hipaasynth 7aast run --condition stroke --input text --llm anthropic --llm-model
 hipaasynth 7aast run --condition stroke --input text --llm openai --llm-model llama3 \
     --llm-base-url http://localhost:11434/v1        # any OpenAI-compatible server
 ```
+
+### Choosing which checks run
+
+A full run makes about 13 model calls per patient. To save calls (and an LLM
+bill), turn checks off under **Which checks?** on the page, or name the ones to
+keep:
+
+```bash
+hipaasynth 7aast run ... --tests groups,twins     # forms, groups, twins, settings, history
+```
+
+Accuracy always runs. The report of a partial run starts with **PARTIAL RUN**,
+lists the checks that were not run, and a PASS covers only the checks shown.
+The chosen list is part of the hashed method, so it cannot be edited away.
 
 ### D. A published clinical score
 
