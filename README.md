@@ -266,6 +266,7 @@ lazily imported, so nothing is pulled in until you use that feature.
 | `.[seismometer]` | Epic Seismometer fairness reports (`examples/seismometer/`) |
 | `.[dev]` | pytest, black, ruff, mypy, pre-commit |
 | `.[test-browser]` | Playwright, for the headless-browser UI tests |
+| `.[test-ots]` | The reference OpenTimestamps library, only to cross-check the built-in timestamp code in tests (LGPL; never a runtime dependency) |
 | `.[examples]` | Third-party deps of the `examples/` scripts |
 | `.[test-full]` | Everything above needed to run the suite with zero skips |
 
