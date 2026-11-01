@@ -395,6 +395,21 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
             remaining -= len(chunk)
         return b"".join(chunks)
 
+    def _local_request(self) -> bool:
+        """True when the request is addressed to, and sent from a page on, this machine.
+
+        The local tool can call model servers and carries API keys, so another web
+        page must not drive it: a DNS-rebinding page arrives with a foreign Host,
+        a cross-site page with a foreign Origin.
+        """
+        local = {"127.0.0.1", "localhost", "[::1]"}
+        port = str(self.server.server_address[1])  # type: ignore[index]
+        allowed = {f"{h}:{port}" for h in local}
+        if self.headers.get("Host", "") not in allowed:
+            return False
+        origin = self.headers.get("Origin")
+        return origin is None or origin in {f"http://{a}" for a in allowed}
+
     def _route(self):
         parsed = urlparse(self.path)
         return (parsed.path.rstrip("/") or "/"), parsed
@@ -460,6 +475,10 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         route, parsed = self._route()
         if self._method_guard(route, "POST"):
             return
+        if self.allow_model_url and route.startswith("/7aast") and not self._local_request():
+            return self._send_api_error(
+                ApiError(403, "the local tool only accepts runs from http://127.0.0.1 or localhost")
+            )
         limit = AAST_MAX_BODY_BYTES if route.startswith("/7aast") else MAX_BODY_BYTES
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -598,8 +617,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
     def _handle_7aast(self, route: str, raw: bytes):
         """``POST /7aast`` (run) and ``POST /7aast/export`` (cases to answer).
 
-        JSON only. Runs built-in demo models or replays an uploaded answers file;
-        never calls out to a model or loads code (see hipaasynth/aast/web.py).
+        JSON only. Runs demo models, published scores or an uploaded answers file;
+        only the local tool (allow_model_url) calls a model server or LLM API.
+        No code is ever loaded (see hipaasynth/aast/web.py).
         """
         from hipaasynth.aast.files import AnswerFileError
         from hipaasynth.aast.web import RequestError, export_request, run_request

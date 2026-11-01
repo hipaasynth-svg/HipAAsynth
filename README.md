@@ -124,7 +124,8 @@ hipaasynth 7aast verify report.html --regenerate
 ```
 
 You can also point it at a model server's address, an LLM API (OpenAI-compatible
-or Anthropic), or one of the built-in published clinical scores (qSOFA, SIRS,
+or Anthropic; on the page you type your key in, and it is never saved), choose
+which checks run, or one of the built-in published clinical scores (qSOFA, SIRS,
 NEWS2, ROSIER, ADA DKA). Run through 7AAST, those scores show the weaknesses the
 literature reports (qSOFA catches 42% of sepsis, a quarter of normotensive
 sepsis; SIRS catches 88% but raises a false alarm on half of look-alikes):

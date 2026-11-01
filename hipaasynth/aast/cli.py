@@ -64,7 +64,7 @@ from hipaasynth.aast.files import AnswerFileError, answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
 from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
 from hipaasynth.aast.report import load_document, verify, write_report
-from hipaasynth.aast.run import AASTReport, run_7aast
+from hipaasynth.aast.run import TESTS, AASTReport, run_7aast
 from hipaasynth.decision_cohort import TRUTH_FLAG
 
 _ICON = {
@@ -146,6 +146,16 @@ def _adapter_settings(args: argparse.Namespace) -> dict[str, Any]:
     return settings
 
 
+def _tests(raw: str | None) -> list[str] | None:
+    if raw is None:
+        return None
+    tests = [t.strip() for t in raw.split(",") if t.strip()]
+    unknown = sorted(set(tests) - set(TESTS))
+    if unknown:
+        raise ValueError(f"--tests: unknown test(s) {unknown}; choose from {', '.join(TESTS)}")
+    return tests
+
+
 def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--condition", required=True, choices=sorted(TRUTH_FLAG))
     p.add_argument("--input", required=True, choices=INPUT_TYPES,
@@ -199,6 +209,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--name", help="Model name for the report.")
     run.add_argument("--deployment-prevalence", type=float,
                      help="Real-world prevalence, for a positive predictive value estimate.")  # fmt: skip
+    run.add_argument("--tests",
+                     help="Run only these checks, comma separated: "
+                     + ", ".join(TESTS) + " (default all; accuracy always runs).")  # fmt: skip
     run.add_argument("--report",
                      help="Also save the full report here: .html to read, .json for systems.")  # fmt: skip
 
@@ -283,6 +296,7 @@ def main(argv: list[str] | None = None) -> int:
             deployment_prevalence=args.deployment_prevalence,
             demo=bool(args.demo),
             balance_groups=not args.natural_mix,
+            tests=_tests(args.tests),
         )
     except (AnswerFileError, ValueError, TypeError, ImportError, AttributeError, OSError,
             RemoteModelError) as err:  # fmt: skip

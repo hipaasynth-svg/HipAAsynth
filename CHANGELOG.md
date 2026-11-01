@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] — 2026-11-01
+
+### Added
+
+- The 7AAST page can test an LLM with your own API key: choose OpenAI,
+  Anthropic or any OpenAI-compatible server, type the model name and key, and
+  run. The key is used only for that run's calls; it is never saved, logged or
+  written into the report. Only the local tool (`hipaasynth ui`) accepts it.
+- Choose which checks run: written forms (Axes 1-4), group fairness, race and
+  sex twins (Axis 5), care settings (Axis 6) and fragmented history (Axis 7).
+  Accuracy always runs. On the page as checkboxes, on the command line as
+  `--tests groups,history`, in Python as `run_7aast(..., tests=[...])`. A run
+  with checks left out says PARTIAL RUN in its report, a PASS then covers only
+  the checks shown, and the chosen list is recorded under the hash chain.
+  Full runs are unchanged, byte for byte.
+
+### Security
+
+- The local tool (`hipaasynth ui`) now refuses 7AAST requests addressed to any
+  host but 127.0.0.1 or localhost, or sent from another site's page, so a web
+  page cannot drive it into calling a model with your key (DNS rebinding,
+  cross-site requests).
+
 ## [1.8.0] — 2026-10-31
 
 ### Changed

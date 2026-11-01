@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import copy
 import random
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -123,6 +123,16 @@ MIN_N = 10
 PREVALENCE_RANGE = (0.05, 0.95)
 
 AXIS_ORDER = ("accuracy", "1", "2", "2b", "3", "4", "5", "6", "7")
+
+#: The checks a run can include, by what they test. Accuracy always runs: every
+#: other check is measured against the model's answers on the plain cases.
+TESTS: dict[str, str] = {
+    "forms": "Written forms: same patient, seven write-ups (Axes 1-4; text models only)",
+    "groups": "Group fairness: missed cases by race, sex, age, skin tone and more",
+    "twins": "Race and sex twins: change only race or sex (Axis 5)",
+    "settings": "Care settings with missing tests (Axis 6)",
+    "history": "Fragmented care history (Axis 7)",
+}
 
 #: The form used for demographic twins: it is the one that states ethnicity.
 TWIN_FORM = Form.MIDLEVEL_ABBREVIATED
@@ -263,6 +273,7 @@ def run_7aast(
     min_events: int = DEFAULT_MIN_EVENTS,
     demo: bool = False,
     balance_groups: bool = True,
+    tests: Collection[str] | None = None,
 ) -> AASTReport:
     """Run every 7AAST axis that applies to ``adapter`` on one decision cohort.
 
@@ -282,6 +293,10 @@ def run_7aast(
         balance_groups: With no ``profile``, represent every race/ethnicity group
                      equally so each can be judged (an enriched design). A
                      profile always keeps its own population mix.
+        tests:       Which checks to run (keys of :data:`TESTS`); ``None`` runs
+                     all of them. Accuracy always runs. A run with a subset
+                     records the subset in the report and says that a PASS
+                     covers only those checks; skipped checks make no model calls.
     """
     from hipaasynth.sdk import _resolve_profile
 
@@ -297,6 +312,12 @@ def run_7aast(
             f"n={n} at prevalence {prevalence} leaves no true cases or no look-alikes; "
             "use more patients"
         )
+
+    if tests is not None:
+        unknown = sorted(set(tests) - set(TESTS))
+        if unknown:
+            raise ValueError(f"unknown test(s) {unknown}; choose from {', '.join(TESTS)}")
+    selected = set(TESTS) if tests is None else set(tests)
 
     profile_path = _resolve_profile(profile) if profile else None
     balanced = balance_groups and profile is None
@@ -334,11 +355,18 @@ def run_7aast(
 
     axes: list[AxisResult] = []
     axes.append(_accuracy_axis(cohort, base, seed, min_events, deployment_prevalence))
-    axes.extend(_dif_axes(model, cohort, seed, input_type))
-    axes.append(_group_axis(cohort, base, seed, min_events, input_type))
-    axes.append(_twin_axis(model, cohort, base, seed, input_type, noise_cases, repeats, condition))
-    axes.append(_setting_axis(cohort, base, ask, seed, min_events))
-    axes.append(_continuity_axis(cohort, base, ask, seed, min_events))
+    if "forms" in selected:
+        axes.extend(_dif_axes(model, cohort, seed, input_type))
+    if "groups" in selected:
+        axes.append(_group_axis(cohort, base, seed, min_events, input_type))
+    if "twins" in selected:
+        axes.append(
+            _twin_axis(model, cohort, base, seed, input_type, noise_cases, repeats, condition)
+        )
+    if "settings" in selected:
+        axes.append(_setting_axis(cohort, base, ask, seed, min_events))
+    if "history" in selected:
+        axes.append(_continuity_axis(cohort, base, ask, seed, min_events))
     axes.sort(key=lambda a: AXIS_ORDER.index(a.axis))
 
     answered = sum(r.answered for r in base)
@@ -377,24 +405,35 @@ def run_7aast(
             "REFERENCE: a reimplementation of a published clinical score, run to show how "
             "the rule behaves; not a vendor's product.",
         )
+    if tests is not None and selected != set(TESTS):
+        skipped = [TESTS[t].split(":")[0] for t in TESTS if t not in selected]
+        limitations.insert(
+            0,
+            "PARTIAL RUN: these checks were not run: " + "; ".join(skipped) + ". "
+            "A PASS covers only the checks shown.",
+        )
     if demo:
         limitations.insert(0, "DEMO: built-in demonstration model, not a clinical tool.")
+    settings_out: dict[str, Any] = {
+        "condition": condition,
+        "n": n,
+        "seed": seed,
+        "prevalence": prevalence,
+        "profile": profile,
+        "deployment_prevalence": deployment_prevalence,
+        "information_mode": INFO_MODE_BLINDED,
+        "balanced_groups": balanced,
+        "true_cases": sum(c.truth for c in cohort),
+        "noise_cases": noise_cases,
+        "repeats": repeats,
+        "min_events": min_events,
+    }
+    if tests is not None:
+        # Only recorded for a chosen subset, so reports of full runs stay as before.
+        settings_out["tests"] = [t for t in TESTS if t in selected]
     return AASTReport(
         engine_version=ENGINE_VERSION,
-        settings={
-            "condition": condition,
-            "n": n,
-            "seed": seed,
-            "prevalence": prevalence,
-            "profile": profile,
-            "deployment_prevalence": deployment_prevalence,
-            "information_mode": INFO_MODE_BLINDED,
-            "balanced_groups": balanced,
-            "true_cases": sum(c.truth for c in cohort),
-            "noise_cases": noise_cases,
-            "repeats": repeats,
-            "min_events": min_events,
-        },
+        settings=settings_out,
         model=adapter.describe(),
         demo=demo,
         axes=axes,

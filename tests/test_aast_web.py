@@ -300,3 +300,79 @@ def test_browser_model_url_is_refused_by_a_shared_server(page):
     page.click("#runBtn")
     page.wait_for_selector("#status.err", timeout=30_000)
     assert "only accepted by the local tool" in page.inner_text("#status")
+
+
+def test_browser_llm_key_field_and_checks(page):
+    page.check("input[name=source][value=llm]")
+    assert page.is_visible("#llmKey") and page.get_attribute("#llmKey", "type") == "password"
+    assert page.is_disabled("#output") and page.input_value("#output") == "text"
+    assert not page.is_visible("#llmBaseUrl")
+    page.select_option("#llmProvider", "compatible")
+    assert page.is_visible("#llmBaseUrl")
+    page.select_option("#llmProvider", "openai")
+    page.fill("#llmModel", "gpt-test")
+    page.click("#runBtn")
+    page.wait_for_selector("#status.err")
+    assert "API key" in page.inner_text("#status")
+    page.check("input[name=input][value=record]")
+    assert page.is_disabled("#test-forms")
+    page.fill("#llmKey", "sk-test")
+    page.click("#runBtn")
+    page.wait_for_selector("#status.err:has-text('local tool')", timeout=30_000)
+
+
+def test_browser_unchecked_checks_make_a_partial_run(page):
+    page.check("input[name=input][value=record]")
+    page.uncheck("#test-twins")
+    page.uncheck("#test-settings")
+    page.click("details summary")
+    page.fill("#n", "30")
+    page.click("#runBtn")
+    page.wait_for_selector("#results:not(.hidden)", timeout=60_000)
+    body = page.frame_locator("#reportFrame").locator("body").inner_text()
+    assert "PARTIAL RUN" in body and "Race and sex twins" in body
+
+
+def test_browser_llm_run_on_the_local_tool(tmp_path):
+    """The real path: hipaasynth ui's server, a typed-in key, a (fake) OpenAI API."""
+    from http.server import ThreadingHTTPServer
+
+    from tests.test_aast_remote import _Model
+
+    pw = pytest.importorskip("playwright.sync_api")
+    fake = ThreadingHTTPServer(("127.0.0.1", 0), _Model)
+    local = make_server("127.0.0.1", 0, allow_model_url=True)
+    for srv in (fake, local):
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+    exe = _chromium_executable()
+    _Model.seen.clear()
+    try:
+        with pw.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(**({"executable_path": exe} if exe else {}))
+            except Exception as err:  # noqa: BLE001  # pragma: no cover
+                pytest.skip(f"headless Chromium unavailable: {err}")
+            pg = browser.new_page()
+            pg.goto(f"http://127.0.0.1:{local.server_address[1]}/7aast")
+            pg.check("input[name=source][value=llm]")
+            pg.select_option("#llmProvider", "compatible")
+            pg.fill("#llmBaseUrl", f"http://127.0.0.1:{fake.server_address[1]}/v1")
+            pg.fill("#llmModel", "gpt-test")
+            pg.fill("#llmKey", "sk-browser-SECRET")
+            for key in ("forms", "twins", "settings", "history"):
+                pg.uncheck(f"#test-{key}")
+            pg.click("details summary")
+            pg.fill("#n", "30")
+            pg.click("#runBtn")
+            pg.wait_for_selector("#results:not(.hidden)", timeout=60_000)
+            body = pg.frame_locator("#reportFrame").locator("body").inner_text()
+            html = pg.evaluate("last.html + JSON.stringify(last.document)")
+            browser.close()
+    finally:
+        for srv in (fake, local):
+            srv.shutdown()
+            srv.server_close()
+    assert "openai:gpt-test" in body and "PARTIAL RUN" in body
+    assert "SECRET" not in html
+    assert len(_Model.seen) == 30
+    assert all(h.get("authorization") == "Bearer sk-browser-SECRET" for _, h, _ in _Model.seen)
