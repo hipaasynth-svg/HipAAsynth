@@ -236,6 +236,7 @@ PROVENANCE_FIELDS = {
     "organization": "Organization",
     "intended_use": "Intended use",
     "scenario": "Scenario",
+    "transcript_sha256": "Transcript SHA-256",
 }
 
 

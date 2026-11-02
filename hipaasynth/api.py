@@ -122,6 +122,19 @@ DEFAULT_MAX_COUNT = 10_000
 MAX_BODY_BYTES = 1_000_000
 #: The 7AAST routes take a whole answers file (free-text answers can be long).
 AAST_MAX_BODY_BYTES = 20_000_000
+
+
+def _jobs():
+    """The background 7AAST runs the page follows live (one table per process)."""
+    from hipaasynth.aast.live import Jobs
+
+    global _JOBS
+    if _JOBS is None:
+        _JOBS = Jobs()
+    return _JOBS
+
+
+_JOBS = None
 _PROFILES_DIR = Path(__file__).resolve().parent / "profiles"
 _UI_DIR = Path(__file__).resolve().parent / "ui"
 
@@ -319,6 +332,9 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
         "/7aast/export": {"POST"},
         "/7aast/verify": {"POST"},
         "/7aast/upgrade": {"POST"},
+        "/7aast/start": {"POST"},
+        "/7aast/job": {"POST"},
+        "/7aast/stop": {"POST"},
     }
 
     # Query/body parameters each route understands. Anything else is rejected,
@@ -653,6 +669,23 @@ class HipAASynthHandler(BaseHTTPRequestHandler):
                 result = verify_request(params, allow_network=self.allow_model_url)
             elif route == "/7aast/upgrade":
                 result = upgrade_request(params, allow_network=self.allow_model_url)
+            elif route == "/7aast/start":
+                allow = self.allow_model_url
+                run_request(params, allow_url=allow, validate_only=True)
+                job = _jobs().start(lambda rec: run_request(params, allow_url=allow, recorder=rec))
+                result = {"job": job}
+            elif route in ("/7aast/job", "/7aast/stop"):
+                job_id = str(params.get("job") or "")
+                try:
+                    if route == "/7aast/stop":
+                        _jobs().cancel(job_id)
+                        result = {"stopping": True}
+                    elif params.get("transcripts"):
+                        result = {"transcripts": _jobs().transcripts(job_id)}
+                    else:
+                        result = _jobs().status(job_id, int(params.get("since") or 0))
+                except KeyError as err:
+                    raise RequestError(str(err.args[0])) from None
             else:
                 result = export_request(params)
         except (RequestError, AnswerFileError) as err:

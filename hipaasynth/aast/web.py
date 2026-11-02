@@ -39,6 +39,10 @@ baseline population and returns a comparison document (see
 :mod:`hipaasynth.aast.compare`) plus each run under ``reports``.
 
 ``POST /7aast/verify``  ``{document, regenerate?, bitcoin?}``  checks a saved report.
+``POST /7aast/start`` takes the same body as ``POST /7aast`` and returns ``{job}``;
+``POST /7aast/job`` ``{job, since?}`` returns progress and the calls since
+``since`` (and the result when done), ``{job, transcripts: true}`` the transcripts;
+``POST /7aast/stop`` ``{job}`` stops it (see :mod:`hipaasynth.aast.live`).
 ``POST /7aast/upgrade`` ``{document}`` fetches its Bitcoin proof (local tool only).
 
 It can also be ``{"reference": <published score>}``, and, on the local tool
@@ -72,6 +76,7 @@ from hipaasynth.aast.remote import (
 from hipaasynth.aast import ots, sign
 from hipaasynth.aast.compare import BASELINE_PROFILE, build_comparison
 from hipaasynth.aast.compare import plain_english as compare_english
+from hipaasynth.aast.live import Recorder
 from hipaasynth.aast.report import (
     COMPARISON_FORMAT,
     FORMAT,
@@ -222,7 +227,13 @@ def _adapter_settings(params: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str, Any]:
+def run_request(
+    params: dict[str, Any],
+    *,
+    allow_url: bool = False,
+    recorder: Recorder | None = None,
+    validate_only: bool = False,
+) -> dict[str, Any]:
     """Handle ``POST /7aast``.
 
     ``url`` (a model server the run calls) is only accepted when ``allow_url``
@@ -249,6 +260,13 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
         if (s["profile"] or BASELINE_PROFILE) == BASELINE_PROFILE:
             raise RequestError("choose a scenario or a population other than the US baseline "
                                "to compare against it")  # fmt: skip
+    rec = recorder or Recorder()
+
+    def go(adapter: Any, **kwargs: Any) -> Any:
+        """Run 7AAST with every model call recorded (and estimated first when live)."""
+        rec.estimate(adapter, lambda stub: run_7aast(stub, s["condition"], **kwargs))
+        return run_7aast(rec.watch(adapter), s["condition"], **kwargs)
+
     started = utc_now()
     demo, answers = params.get("demo"), params.get("answers")
     reference, url = params.get("reference"), params.get("url")
@@ -270,6 +288,8 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
         unknown = sorted(set(tests) - set(TESTS))
         if unknown:
             raise RequestError(f"unknown test(s) {unknown}; choose from {', '.join(TESTS)}")
+    if validate_only:  # POST /7aast/start checks the request before starting a background run
+        return {}
     deployment = None
     if params.get("deployment_prevalence") not in (None, ""):
         deployment = _number(params, "deployment_prevalence", float, None, 1e-6, 1.0)
@@ -286,7 +306,7 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
         if demo not in DEMO_MODELS:
             raise RequestError(f"'demo' must be one of {', '.join(DEMO_MODELS)}")
         adapter = demo_adapter(demo, s["condition"], s["input_type"])
-        report = run_7aast(adapter, s["condition"], demo=True, **run_kwargs)
+        report = go(adapter, demo=True, **run_kwargs)
     elif reference:
         if reference not in REFERENCE_MODELS:
             raise RequestError(f"'reference' must be one of {', '.join(sorted(REFERENCE_MODELS))}")
@@ -295,7 +315,7 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
                 f"'{reference}' decides {reference_condition(reference)}, not {s['condition']}"
             )
         adapter = reference_adapter(reference, s["input_type"])
-        report = run_7aast(adapter, s["condition"], **run_kwargs)
+        report = go(adapter, **run_kwargs)
     elif llm:
         if llm not in LLM_PROVIDERS:
             raise RequestError(f"'llm_provider' must be one of {', '.join(LLM_PROVIDERS)}")
@@ -310,7 +330,7 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             adapter = llm_adapter(llm, model_name, input=s["input_type"],
                                   condition=s["condition"], base_url=base_url,
                                   api_key=api_key, max_tokens=max_tokens)  # fmt: skip
-            report = run_7aast(adapter, s["condition"], **run_kwargs)
+            report = go(adapter, **run_kwargs)
         except (ValueError, RemoteModelError) as err:
             raise RequestError(str(err)) from err
     elif url:
@@ -326,7 +346,7 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             adapter = url_adapter(str(url), output, input=s["input_type"],
                                   condition=s["condition"], headers=headers,
                                   **_adapter_settings(params))  # fmt: skip
-            report = run_7aast(adapter, s["condition"], **run_kwargs)
+            report = go(adapter, **run_kwargs)
         except (ValueError, RemoteModelError) as err:
             raise RequestError(str(err)) from err
     else:
@@ -344,19 +364,20 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             settings = _adapter_settings(params)
             settings.setdefault("name", "uploaded answers")
             adapter = answers_adapter(path, output, input=s["input_type"], **settings)
-            report = run_7aast(adapter, s["condition"], **run_kwargs)
-    report.provenance = provenance(started, utc_now(), **prov)
+            report = go(adapter, **run_kwargs)
+    report.provenance = provenance(started, utc_now(), **prov,
+                                   transcript_sha256=rec.sha256("target"))  # fmt: skip
     doc = build_document(report)
     summary = summary_text(report)
     if compare_baseline:
         started = utc_now()
+        rec.run = "baseline"
         try:
-            base = run_7aast(adapter, s["condition"], demo=bool(demo),
-                             **{**run_kwargs, "profile": BASELINE_PROFILE})  # fmt: skip
+            base = go(adapter, demo=bool(demo), **{**run_kwargs, "profile": BASELINE_PROFILE})
         except (ValueError, RemoteModelError) as err:
             raise RequestError(str(err)) from err
-        base.provenance = provenance(started, utc_now(),
-                                     **{**prov, "scenario": None})  # fmt: skip
+        base.provenance = provenance(started, utc_now(), **{**prov, "scenario": None},
+                                     transcript_sha256=rec.sha256("baseline"))  # fmt: skip
         doc = build_comparison(doc, build_document(base))
         summary += ("\n\nUS BASELINE:\n" + summary_text(base) + "\n\nCOMPARISON: "
                     + compare_english(doc["comparison"], s["condition"]))  # fmt: skip
