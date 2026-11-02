@@ -69,6 +69,16 @@
     details { margin-top: 12px; }
     summary { cursor: pointer; color: var(--accent); font-size: 14px; }
     #status { margin: 10px 0 0; font-size: 14px; min-height: 21px; }
+    progress { width: 100%; height: 14px; }
+    #liveList { max-height: 520px; overflow-y: auto; margin-top: 10px; }
+    details.call { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; margin: 6px 0; }
+    details.call summary { color: var(--ink); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    details.call pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--bg);
+      border: 1px solid var(--line); border-radius: 6px; padding: 8px; max-height: 320px; overflow-y: auto; }
+    .tag { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 10px; color: #fff; }
+    .tag.yes { background: var(--accent); } .tag.no { background: var(--muted); }
+    .tag.unreadable, .tag.declined { background: var(--bad); } .tag.run { background: var(--chip); color: var(--ink); }
+    .ans { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
     #status.err { color: var(--bad); } #status.ok { color: var(--ok); }
     .verdict { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     .badge { color: #fff; font-weight: 700; padding: 4px 12px; border-radius: 14px; }
@@ -194,6 +204,9 @@
         <label for="llmBaseUrl">Server address <span class="help">the base that ends before /chat/completions</span></label>
         <input id="llmBaseUrl" type="text" placeholder="http://localhost:11434/v1" autocomplete="off" />
       </div>
+      <label for="llmMaxTokens">Max answer length (tokens) <span class="help">room for the model to
+        reason before its final answer; raise it if the report says answers could not be read</span></label>
+      <input id="llmMaxTokens" type="number" min="16" max="32000" step="1" value="1024" />
       <label for="llmKey">API key <span class="help">used only for this run's calls; never saved, never in the report</span></label>
       <input id="llmKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
       <p class="sub" style="margin-top:8px">The model reads each case and must end with
@@ -271,6 +284,25 @@
     <p id="status" role="status" aria-live="polite"></p>
   </section>
 
+  <section id="live" class="card hidden">
+    <h2>Live: the test as it runs</h2>
+    <p class="sub">Every question the model is asked and its answer, word for word, as they happen.
+      Click a call to read the case it was shown and its full answer.</p>
+    <progress id="liveBar" max="1" value="0"></progress>
+    <div class="actions" style="margin-top:6px">
+      <span id="liveText" class="sub" style="margin:0"></span>
+      <label style="margin:0;font-weight:400">Show
+        <select id="liveFilter" style="width:auto;display:inline-block;padding:4px 8px">
+          <option value="all">every call</option>
+          <option value="unreadable">unreadable or declined only</option>
+          <option value="yes">answered yes</option>
+          <option value="no">answered no</option>
+        </select></label>
+      <button id="stopBtn" class="secondary" type="button">Stop</button>
+    </div>
+    <div id="liveList"></div>
+  </section>
+
   <section id="results" class="card hidden">
     <h2>Report</h2>
     <div class="verdict"><span id="overall" class="badge"></span><span id="overallText"></span></div>
@@ -278,6 +310,7 @@
       <button id="printBtn" type="button">Print or save as PDF</button>
       <button id="saveHtml" class="secondary" type="button">Save report (.html)</button>
       <button id="saveJson" class="secondary" type="button">Save data (.json)</button>
+      <button id="saveTranscript" class="secondary hidden" type="button">Transcript (.jsonl)</button>
       <button id="saveProof" class="secondary hidden" type="button">Timestamp files (.ots)</button>
       <button id="upgradeBtn" class="secondary hidden" type="button">Get Bitcoin proof</button>
       <button id="saveTarget" class="secondary hidden" type="button">Save scenario run (.html)</button>
@@ -409,14 +442,14 @@ function download(name, text, type) {
 }
 
 async function busy(button, message, work) {
-  document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  document.querySelectorAll("button:not(#stopBtn)").forEach((b) => (b.disabled = true));
   setStatus(message);
   try {
     await work();
   } catch (err) {
     setStatus(err.message, "err");
   } finally {
-    document.querySelectorAll("button").forEach((b) => (b.disabled = false));
+    document.querySelectorAll("button:not(#stopBtn)").forEach((b) => (b.disabled = false));
   }
 }
 
@@ -446,6 +479,7 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
       throw new Error("Enter your API key (step 2).");
     }
     if ($("llmKey").value.trim()) body.llm_api_key = $("llmKey").value.trim();
+    if ($("llmMaxTokens").value !== "") body.llm_max_tokens = Number($("llmMaxTokens").value);
   } else {
     if (source === "url") {
       if (!$("modelUrl").value.trim()) throw new Error("Enter your model's web address (step 2).");
@@ -484,7 +518,7 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
   if ($("compareBaseline").checked) body.compare_baseline = true;
   if (LOCAL && $("signReport").checked) body.sign = true;
   if (LOCAL && $("stampReport").checked) body.stamp = true;
-  last = await post("/7aast", body);
+  last = await runLive(body);
   show(last);
 }));
 
@@ -493,6 +527,96 @@ const MEANING = {
   FAIL: "At least one check failed. The report below says which and why.",
   INCONCLUSIVE: "No check failed, but some could not be decided. More patients may settle them.",
 };
+
+// ---- live run: start in the background, poll for progress and answers, allow Stop
+let liveJob = null;
+const MAX_SHOWN = 400;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function liveRow(e) {
+  const d = document.createElement("details");
+  d.className = "call";
+  d.dataset.read = e.read_as;
+  const sum = document.createElement("summary");
+  const tag = (cls, text) => Object.assign(document.createElement("span"), { className: `tag ${cls}`, textContent: text });
+  sum.append(Object.assign(document.createElement("b"), { textContent: `#${e.i}` }),
+    tag("run", e.run === "baseline" ? "US baseline" : "scenario"),
+    tag(e.read_as === "declined" ? "declined" : e.read_as, e.read_as),
+    Object.assign(document.createElement("span"), { className: "ans",
+      textContent: (e.answer || "(no answer)").replace(/\s+/g, " ").slice(0, 160) }));
+  const body = document.createElement("div");
+  body.append(Object.assign(document.createElement("b"), { textContent: "Case shown to the model" }),
+    Object.assign(document.createElement("pre"), { textContent: e.case }),
+    Object.assign(document.createElement("b"), { textContent: `Model's answer (${e.ms} ms)` }),
+    Object.assign(document.createElement("pre"), { textContent: e.answer || "(no answer)" }));
+  d.append(sum, body);
+  applyFilter(d);
+  return d;
+}
+
+function applyFilter(row) {
+  const f = $("liveFilter").value;
+  const read = row.dataset.read;
+  const show = f === "all" || (f === "unreadable" ? read === "unreadable" || read === "declined" : read === f);
+  row.classList.toggle("hidden", !show);
+}
+$("liveFilter").addEventListener("change", () => document.querySelectorAll("#liveList details").forEach(applyFilter));
+
+function fmtTime(s) {
+  s = Math.max(0, Math.round(s));
+  return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`;
+}
+
+async function runLive(body) {
+  $("liveList").textContent = "";
+  $("live").classList.remove("hidden");
+  $("liveBar").value = 0;
+  const { job } = await post("/7aast/start", body);
+  liveJob = job;
+  $("stopBtn").disabled = false;
+  let since = 0;
+  const counts = { yes: 0, no: 0, unreadable: 0, declined: 0 };
+  for (;;) {
+    const st = await post("/7aast/job", { job, since });
+    since += st.events.length;
+    const list = $("liveList");
+    for (const e of st.events) {
+      counts[e.read_as] = (counts[e.read_as] || 0) + 1;
+      list.prepend(liveRow(e));
+    }
+    while (list.children.length > MAX_SHOWN) list.lastChild.remove();
+    const total = Math.max(st.expected, st.calls, 1);
+    $("liveBar").max = total;
+    $("liveBar").value = st.calls;
+    const rate = st.calls / Math.max(st.elapsed_s, 0.1);
+    const left = st.expected > st.calls && rate > 0 ? ` · about ${fmtTime((st.expected - st.calls) / rate)} left` : "";
+    const phase = st.expected === 0 ? "Building the patients…" :
+      `${st.run === "baseline" ? "US baseline run" : "Scenario run"}: call ${st.calls} of about ${st.expected}`;
+    $("liveText").textContent = `${phase} · ${fmtTime(st.elapsed_s)}${left} · yes ${counts.yes}, no ${counts.no}` +
+      `, unreadable ${counts.unreadable}, declined ${counts.declined}`;
+    if (st.state === "done") { $("stopBtn").disabled = true; return { ...st.result, job }; }
+    if (st.state === "stopped") { $("stopBtn").disabled = true; throw new Error("Stopped. No report was made; the calls so far are listed above."); }
+    if (st.state === "error") { $("stopBtn").disabled = true; throw new Error(st.error); }
+    await sleep(700);
+  }
+}
+
+$("stopBtn").addEventListener("click", async () => {
+  if (!liveJob) return;
+  $("stopBtn").disabled = true;
+  setStatus("Stopping after the current call…");
+  await post("/7aast/stop", { job: liveJob }).catch(() => {});
+});
+
+$("saveTranscript").addEventListener("click", async () => {
+  if (!last || !last.job) return;
+  const { transcripts } = await post("/7aast/job", { job: last.job, transcripts: true });
+  for (const [run, text] of Object.entries(transcripts)) {
+    download(run === "baseline" ? "7aast-transcript-baseline.jsonl" : "7aast-transcript.jsonl", text,
+      "application/x-ndjson");
+  }
+  setStatus("Saved: every question and answer, one per line. Its SHA-256 is printed in the report's seal.", "ok");
+});
 
 const FINDING = {
   WORSE: ["FAIL", "Worse for these patients than on the US baseline."],
@@ -509,6 +633,7 @@ function show(result) {
   $("overall").className = `badge ${overall}`;
   $("overallText").textContent = text;
   $("saveTarget").classList.toggle("hidden", !paired || !result.reports);
+  $("saveTranscript").classList.toggle("hidden", !result.job);
   $("saveBaseline").classList.toggle("hidden", !paired || !result.reports);
   $("hash").textContent = result.document.chain.report;
   const frame = $("reportFrame");

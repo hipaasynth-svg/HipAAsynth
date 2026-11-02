@@ -73,7 +73,13 @@ from hipaasynth.aast.adapter import INPUT_TYPES, OUTPUT_TYPES, ModelAdapter
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import AnswerFileError, answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
-from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
+from hipaasynth.aast.remote import (
+    DEFAULT_MAX_TOKENS,
+    LLM_PROVIDERS,
+    RemoteModelError,
+    llm_adapter,
+    url_adapter,
+)
 from hipaasynth.aast import sign
 from hipaasynth.aast.report import (
     ReportFileError,
@@ -225,6 +231,9 @@ def build_parser() -> argparse.ArgumentParser:
     source.add_argument("--llm", choices=sorted(LLM_PROVIDERS),
                         help="Ask an LLM API (key from OPENAI_API_KEY / ANTHROPIC_API_KEY).")  # fmt: skip
     run.add_argument("--llm-model", help="--llm: the model name, e.g. gpt-4o or claude-sonnet-5-5.")
+    run.add_argument("--llm-max-tokens", type=int, default=DEFAULT_MAX_TOKENS,
+                     help="--llm: longest answer per case in tokens (default "
+                     f"{DEFAULT_MAX_TOKENS}); raise it if answers come back unreadable.")  # fmt: skip
     run.add_argument("--llm-base-url",
                      help="--llm openai: an OpenAI-compatible server, e.g. a local one.")  # fmt: skip
     run.add_argument("--header", action="append", default=[],
@@ -397,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("--llm needs --llm-model")
             adapter = llm_adapter(
                 args.llm, args.llm_model, input=args.input, condition=args.condition,
-                base_url=args.llm_base_url,
+                base_url=args.llm_base_url, max_tokens=args.llm_max_tokens,
             )  # fmt: skip
         elif args.answers:
             adapter = answers_adapter(

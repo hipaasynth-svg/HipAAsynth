@@ -326,3 +326,32 @@ def test_local_tool_refuses_other_hosts_and_origins():
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+def test_llm_answer_length_is_sent_recorded_and_checked(server):
+    base = {"condition": "sepsis", "input": "record", "n": 30, "llm_provider": "openai",
+            "llm_model": "Orinn-1.7", "llm_base_url": f"{server}/v1", "llm_api_key": "k",
+            "tests": ["groups"]}  # fmt: skip
+    _Model.seen.clear()
+    out = run_request(base, allow_url=True)
+    assert {b["max_tokens"] for _, _, b in _Model.seen} == {1024}  # the default
+    assert out["document"]["method"]["model"]["name"] == "openai:Orinn-1.7"
+    _Model.seen.clear()
+    out = run_request({**base, "llm_max_tokens": 4096}, allow_url=True)
+    assert {b["max_tokens"] for _, _, b in _Model.seen} == {4096}
+    assert out["document"]["method"]["model"]["name"] == "openai:Orinn-1.7 (max 4096 tokens)"
+    for bad in (0, 99999, "lots"):
+        with pytest.raises(RequestError, match="llm_max_tokens"):
+            run_request({**base, "llm_max_tokens": bad}, allow_url=True)
+    with pytest.raises(ValueError, match="max_tokens"):
+        llm_adapter("openai", "m", input="text", condition="sepsis", api_key="k", max_tokens=5)
+
+
+def test_cli_llm_max_tokens(server, monkeypatch, capsys):
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    _Model.seen.clear()
+    code = aast_main(["run", "--condition", "sepsis", "--input", "record", "--n", "30",
+                      "--llm", "openai", "--llm-model", "Orinn-1.7", "--llm-base-url",
+                      f"{server}/v1", "--llm-max-tokens", "2048", "--tests", "groups"])  # fmt: skip
+    assert code in (0, 2)
+    assert {b["max_tokens"] for _, _, b in _Model.seen} == {2048}

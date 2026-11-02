@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] — 2026-11-02
+
+### Added
+
+- **Watch a test live.** On the 7AAST page a run now shows its progress as it
+  happens: a progress bar with the call count and time left, a running tally of
+  yes / no / unreadable / declined, and every question the model is asked with
+  its answer word for word (click a call to read the case it was shown and its
+  full answer; filter to unreadable answers). **Stop** ends a run.
+- **Transcript.** Every question and answer of a run is kept in order and can
+  be saved (**Transcript (.jsonl)**). Its SHA-256 is locked into the report's
+  provenance and printed in the seal, so a transcript can be shown to be the
+  one behind a report. `POST /7aast/start`, `/7aast/job` and `/7aast/stop`
+  run a request in the background for any client to follow.
+
+- **Max answer length for LLMs.** A "Max answer length (tokens)" box on the
+  7AAST page and `--llm-max-tokens` on the command line. The default rises from
+  400 to 1024 tokens, so models that reason at length (such as Orinn-1.7) reach
+  their `FINAL_ANSWER` line instead of being cut off and counted as unreadable.
+  A non-default length is recorded in the report's model name.
+
 ## [1.11.0] — 2026-11-01
 
 ### Changed

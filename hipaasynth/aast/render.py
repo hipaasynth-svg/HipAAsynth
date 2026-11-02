@@ -487,6 +487,9 @@ def seal_box(doc: dict[str, Any], outer: dict[str, Any] | None = None) -> str:
     for key in ("run_by", "organization", "intended_use", "scenario"):
         if prov.get(key):
             rows.append((PROVENANCE_FIELDS[key], _e(prov[key])))
+    if prov.get("transcript_sha256"):
+        rows.append(("Transcript", f"<span class='hash'>{_hash_lines(prov['transcript_sha256'])}"
+                                   "</span> (SHA-256 of every question and answer)"))  # fmt: skip
     if prov.get("started_utc"):
         rows.append(("Test run", f"{_e(prov['started_utc'])} to {_e(prov.get('finished_utc'))} "
                                  "(UTC, recorded by the tool)"))  # fmt: skip

@@ -378,3 +378,47 @@ def test_browser_llm_run_on_the_local_tool(tmp_path):
     assert "SECRET" not in html
     assert len(_Model.seen) == 30
     assert all(h.get("authorization") == "Bearer sk-browser-SECRET" for _, h, _ in _Model.seen)
+
+
+def test_browser_llm_max_tokens_box(tmp_path):
+    from http.server import ThreadingHTTPServer
+
+    from tests.test_aast_remote import _Model
+
+    pw = pytest.importorskip("playwright.sync_api")
+    fake = ThreadingHTTPServer(("127.0.0.1", 0), _Model)
+    local = make_server("127.0.0.1", 0, allow_model_url=True)
+    for srv in (fake, local):
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+    exe = _chromium_executable()
+    _Model.seen.clear()
+    try:
+        with pw.sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(**({"executable_path": exe} if exe else {}))
+            except Exception as err:  # noqa: BLE001  # pragma: no cover
+                pytest.skip(f"headless Chromium unavailable: {err}")
+            pg = browser.new_page()
+            pg.goto(f"http://127.0.0.1:{local.server_address[1]}/7aast")
+            pg.check("input[name=source][value=llm]")
+            assert pg.input_value("#llmMaxTokens") == "1024"
+            pg.select_option("#llmProvider", "compatible")
+            pg.fill("#llmBaseUrl", f"http://127.0.0.1:{fake.server_address[1]}/v1")
+            pg.fill("#llmModel", "Orinn-1.7")
+            pg.fill("#llmMaxTokens", "3000")
+            for key in ("forms", "twins", "settings", "history"):
+                pg.uncheck(f"#test-{key}")
+            pg.uncheck("#signReport")
+            pg.uncheck("#stampReport")
+            pg.click("details summary")
+            pg.fill("#n", "30")
+            pg.click("#runBtn")
+            pg.wait_for_selector("#results:not(.hidden)", timeout=60_000)
+            body = pg.frame_locator("#reportFrame").locator("body").inner_text()
+            browser.close()
+    finally:
+        for srv in (fake, local):
+            srv.shutdown()
+            srv.server_close()
+    assert {b["max_tokens"] for _, _, b in _Model.seen} == {3000}
+    assert "Orinn-1.7 (max 3000 tokens)" in body
