@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] — 2026-11-02
+
+### Added
+
+- **Max answer length for LLMs.** A "Max answer length (tokens)" box on the
+  7AAST page and `--llm-max-tokens` on the command line. The default rises from
+  400 to 1024 tokens, so models that reason at length (such as Orinn-1.7) reach
+  their `FINAL_ANSWER` line instead of being cut off and counted as unreadable.
+  A non-default length is recorded in the report's model name.
+
 ## [1.11.0] — 2026-11-01
 
 ### Changed

@@ -61,7 +61,14 @@ from hipaasynth.aast.cli import summary_text
 from hipaasynth.aast.demo import DEMO_MODELS, demo_adapter
 from hipaasynth.aast.files import answers_adapter, export_cases
 from hipaasynth.aast.reference import REFERENCE_MODELS, reference_adapter, reference_condition
-from hipaasynth.aast.remote import LLM_PROVIDERS, RemoteModelError, llm_adapter, url_adapter
+from hipaasynth.aast.remote import (
+    DEFAULT_MAX_TOKENS,
+    LLM_PROVIDERS,
+    MAX_TOKENS_RANGE,
+    RemoteModelError,
+    llm_adapter,
+    url_adapter,
+)
 from hipaasynth.aast import ots, sign
 from hipaasynth.aast.compare import BASELINE_PROFILE, build_comparison
 from hipaasynth.aast.compare import plain_english as compare_english
@@ -106,6 +113,7 @@ RUN_KEYS = SETTING_KEYS | {
     "llm_model",
     "llm_api_key",
     "llm_base_url",
+    "llm_max_tokens",
     "model_version",
     "run_by",
     "organization",
@@ -296,10 +304,12 @@ def run_request(params: dict[str, Any], *, allow_url: bool = False) -> dict[str,
             raise RequestError("give 'llm_model', the model name your provider uses")
         api_key = str(params.get("llm_api_key") or "").strip() or None
         base_url = str(params.get("llm_base_url") or "").strip() or None
+        max_tokens = _number(params, "llm_max_tokens", int, DEFAULT_MAX_TOKENS,
+                             *MAX_TOKENS_RANGE)  # fmt: skip
         try:
             adapter = llm_adapter(llm, model_name, input=s["input_type"],
                                   condition=s["condition"], base_url=base_url,
-                                  api_key=api_key)  # fmt: skip
+                                  api_key=api_key, max_tokens=max_tokens)  # fmt: skip
             report = run_7aast(adapter, s["condition"], **run_kwargs)
         except (ValueError, RemoteModelError) as err:
             raise RequestError(str(err)) from err

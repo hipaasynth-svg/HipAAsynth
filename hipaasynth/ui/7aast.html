@@ -194,6 +194,9 @@
         <label for="llmBaseUrl">Server address <span class="help">the base that ends before /chat/completions</span></label>
         <input id="llmBaseUrl" type="text" placeholder="http://localhost:11434/v1" autocomplete="off" />
       </div>
+      <label for="llmMaxTokens">Max answer length (tokens) <span class="help">room for the model to
+        reason before its final answer; raise it if the report says answers could not be read</span></label>
+      <input id="llmMaxTokens" type="number" min="16" max="32000" step="1" value="1024" />
       <label for="llmKey">API key <span class="help">used only for this run's calls; never saved, never in the report</span></label>
       <input id="llmKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false" />
       <p class="sub" style="margin-top:8px">The model reads each case and must end with
@@ -446,6 +449,7 @@ $("runBtn").addEventListener("click", () => busy($("runBtn"), "Running… a few 
       throw new Error("Enter your API key (step 2).");
     }
     if ($("llmKey").value.trim()) body.llm_api_key = $("llmKey").value.trim();
+    if ($("llmMaxTokens").value !== "") body.llm_max_tokens = Number($("llmMaxTokens").value);
   } else {
     if (source === "url") {
       if (!$("modelUrl").value.trim()) throw new Error("Enter your model's web address (step 2).");

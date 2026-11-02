@@ -116,8 +116,9 @@ model name and your key, and run. The key is used only for that run's calls,
 is never saved and never appears in the report; only the local tool accepts it,
 and it only answers pages served from this computer. Each case is one call at
 temperature 0, and the model must end its reply with `FINAL_ANSWER: yes` or
-`no`. On the command line the key comes from `OPENAI_API_KEY` or
-`ANTHROPIC_API_KEY`:
+`no`. Each answer may run to 1024 tokens; if the report says answers could
+not be read, raise **Max answer length** (`--llm-max-tokens`). On the command
+line the key comes from `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`:
 
 ```bash
 hipaasynth 7aast run --condition stroke --input text --llm openai --llm-model gpt-4o

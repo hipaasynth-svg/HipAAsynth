@@ -48,6 +48,10 @@ from hipaasynth.aast.files import AnswerFileError, _parse
 
 #: Seconds to wait for one answer.
 DEFAULT_TIMEOUT = 60.0
+#: Longest answer an LLM may write per case. Room to reason before the
+#: FINAL_ANSWER line; a cut-off answer counts as unreadable (a miss on a true case).
+DEFAULT_MAX_TOKENS = 1024
+MAX_TOKENS_RANGE = (16, 32000)
 
 #: The question an LLM is asked about every case, by condition.
 QUESTIONS = {
@@ -174,7 +178,7 @@ def llm_adapter(
     base_url: str | None = None,
     api_key: str | None = None,
     timeout: float = DEFAULT_TIMEOUT,
-    max_tokens: int = 400,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> ModelAdapter:
     """A ``text`` :class:`ModelAdapter` that asks an LLM about each case.
 
@@ -183,6 +187,13 @@ def llm_adapter(
     ``ANTHROPIC_API_KEY`` unless ``api_key`` is given. Temperature is 0, so the
     noise floor shows how repeatable the model still is.
     """
+    lo, hi = MAX_TOKENS_RANGE
+    if (
+        isinstance(max_tokens, bool)
+        or not isinstance(max_tokens, int)
+        or not lo <= max_tokens <= hi
+    ):
+        raise ValueError(f"max_tokens must be a whole number from {lo} to {hi}, got {max_tokens!r}")
     if provider not in LLM_PROVIDERS:
         raise ValueError(f"provider must be one of {', '.join(LLM_PROVIDERS)}, got {provider!r}")
     if condition not in QUESTIONS:
@@ -228,4 +239,6 @@ def llm_adapter(
         except (KeyError, IndexError, TypeError) as err:
             raise RemoteModelError(f"unexpected reply from {provider}: {str(reply)[:200]}") from err
 
-    return ModelAdapter(ask, "text", input=input, name=f"{provider}:{model_name}")
+    # A non-default answer length changes what the model can say, so it is part of the name.
+    suffix = "" if max_tokens == DEFAULT_MAX_TOKENS else f" (max {max_tokens} tokens)"
+    return ModelAdapter(ask, "text", input=input, name=f"{provider}:{model_name}{suffix}")
